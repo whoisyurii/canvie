@@ -1,3 +1,5 @@
+"use client";
+
 import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";

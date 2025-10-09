@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { Users, FileText, ChevronRight } from "lucide-react";
 import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";

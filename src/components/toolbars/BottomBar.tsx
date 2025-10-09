@@ -1,3 +1,5 @@
+"use client";
+
 import { Minus, Plus, Undo2, Redo2 } from "lucide-react";
 import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
 import { Button } from "@/components/ui/button";

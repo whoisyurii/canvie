@@ -1,3 +1,5 @@
+"use client";
+
 import { useRef, useState, useEffect } from "react";
 import { Stage, Layer, Rect, Circle, Line, Text as KonvaText, Arrow, Image as KonvaImage } from "react-konva";
 import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
