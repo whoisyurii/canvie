@@ -53,6 +53,7 @@ export const WhiteboardCanvas = () => {
     fillColor,
     opacity,
     arrowType,
+    sloppiness,
     pan,
     setPan,
     zoom,
@@ -82,6 +83,7 @@ export const WhiteboardCanvas = () => {
       strokeStyle,
       fillColor,
       opacity,
+      sloppiness,
     };
 
     if (activeTool === "rectangle") {
@@ -254,6 +256,8 @@ export const WhiteboardCanvas = () => {
                 />
               );
             } else if (element.type === "arrow") {
+              const pointerAtBeginning = element.arrowType === "arrow-start" || element.arrowType === "arrow-both";
+              const pointerAtEnding = element.arrowType === "arrow-end" || element.arrowType === "arrow-both";
               return (
                 <Arrow
                   key={element.id}
@@ -264,8 +268,10 @@ export const WhiteboardCanvas = () => {
                   strokeWidth={element.strokeWidth}
                   dash={getStrokeDash(element.strokeStyle)}
                   opacity={element.opacity}
-                  pointerLength={10}
-                  pointerWidth={10}
+                  pointerLength={12}
+                  pointerWidth={12}
+                  pointerAtBeginning={pointerAtBeginning}
+                  pointerAtEnding={pointerAtEnding}
                 />
               );
             } else if (element.type === "pen") {
@@ -280,7 +286,7 @@ export const WhiteboardCanvas = () => {
                   opacity={element.opacity}
                   lineCap="round"
                   lineJoin="round"
-                  tension={0.5}
+                  tension={element.sloppiness === "smooth" ? 0.75 : element.sloppiness === "rough" ? 0.2 : 0.5}
                 />
               );
             } else if (element.type === "text") {
@@ -345,7 +351,7 @@ export const WhiteboardCanvas = () => {
                   opacity={currentShape.opacity * 0.7}
                 />
               )}
-              {(currentShape.type === "line" || currentShape.type === "arrow") && (
+              {currentShape.type === "line" && (
                 <Line
                   x={currentShape.x}
                   y={currentShape.y}
@@ -358,6 +364,21 @@ export const WhiteboardCanvas = () => {
                   lineJoin="round"
                 />
               )}
+              {currentShape.type === "arrow" && (
+                <Arrow
+                  x={currentShape.x}
+                  y={currentShape.y}
+                  points={currentShape.points}
+                  stroke={currentShape.strokeColor}
+                  strokeWidth={currentShape.strokeWidth}
+                  dash={getStrokeDash(currentShape.strokeStyle)}
+                  opacity={currentShape.opacity * 0.7}
+                  pointerLength={12}
+                  pointerWidth={12}
+                  pointerAtBeginning={currentShape.arrowType === "arrow-start" || currentShape.arrowType === "arrow-both"}
+                  pointerAtEnding={currentShape.arrowType === "arrow-end" || currentShape.arrowType === "arrow-both"}
+                />
+              )}
               {currentShape.type === "pen" && (
                 <Line
                   x={currentShape.x}
@@ -368,7 +389,7 @@ export const WhiteboardCanvas = () => {
                   opacity={currentShape.opacity * 0.7}
                   lineCap="round"
                   lineJoin="round"
-                  tension={0.5}
+                  tension={currentShape.sloppiness === "smooth" ? 0.75 : currentShape.sloppiness === "rough" ? 0.2 : 0.5}
                 />
               )}
             </>

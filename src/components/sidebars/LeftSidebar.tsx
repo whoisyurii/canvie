@@ -1,156 +1,119 @@
 "use client";
 
-import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
-import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
-import { Button } from "@/components/ui/button";
-import { ChevronsUpDown, ChevronsDownUp } from "lucide-react";
+import {
+  ArrowheadControls,
+  FillPalette,
+  LayerActions,
+  OpacityControl,
+  SloppinessSelector,
+  StrokePalette,
+  StrokeStyleSelector,
+  StrokeWidthSelector,
+} from "./left";
+import { useWhiteboardStore, Tool } from "@/lib/store/useWhiteboardStore";
 
-const colorPresets = [
-  "#000000",
-  "#e03131",
-  "#2f9e44",
-  "#1971c2",
-  "#f59f00",
-  "#ae3ec9",
-  "#ffffff",
-];
+const STROKE_COLORS = ["#1f2937", "#e03131", "#2f9e44", "#1971c2", "#f59f00", "#ae3ec9", "#f4f4f5"];
+const FILL_COLORS = ["#e03131", "#2f9e44", "#1971c2", "#f59f00", "#ae3ec9", "#f4f4f5"];
+const STROKE_WIDTHS = [1, 2, 4, 8];
 
-const strokeWidths = [1, 2, 4, 8];
+const STROKE_TOOLS: Tool[] = ["rectangle", "ellipse", "line", "arrow", "pen", "text"];
+const FILL_TOOLS: Tool[] = ["rectangle", "ellipse"];
+const WIDTH_TOOLS: Tool[] = ["rectangle", "ellipse", "line", "arrow", "pen"];
+const STYLE_TOOLS: Tool[] = ["rectangle", "ellipse", "line", "arrow"];
+const SLOPPINESS_TOOLS: Tool[] = ["rectangle", "ellipse", "line", "arrow", "pen"];
+const ARROW_TOOLS: Tool[] = ["arrow"];
+const OPACITY_TOOLS: Tool[] = ["rectangle", "ellipse", "line", "arrow", "pen", "text"];
 
 export const LeftSidebar = () => {
   const {
+    activeTool,
     strokeColor,
     setStrokeColor,
+    fillColor,
+    setFillColor,
     strokeWidth,
     setStrokeWidth,
     strokeStyle,
     setStrokeStyle,
+    sloppiness,
+    setSloppiness,
+    arrowType,
+    setArrowType,
     opacity,
     setOpacity,
-    fillColor,
-    setFillColor,
+    selectedIds,
+    bringToFront,
+    sendToBack,
   } = useWhiteboardStore();
 
+  const supportsStroke = STROKE_TOOLS.includes(activeTool);
+  const supportsFill = FILL_TOOLS.includes(activeTool);
+  const supportsWidth = WIDTH_TOOLS.includes(activeTool);
+  const supportsStyle = STYLE_TOOLS.includes(activeTool);
+  const supportsSloppiness = SLOPPINESS_TOOLS.includes(activeTool);
+  const supportsArrowheads = ARROW_TOOLS.includes(activeTool);
+  const supportsOpacity = OPACITY_TOOLS.includes(activeTool);
+  const hasSelection = selectedIds.length > 0;
+
   return (
-    <div className="floating-panel p-4 space-y-4 max-w-[240px]">
-      <h3 className="text-sm font-semibold text-sidebar-foreground">Tool Settings</h3>
-
-      {/* Stroke Color */}
-      <div className="space-y-2">
-        <Label className="text-xs text-sidebar-foreground">Stroke Color</Label>
-        <div className="grid grid-cols-7 gap-1">
-          {colorPresets.map((color) => (
-            <button
-              key={color}
-              className={`w-7 h-7 rounded border-2 transition-all ${
-                strokeColor === color
-                  ? "border-accent scale-110"
-                  : "border-sidebar-border hover:scale-105"
-              }`}
-              style={{ backgroundColor: color }}
-              onClick={() => setStrokeColor(color)}
-            />
-          ))}
-        </div>
+    <div className="floating-panel p-4 space-y-4 max-w-[260px]">
+      <div>
+        <h3 className="text-sm font-semibold text-sidebar-foreground">Tool Settings</h3>
+        <p className="text-xs text-muted-foreground">
+          Options adapt to the active tool and canvas selection.
+        </p>
       </div>
 
-      {/* Fill Color */}
-      <div className="space-y-2">
-        <Label className="text-xs text-sidebar-foreground">Fill Color</Label>
-        <div className="grid grid-cols-7 gap-1">
-          <button
-            className={`w-7 h-7 rounded border-2 transition-all ${
-              fillColor === "transparent"
-                ? "border-accent scale-110"
-                : "border-sidebar-border hover:scale-105"
-            }`}
-            style={{
-              background:
-                "linear-gradient(45deg, transparent 48%, #e03131 48%, #e03131 52%, transparent 52%)",
-            }}
-            onClick={() => setFillColor("transparent")}
-          />
-          {colorPresets.slice(0, 6).map((color) => (
-            <button
-              key={color}
-              className={`w-7 h-7 rounded border-2 transition-all ${
-                fillColor === color
-                  ? "border-accent scale-110"
-                  : "border-sidebar-border hover:scale-105"
-              }`}
-              style={{ backgroundColor: color }}
-              onClick={() => setFillColor(color)}
-            />
-          ))}
-        </div>
-      </div>
+      <StrokePalette
+        colors={STROKE_COLORS}
+        value={strokeColor}
+        onChange={setStrokeColor}
+        disabled={!supportsStroke}
+      />
 
-      {/* Stroke Width */}
-      <div className="space-y-2">
-        <Label className="text-xs text-sidebar-foreground">Stroke Width</Label>
-        <div className="grid grid-cols-4 gap-1">
-          {strokeWidths.map((width) => (
-            <Button
-              key={width}
-              variant={strokeWidth === width ? "default" : "outline"}
-              size="sm"
-              className="h-8"
-              onClick={() => setStrokeWidth(width)}
-            >
-              {width}px
-            </Button>
-          ))}
-        </div>
-      </div>
+      <FillPalette
+        colors={FILL_COLORS}
+        value={fillColor}
+        onChange={setFillColor}
+        disabled={!supportsFill}
+      />
 
-      {/* Stroke Style */}
-      <div className="space-y-2">
-        <Label className="text-xs text-sidebar-foreground">Stroke Style</Label>
-        <div className="grid grid-cols-3 gap-1">
-          {(["solid", "dashed", "dotted"] as const).map((style) => (
-            <Button
-              key={style}
-              variant={strokeStyle === style ? "default" : "outline"}
-              size="sm"
-              className="h-8 capitalize"
-              onClick={() => setStrokeStyle(style)}
-            >
-              {style}
-            </Button>
-          ))}
-        </div>
-      </div>
+      <StrokeWidthSelector
+        widths={STROKE_WIDTHS}
+        value={strokeWidth}
+        onChange={setStrokeWidth}
+        disabled={!supportsWidth}
+      />
 
-      {/* Opacity */}
-      <div className="space-y-2">
-        <Label className="text-xs text-sidebar-foreground">
-          Opacity: {Math.round(opacity * 100)}%
-        </Label>
-        <Slider
-          value={[opacity * 100]}
-          onValueChange={([value]) => setOpacity(value / 100)}
-          min={0}
-          max={100}
-          step={1}
-          className="w-full"
-        />
-      </div>
+      <StrokeStyleSelector
+        value={strokeStyle}
+        onChange={setStrokeStyle}
+        disabled={!supportsStyle}
+      />
 
-      {/* Layer Controls */}
-      <div className="space-y-2 pt-2 border-t border-sidebar-border">
-        <Label className="text-xs text-sidebar-foreground">Layer Controls</Label>
-        <div className="grid grid-cols-2 gap-1">
-          <Button variant="outline" size="sm" className="h-8">
-            <ChevronsUpDown className="h-4 w-4 mr-1" />
-            Front
-          </Button>
-          <Button variant="outline" size="sm" className="h-8">
-            <ChevronsDownUp className="h-4 w-4 mr-1" />
-            Back
-          </Button>
-        </div>
-      </div>
+      <SloppinessSelector
+        value={sloppiness}
+        onChange={setSloppiness}
+        disabled={!supportsSloppiness}
+      />
+
+      <ArrowheadControls
+        value={arrowType}
+        onChange={setArrowType}
+        disabled={!supportsArrowheads}
+      />
+
+      <OpacityControl
+        value={opacity}
+        onChange={setOpacity}
+        disabled={!supportsOpacity}
+      />
+
+      <LayerActions
+        disabled={!hasSelection}
+        onBringToFront={bringToFront}
+        onSendToBack={sendToBack}
+      />
     </div>
   );
 };
