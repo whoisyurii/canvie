@@ -1,0 +1,63 @@
+"use client";
+
+import { SidebarSection } from "./SidebarSection";
+import { cn } from "@/lib/utils";
+
+interface FillPaletteProps {
+  colors: string[];
+  value: string;
+  onChange: (color: string) => void;
+  disabled?: boolean;
+}
+
+const transparentPattern =
+  "linear-gradient(45deg, rgba(255,255,255,0.65) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.65) 75%), linear-gradient(45deg, rgba(255,255,255,0.65) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.65) 75%)";
+
+export const FillPalette = ({ colors, value, onChange, disabled }: FillPaletteProps) => {
+  const isTransparent = value === "transparent";
+
+  return (
+    <SidebarSection title="Fill" disabled={disabled}>
+      <div className="grid grid-cols-7 gap-1">
+        <button
+          type="button"
+          aria-pressed={isTransparent}
+          disabled={disabled}
+          className={cn(
+            "h-8 w-8 rounded-full border transition-transform bg-[length:10px_10px]",
+            isTransparent
+              ? "border-accent ring-2 ring-accent/60"
+              : "border-sidebar-border hover:scale-105",
+            disabled && "cursor-not-allowed hover:scale-100"
+          )}
+          style={{
+            backgroundImage: transparentPattern,
+            backgroundPosition: "0 0,5px 5px",
+            backgroundColor: "#f87171",
+          }}
+          onClick={() => onChange("transparent")}
+        />
+        {colors.map((color) => {
+          const isActive = value === color;
+          return (
+            <button
+              key={color}
+              type="button"
+              aria-pressed={isActive}
+              disabled={disabled}
+              className={cn(
+                "h-8 w-8 rounded-full border transition-transform",
+                isActive
+                  ? "border-accent ring-2 ring-accent/60"
+                  : "border-sidebar-border hover:scale-105",
+                disabled && "cursor-not-allowed hover:scale-100"
+              )}
+              style={{ backgroundColor: color }}
+              onClick={() => onChange(color)}
+            />
+          );
+        })}
+      </div>
+    </SidebarSection>
+  );
+};

@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useMemo, useState, type ChangeEvent } from "react";
 import {
   MousePointer2,
   Hand,
@@ -10,9 +11,10 @@ import {
   Type,
   Pencil,
   Eraser,
-  Image,
-  Palette,
+  Shapes,
+  ImagePlus,
 } from "lucide-react";
+import { nanoid } from "nanoid";
 import { useWhiteboardStore, Tool } from "@/lib/store/useWhiteboardStore";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -22,79 +24,268 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
-const tools: Array<{ id: Tool; icon: any; label: string; hotkey: string }> = [
+type ToolbarTool = {
+  id: Tool;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  hotkey: string;
+};
+
+const primaryTools: ToolbarTool[] = [
   { id: "select", icon: MousePointer2, label: "Select", hotkey: "V" },
   { id: "pan", icon: Hand, label: "Pan", hotkey: "H" },
-  { id: "rectangle", icon: Square, label: "Rectangle", hotkey: "R" },
-  { id: "ellipse", icon: Circle, label: "Ellipse", hotkey: "O" },
-  { id: "arrow", icon: ArrowRight, label: "Arrow", hotkey: "A" },
-  { id: "line", icon: Minus, label: "Line", hotkey: "L" },
-  { id: "text", icon: Type, label: "Text", hotkey: "T" },
   { id: "pen", icon: Pencil, label: "Pen", hotkey: "P" },
   { id: "eraser", icon: Eraser, label: "Eraser", hotkey: "E" },
+  { id: "text", icon: Type, label: "Text", hotkey: "T" },
+];
+
+const shapeTools: ToolbarTool[] = [
+  { id: "rectangle", icon: Square, label: "Rectangle", hotkey: "R" },
+  { id: "ellipse", icon: Circle, label: "Ellipse", hotkey: "O" },
+  { id: "line", icon: Minus, label: "Line", hotkey: "L" },
+  { id: "arrow", icon: ArrowRight, label: "Arrow", hotkey: "A" },
 ];
 
 export const TopToolbar = () => {
-  const { activeTool, setActiveTool, strokeColor, setStrokeColor } = useWhiteboardStore();
+  const {
+    activeTool,
+    setActiveTool,
+    addElement,
+    addFile,
+    strokeColor,
+    strokeWidth,
+    strokeStyle,
+    fillColor,
+    opacity,
+  } = useWhiteboardStore();
+  const { toast } = useToast();
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+
+  const isShapeActive = useMemo(
+    () => shapeTools.some((tool) => tool.id === activeTool),
+    [activeTool]
+  );
+
+  const processFile = useCallback(
+    (file: File) =>
+      new Promise<void>((resolve) => {
+        if (typeof window === "undefined") {
+          resolve();
+          return;
+        }
+
+        const fileId = nanoid();
+        const fileUrl = URL.createObjectURL(file);
+
+        addFile({
+          id: fileId,
+          name: file.name,
+          type: file.type,
+          url: fileUrl,
+        });
+
+        const baseElement = {
+          id: fileId,
+          x: 240,
+          y: 160,
+          strokeColor,
+          strokeWidth,
+          strokeStyle,
+          fillColor,
+          opacity,
+        };
+
+        if (file.type.startsWith("image/")) {
+          const image = new window.Image();
+          image.onload = () => {
+            addElement({
+              ...baseElement,
+              type: "image",
+              width: Math.min(image.width, 420),
+              height: Math.min(image.height, 420),
+              fileUrl,
+              fileName: file.name,
+            });
+            resolve();
+          };
+          image.src = fileUrl;
+        } else if (file.type === "application/pdf") {
+          addElement({
+            ...baseElement,
+            type: "file",
+            width: 220,
+            height: 280,
+            fileUrl,
+            fileName: file.name,
+          });
+          resolve();
+        } else {
+          resolve();
+        }
+      }),
+    [addElement, addFile, fillColor, opacity, strokeColor, strokeStyle, strokeWidth]
+  );
+
+  const handleFileSelection = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const files = event.target.files;
+      if (!files?.length) {
+        return;
+      }
+
+      await Promise.all(Array.from(files).map((file) => processFile(file)));
+
+      toast({
+        title: "Files uploaded",
+        description: `${files.length} file${files.length > 1 ? "s" : ""} added to the board`,
+      });
+
+      setIsUploadOpen(false);
+      event.target.value = "";
+      setActiveTool("select");
+    },
+    [processFile, setActiveTool, toast]
+  );
 
   return (
     <TooltipProvider>
-      <div className="floating-panel px-3 py-2 flex items-center gap-1">
-        {tools.map((tool, index) => (
-          <div key={tool.id} className="flex items-center">
-            {index > 0 && (index === 2 || index === 6) && (
-              <Separator orientation="vertical" className="h-8 mx-1" />
-            )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={`tool-button ${activeTool === tool.id ? "tool-button-active" : ""}`}
-                  onClick={() => setActiveTool(tool.id)}
-                >
-                  <tool.icon className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>
-                  {tool.label} <kbd className="ml-2 text-xs">({tool.hotkey})</kbd>
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        ))}
-
-        <Separator orientation="vertical" className="h-8 mx-1" />
-
-        {/* Color Picker */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="relative">
+      <div className="floating-panel px-4 py-2 flex items-center gap-2">
+        {primaryTools.map((tool) => (
+          <Tooltip key={tool.id}>
+            <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="tool-button relative overflow-hidden"
+                className={`tool-button ${activeTool === tool.id ? "tool-button-active" : ""}`}
+                onClick={() => setActiveTool(tool.id)}
               >
-                <Palette className="h-5 w-5" />
-                <input
-                  type="color"
-                  value={strokeColor}
-                  onChange={(e) => setStrokeColor(e.target.value)}
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                />
+                <tool.icon className="h-5 w-5" />
               </Button>
-              <div
-                className="absolute bottom-1 right-1 w-3 h-3 rounded-full border border-white"
-                style={{ backgroundColor: strokeColor }}
-              />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>
+                {tool.label} <kbd className="ml-2 text-xs">({tool.hotkey})</kbd>
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        ))}
+
+        <Separator orientation="vertical" className="h-8" />
+
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`tool-button ${isShapeActive ? "tool-button-active" : ""}`}
+                >
+                  <Shapes className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>
+                Shapes <kbd className="ml-2 text-xs">(Shift + S)</kbd>
+              </p>
+            </TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align="center" className="w-48">
+            <DropdownMenuLabel className="text-xs uppercase text-muted-foreground">
+              Shape Tools
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {shapeTools.map((tool) => (
+              <DropdownMenuItem
+                key={tool.id}
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setActiveTool(tool.id);
+                }}
+                className={`flex items-center gap-2 text-sm ${
+                  activeTool === tool.id ? "text-accent" : ""
+                }`}
+              >
+                <tool.icon className="h-4 w-4" />
+                <span className="flex-1">{tool.label}</span>
+                <kbd className="text-[10px] text-muted-foreground">{tool.hotkey}</kbd>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <Separator orientation="vertical" className="h-8" />
+
+        <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`tool-button ${isUploadOpen ? "tool-button-active" : ""}`}
+                >
+                  <ImagePlus className="h-5 w-5" />
+                </Button>
+              </DialogTrigger>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>
+                Insert Image/PDF <kbd className="ml-2 text-xs">(Shift + I)</kbd>
+              </p>
+            </TooltipContent>
+          </Tooltip>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Insert image or PDF</DialogTitle>
+              <DialogDescription>
+                Upload files to place them on the canvas. Drag & drop also works directly on the
+                board.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="toolbar-upload" className="text-xs font-medium">
+                  Choose files
+                </Label>
+                <Input
+                  id="toolbar-upload"
+                  type="file"
+                  accept="image/*,application/pdf"
+                  multiple
+                  onChange={handleFileSelection}
+                />
+              </div>
             </div>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Stroke Color</p>
-          </TooltipContent>
-        </Tooltip>
+            <DialogFooter>
+              <Button type="button" variant="secondary" onClick={() => setIsUploadOpen(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </TooltipProvider>
   );
