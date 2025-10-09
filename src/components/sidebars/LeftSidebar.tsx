@@ -10,6 +10,7 @@ import {
   StrokeStyleSelector,
   StrokeWidthSelector,
 } from "./left";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useWhiteboardStore, Tool } from "@/lib/store/useWhiteboardStore";
 
 const STROKE_COLORS = ["#1f2937", "#e03131", "#2f9e44", "#1971c2", "#f59f00", "#ae3ec9", "#f4f4f5"];
@@ -56,64 +57,68 @@ export const LeftSidebar = () => {
   const hasSelection = selectedIds.length > 0;
 
   return (
-    <div className="floating-panel p-4 space-y-4 max-w-[260px]">
-      <div>
+    <div className="floating-panel flex h-[420px] w-[320px] flex-col">
+      <div className="border-b border-sidebar-border px-4 py-3">
         <h3 className="text-sm font-semibold text-sidebar-foreground">Tool Settings</h3>
         <p className="text-xs text-muted-foreground">
           Options adapt to the active tool and canvas selection.
         </p>
       </div>
 
-      <StrokePalette
-        colors={STROKE_COLORS}
-        value={strokeColor}
-        onChange={setStrokeColor}
-        disabled={!supportsStroke}
-      />
+      <ScrollArea className="flex-1">
+        <div className="space-y-4 px-4 py-3">
+          <StrokePalette
+            colors={STROKE_COLORS}
+            value={strokeColor}
+            onChange={setStrokeColor}
+            disabled={!supportsStroke}
+          />
 
-      <FillPalette
-        colors={FILL_COLORS}
-        value={fillColor}
-        onChange={setFillColor}
-        disabled={!supportsFill}
-      />
+          <FillPalette
+            colors={FILL_COLORS}
+            value={fillColor}
+            onChange={setFillColor}
+            disabled={!supportsFill}
+          />
 
-      <StrokeWidthSelector
-        widths={STROKE_WIDTHS}
-        value={strokeWidth}
-        onChange={setStrokeWidth}
-        disabled={!supportsWidth}
-      />
+          <StrokeWidthSelector
+            widths={STROKE_WIDTHS}
+            value={strokeWidth}
+            onChange={setStrokeWidth}
+            disabled={!supportsWidth}
+          />
 
-      <StrokeStyleSelector
-        value={strokeStyle}
-        onChange={setStrokeStyle}
-        disabled={!supportsStyle}
-      />
+          <StrokeStyleSelector
+            value={strokeStyle}
+            onChange={setStrokeStyle}
+            disabled={!supportsStyle}
+          />
 
-      <SloppinessSelector
-        value={sloppiness}
-        onChange={setSloppiness}
-        disabled={!supportsSloppiness}
-      />
+          <SloppinessSelector
+            value={sloppiness}
+            onChange={setSloppiness}
+            disabled={!supportsSloppiness}
+          />
 
-      <ArrowheadControls
-        value={arrowType}
-        onChange={setArrowType}
-        disabled={!supportsArrowheads}
-      />
+          <ArrowheadControls
+            value={arrowType}
+            onChange={setArrowType}
+            disabled={!supportsArrowheads}
+          />
 
-      <OpacityControl
-        value={opacity}
-        onChange={setOpacity}
-        disabled={!supportsOpacity}
-      />
+          <OpacityControl
+            value={opacity}
+            onChange={setOpacity}
+            disabled={!supportsOpacity}
+          />
 
-      <LayerActions
-        disabled={!hasSelection}
-        onBringToFront={bringToFront}
-        onSendToBack={sendToBack}
-      />
+          <LayerActions
+            disabled={!hasSelection}
+            onBringToFront={bringToFront}
+            onSendToBack={sendToBack}
+          />
+        </div>
+      </ScrollArea>
     </div>
   );
 };
