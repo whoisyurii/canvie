@@ -95,10 +95,10 @@ export const generateFilePreview = async (
     const pdfjs = await import("pdfjs-dist");
     const { GlobalWorkerOptions, getDocument } = pdfjs;
     if (!GlobalWorkerOptions.workerSrc) {
-      GlobalWorkerOptions.workerSrc = new URL(
-        "pdf.worker.min.mjs",
-        import.meta.url,
-      ).toString();
+      const workerModule = (await import("pdfjs-dist/build/pdf.worker.min.mjs")) as {
+        default: string;
+      };
+      GlobalWorkerOptions.workerSrc = workerModule.default;
     }
 
     const loadingTask = getDocument({ data: arrayBuffer });

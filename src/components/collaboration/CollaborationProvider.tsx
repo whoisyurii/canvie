@@ -184,7 +184,7 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       if (cleanupTimers.has(id)) {
         clearTimeout(cleanupTimers.get(id)!);
       }
-      const timeout = window.setTimeout(() => {
+      const timeout = setTimeout(() => {
         cleanupTimers.delete(id);
         const existing = remoteUsers.get(id);
         if (existing && !existing.isConnected && Date.now() - existing.lastActive >= CURSOR_FADE_MS) {
@@ -281,7 +281,7 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       if (elapsed >= CURSOR_THROTTLE_MS) {
         flushCursorUpdate();
       } else if (!cursorTimeoutRef.current) {
-        cursorTimeoutRef.current = window.setTimeout(() => {
+        cursorTimeoutRef.current = setTimeout(() => {
           cursorTimeoutRef.current = undefined;
           flushCursorUpdate();
         }, CURSOR_THROTTLE_MS - elapsed);

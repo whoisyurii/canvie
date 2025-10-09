@@ -584,9 +584,9 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
 
     if (typeof window !== "undefined") {
       if (focusTimeout) {
-        window.clearTimeout(focusTimeout);
+        clearTimeout(focusTimeout);
       }
-      focusTimeout = window.setTimeout(() => {
+      focusTimeout = setTimeout(() => {
         set({ focusedElementId: null });
         focusTimeout = undefined;
       }, 1800);
