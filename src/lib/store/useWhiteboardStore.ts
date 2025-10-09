@@ -103,6 +103,8 @@ interface WhiteboardState {
   addElement: (element: CanvasElement) => void;
   updateElement: (id: string, updates: Partial<CanvasElement>) => void;
   deleteElement: (id: string) => void;
+  bringToFront: () => void;
+  sendToBack: () => void;
   clearSelection: () => void;
   selectedIds: string[];
   setSelectedIds: (ids: string[]) => void;
@@ -226,6 +228,28 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
     set((state) => ({
       elements: state.elements.filter((el) => el.id !== id),
     }));
+    get().pushHistory();
+  },
+  bringToFront: () => {
+    const state = get();
+    if (state.selectedIds.length === 0) return;
+
+    const selectedIdsSet = new Set(state.selectedIds);
+    const others = state.elements.filter((el) => !selectedIdsSet.has(el.id));
+    const selected = state.elements.filter((el) => selectedIdsSet.has(el.id));
+
+    set({ elements: [...others, ...selected] });
+    get().pushHistory();
+  },
+  sendToBack: () => {
+    const state = get();
+    if (state.selectedIds.length === 0) return;
+
+    const selectedIdsSet = new Set(state.selectedIds);
+    const others = state.elements.filter((el) => !selectedIdsSet.has(el.id));
+    const selected = state.elements.filter((el) => selectedIdsSet.has(el.id));
+
+    set({ elements: [...selected, ...others] });
     get().pushHistory();
   },
   clearSelection: () => {
