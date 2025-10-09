@@ -285,7 +285,10 @@ export const RightSidebar = () => {
   );
 
   const expandedPanel = (
-    <div className="floating-panel flex h-[420px] w-[320px] flex-col">
+    <div
+      className="floating-panel flex w-[320px] flex-col"
+      style={{ height: "min(720px, calc(100vh - 5rem))" }}
+    >
       <div className="flex items-center justify-between border-b border-sidebar-border px-4 py-3">
         <h3 className="text-sm font-semibold text-sidebar-foreground">Collaboration</h3>
         <Button
