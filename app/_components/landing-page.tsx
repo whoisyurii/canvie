@@ -24,7 +24,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[hsl(var(--bg-board))]">
+    <div className="landing-radial-dots flex min-h-screen items-center justify-center bg-[hsl(var(--bg-board))]">
       <div className="mx-4 w-full max-w-md">
         <div className="mb-8 text-center">
           <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-sidebar">
