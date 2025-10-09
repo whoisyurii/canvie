@@ -24,7 +24,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[hsl(var(--bg-board))]">
+    <div className="landing-radial-dots flex min-h-screen items-center justify-center bg-[hsl(var(--bg-board))]">
       <div className="mx-4 w-full max-w-md">
         <div className="mb-8 text-center">
           <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-sidebar">
@@ -37,7 +37,7 @@ export default function LandingPage() {
         </div>
 
         <div className="space-y-4">
-          <Button size="lg" className="h-12 w-full bg-accent text-lg hover:bg-accent/90" onClick={createRoom}>
+          <Button size="lg" className="h-12 w-full text-lg" onClick={createRoom}>
             <Pencil className="mr-2 h-5 w-5" />
             Create New Room
           </Button>

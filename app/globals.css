@@ -138,6 +138,26 @@
     background-size: 20px 20px;
   }
 
+  .landing-radial-dots {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .landing-radial-dots::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, hsl(var(--foreground) / 0.15) 1px, transparent 1px);
+    background-size: 24px 24px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .landing-radial-dots > * {
+    position: relative;
+    z-index: 1;
+  }
+
   .floating-panel {
     @apply bg-sidebar text-sidebar-foreground rounded-xl shadow-lg border border-sidebar-border;
   }
