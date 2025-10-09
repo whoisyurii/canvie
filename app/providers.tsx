@@ -15,11 +15,11 @@ export function Providers({ children }: ProvidersProps) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
+      <TooltipProvider delayDuration={200} skipDelayDuration={0}>
         {children}
-        <Toaster />
-        <Sonner />
       </TooltipProvider>
+      <Toaster />
+      <Sonner />
     </QueryClientProvider>
   );
 }

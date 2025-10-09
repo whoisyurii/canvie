@@ -19,6 +19,10 @@ export const useKeyboardShortcuts = () => {
   const { setActiveTool, undo, redo } = useWhiteboardStore();
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if typing in input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
