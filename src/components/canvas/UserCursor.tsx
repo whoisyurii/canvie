@@ -14,14 +14,14 @@ const FADE_DURATION = 4000;
 
 export const UserCursor = ({ user, pan, zoom }: UserCursorProps) => {
   const [opacity, setOpacity] = useState(1);
-  const animationFrameRef = useRef<number>();
+  const animationFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (user.isConnected) {
       setOpacity(1);
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = undefined;
+        animationFrameRef.current = null;
       }
       return;
     }
@@ -41,7 +41,7 @@ export const UserCursor = ({ user, pan, zoom }: UserCursorProps) => {
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = undefined;
+        animationFrameRef.current = null;
       }
     };
   }, [user.isConnected, user.lastActive]);

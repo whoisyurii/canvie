@@ -44,35 +44,26 @@ const buildRemoteUser = (params: {
 });
 
 export const CollaborationProvider = ({ roomId, children }: CollaborationProviderProps) => {
-  const ydocRef = useRef<Y.Doc>();
-  const providerRef = useRef<WebrtcProvider>();
+  const ydocRef = useRef<Y.Doc | null>(null);
+  const providerRef = useRef<WebrtcProvider | null>(null);
   const userIdRef = useRef(nanoid());
   const userColorRef = useRef(generateRandomColor());
   const userNameRef = useRef(
     `Guest ${Math.floor(Math.random() * 99) + 1}`.padStart(8, "0"),
   );
   const lastCursorUpdateRef = useRef(0);
-  const cursorTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const cursorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingCursorRef = useRef<{ x: number; y: number } | null>(null);
   const remoteUsersRef = useRef(new Map<string, User>());
   const removalTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
-  const previousRoomIdRef = useRef<string>();
+  const previousRoomIdRef = useRef<string | null>(null);
 
-  const {
-    setUsers,
-    setCollaboration,
-    setElementsFromDoc,
-    setUploadedFilesFromDoc,
-    setHistoryFromDoc,
-    setCurrentUser,
-  } = useWhiteboardStore((state) => ({
-    setUsers: state.setUsers,
-    setCollaboration: state.setCollaboration,
-    setElementsFromDoc: state.setElementsFromDoc,
-    setUploadedFilesFromDoc: state.setUploadedFilesFromDoc,
-    setHistoryFromDoc: state.setHistoryFromDoc,
-    setCurrentUser: state.setCurrentUser,
-  }));
+  const setUsers = useWhiteboardStore((state) => state.setUsers);
+  const setCollaboration = useWhiteboardStore((state) => state.setCollaboration);
+  const setElementsFromDoc = useWhiteboardStore((state) => state.setElementsFromDoc);
+  const setUploadedFilesFromDoc = useWhiteboardStore((state) => state.setUploadedFilesFromDoc);
+  const setHistoryFromDoc = useWhiteboardStore((state) => state.setHistoryFromDoc);
+  const setCurrentUser = useWhiteboardStore((state) => state.setCurrentUser);
   const activeTool = useWhiteboardStore((state) => state.activeTool);
   const strokeColor = useWhiteboardStore((state) => state.strokeColor);
 
@@ -282,7 +273,7 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
         flushCursorUpdate();
       } else if (!cursorTimeoutRef.current) {
         cursorTimeoutRef.current = setTimeout(() => {
-          cursorTimeoutRef.current = undefined;
+          cursorTimeoutRef.current = null;
           flushCursorUpdate();
         }, CURSOR_THROTTLE_MS - elapsed);
       }
@@ -294,7 +285,7 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       window.removeEventListener("mousemove", handleMouseMove);
       if (cursorTimeoutRef.current) {
         clearTimeout(cursorTimeoutRef.current);
-        cursorTimeoutRef.current = undefined;
+        cursorTimeoutRef.current = null;
       }
 
       awareness.off("change", awarenessChangeHandler);
@@ -312,9 +303,9 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       setHistoryFromDoc([[]], 0);
       setCollaboration(null);
       setCurrentUser(null);
-      providerRef.current = undefined;
-      ydocRef.current = undefined;
-      previousRoomIdRef.current = undefined;
+      providerRef.current = null;
+      ydocRef.current = null;
+      previousRoomIdRef.current = null;
 
       provider.destroy();
       ydoc.destroy();
