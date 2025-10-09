@@ -1,73 +1,158 @@
-# Welcome to your Lovable project
+# Collaborative Whiteboard
 
-## Project info
+A real-time collaborative whiteboard application built with React, TypeScript, and Y.js. Draw, create shapes, add text, and collaborate with others in real-time with an infinite canvas.
 
-**URL**: https://lovable.dev/projects/f310c5d6-0638-4148-8ecc-e95a2c113f97
+## Features
 
-## How can I edit this code?
+- 🎨 **Drawing Tools**: Select, Pan, Shapes (Rectangle, Ellipse), Arrows, Lines, Text, Pen, Eraser
+- 👥 **Real-time Collaboration**: See other users' cursors and edits in real-time via Y.js + WebRTC
+- 📁 **Drag & Drop**: Upload images, PDFs, and text files directly onto the canvas
+- 🔄 **Undo/Redo**: Full history support for all canvas operations
+- 🔍 **Zoom & Pan**: Infinite canvas with smooth zoom and pan controls
+- ⌨️ **Keyboard Shortcuts**: Fast tool switching with hotkeys
+- 🎨 **Customizable Tools**: Adjust stroke color, width, style, opacity, and more
+- 📊 **Layer Management**: Control element z-order (bring to front, send to back)
 
-There are several ways of editing your application.
+## Tech Stack
 
-**Use Lovable**
+- **React 18** with TypeScript
+- **Vite** for fast development and building
+- **Tailwind CSS** for styling
+- **shadcn/ui** for UI components
+- **react-konva** for canvas rendering
+- **Y.js + y-webrtc** for real-time collaboration
+- **Zustand** for state management
+- **React Router** for navigation
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/f310c5d6-0638-4148-8ecc-e95a2c113f97) and start prompting.
+## Getting Started
 
-Changes made via Lovable will be committed automatically to this repo.
+### Prerequisites
 
-**Use your preferred IDE**
+- Node.js 18+ and npm
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Installation
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+```bash
+# Clone the repository
+git clone <your-repo-url>
 
-Follow these steps:
+# Navigate to the project directory
+cd collaborative-whiteboard
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+# Install dependencies
+npm install
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start the development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The app will be available at `http://localhost:8080`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Building for Production
 
-**Use GitHub Codespaces**
+```bash
+npm run build
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Usage
 
-## What technologies are used for this project?
+### Creating a Room
 
-This project is built with:
+1. Visit the homepage
+2. Click "Create New Room"
+3. Share the URL with others to collaborate
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Joining a Room
 
-## How can I deploy this project?
+1. Get a room code/URL from someone
+2. Enter the code on the homepage or visit the room URL directly
+3. Start collaborating!
 
-Simply open [Lovable](https://lovable.dev/projects/f310c5d6-0638-4148-8ecc-e95a2c113f97) and click on Share -> Publish.
+### Keyboard Shortcuts
 
-## Can I connect a custom domain to my Lovable project?
+- `V` - Select tool
+- `H` - Pan tool
+- `R` - Rectangle
+- `O` - Ellipse
+- `A` - Arrow
+- `L` - Line
+- `T` - Text
+- `P` - Pen
+- `E` - Eraser
+- `Ctrl/Cmd + Z` - Undo
+- `Ctrl/Cmd + Shift + Z` - Redo
 
-Yes, you can!
+### Tool Settings
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+Use the left sidebar to customize:
+- **Stroke Color**: Choose from preset colors
+- **Fill Color**: Set shape fill color
+- **Stroke Width**: Adjust line thickness (1-8px)
+- **Stroke Style**: Solid, dashed, or dotted lines
+- **Opacity**: Control element transparency
+- **Layer Controls**: Manage element stacking order
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+### Collaboration Features
+
+- **Real-time Cursors**: See where other users are pointing
+- **Participants List**: View all active collaborators in the right sidebar
+- **File Sharing**: Drag and drop files that all users can see
+- **Ephemeral Rooms**: Rooms are temporary and reset after inactivity
+
+## Project Structure
+
+```
+src/
+├── components/
+│   ├── canvas/           # Canvas rendering components
+│   ├── collaboration/    # Y.js provider and real-time logic
+│   ├── sidebars/        # Left and right sidebar components
+│   ├── toolbars/        # Top and bottom toolbar components
+│   └── ui/              # shadcn UI components
+├── hooks/               # Custom React hooks
+├── lib/
+│   └── store/           # Zustand store for app state
+├── pages/               # Route pages (Index, Room)
+└── index.css            # Global styles and design system
+
+```
+
+## Design System
+
+The app uses a warm, creative color palette:
+
+- **Canvas**: Parchment background (#f6eedc)
+- **Toolbars/Sidebars**: Dark gray (#444436)
+- **Accents**: Warm brown/orange tones
+- **Semantic tokens**: All colors defined in `index.css`
+
+## Known Limitations
+
+- **No Persistence**: Rooms are ephemeral (not saved to a database)
+- **WebRTC Signaling**: Uses public Y.js signaling server (may have latency)
+- **File Storage**: Files are stored as object URLs (not persisted)
+
+## Future Enhancements
+
+- [ ] Persistent rooms with database storage
+- [ ] Export canvas as PNG/SVG
+- [ ] Text editing capabilities
+- [ ] More shape options (triangles, stars, etc.)
+- [ ] Background customization
+- [ ] Selection and grouping of multiple elements
+- [ ] Copy/paste functionality
+- [ ] Grid snapping
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+MIT License - feel free to use this project for any purpose.
+
+## Acknowledgments
+
+- Built with [Lovable](https://lovable.dev)
+- Inspired by Excalidraw, Miro, and Figma
+- Real-time collaboration powered by Y.js
