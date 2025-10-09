@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { nanoid } from "nanoid";
+import * as Y from "yjs";
 
 export type Tool =
   | "select"
@@ -44,7 +44,38 @@ export interface User {
   color: string;
   cursorX: number;
   cursorY: number;
+  tool?: Tool;
+  strokeColor?: string;
+  lastActive: number;
+  isConnected: boolean;
 }
+
+export type SharedFile = { id: string; name: string; type: string; url: string };
+
+interface CollaborationBindings {
+  ydoc: Y.Doc | null;
+  elements: Y.Array<CanvasElement> | null;
+  files: Y.Array<SharedFile> | null;
+  historyEntries: Y.Array<CanvasElement[]> | null;
+  historyMeta: Y.Map<any> | null;
+}
+
+const deepClone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+
+const applySharedHistoryUpdate = (
+  historyEntries: Y.Array<CanvasElement[]>,
+  historyMeta: Y.Map<any>,
+  snapshot: CanvasElement[],
+) => {
+  const currentIndex = (historyMeta.get("index") as number | undefined) ?? historyEntries.length - 1;
+  const entriesToRemove = historyEntries.length - (currentIndex + 1);
+  if (entriesToRemove > 0) {
+    historyEntries.delete(currentIndex + 1, entriesToRemove);
+  }
+
+  historyEntries.push([deepClone(snapshot)]);
+  historyMeta.set("index", historyEntries.length - 1);
+};
 
 interface WhiteboardState {
   // Tools
@@ -95,8 +126,15 @@ interface WhiteboardState {
   updateUser: (id: string, updates: Partial<User>) => void;
 
   // Files
-  uploadedFiles: Array<{ id: string; name: string; type: string; url: string }>;
-  addFile: (file: { id: string; name: string; type: string; url: string }) => void;
+  uploadedFiles: SharedFile[];
+  addFile: (file: SharedFile) => void;
+
+  // Collaboration bindings
+  collaboration: CollaborationBindings | null;
+  setCollaboration: (collaboration: CollaborationBindings | null) => void;
+  setElementsFromDoc: (elements: CanvasElement[]) => void;
+  setUploadedFilesFromDoc: (files: SharedFile[]) => void;
+  setHistoryFromDoc: (history: CanvasElement[][], index: number) => void;
 }
 
 export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
@@ -123,23 +161,91 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   // Canvas
   elements: [],
   addElement: (element) => {
+    const collaboration = get().collaboration;
+    if (collaboration?.elements) {
+      const { elements: sharedElements, historyEntries, historyMeta } = collaboration;
+      const doc = sharedElements.doc;
+      doc?.transact(() => {
+        sharedElements.push([element]);
+        if (historyEntries && historyMeta) {
+          const snapshot = deepClone(sharedElements.toArray());
+          applySharedHistoryUpdate(historyEntries, historyMeta, snapshot);
+        }
+      });
+      return;
+    }
+
     set((state) => ({
       elements: [...state.elements, element],
     }));
     get().pushHistory();
   },
   updateElement: (id, updates) => {
+    const collaboration = get().collaboration;
+    if (collaboration?.elements) {
+      const sharedElements = collaboration.elements;
+      const doc = sharedElements.doc;
+      doc?.transact(() => {
+        for (let index = 0; index < sharedElements.length; index += 1) {
+          const current = sharedElements.get(index);
+          if (current?.id === id) {
+            sharedElements.delete(index, 1);
+            sharedElements.insert(index, [{ ...current, ...updates }]);
+            break;
+          }
+        }
+      });
+      return;
+    }
+
     set((state) => ({
       elements: state.elements.map((el) => (el.id === id ? { ...el, ...updates } : el)),
     }));
   },
   deleteElement: (id) => {
+    const collaboration = get().collaboration;
+    if (collaboration?.elements) {
+      const { elements: sharedElements, historyEntries, historyMeta } = collaboration;
+      const doc = sharedElements.doc;
+      doc?.transact(() => {
+        for (let index = 0; index < sharedElements.length; index += 1) {
+          const current = sharedElements.get(index);
+          if (current?.id === id) {
+            sharedElements.delete(index, 1);
+            if (historyEntries && historyMeta) {
+              const snapshot = deepClone(sharedElements.toArray());
+              applySharedHistoryUpdate(historyEntries, historyMeta, snapshot);
+            }
+            break;
+          }
+        }
+      });
+      return;
+    }
+
     set((state) => ({
       elements: state.elements.filter((el) => el.id !== id),
     }));
     get().pushHistory();
   },
   clearSelection: () => {
+    const collaboration = get().collaboration;
+    if (collaboration?.elements) {
+      const sharedElements = collaboration.elements;
+      const doc = sharedElements.doc;
+      doc?.transact(() => {
+        for (let index = 0; index < sharedElements.length; index += 1) {
+          const current = sharedElements.get(index);
+          if (current?.selected) {
+            sharedElements.delete(index, 1);
+            sharedElements.insert(index, [{ ...current, selected: false }]);
+          }
+        }
+      });
+      set({ selectedIds: [] });
+      return;
+    }
+
     set((state) => ({
       elements: state.elements.map((el) => ({ ...el, selected: false })),
       selectedIds: [],
@@ -159,29 +265,68 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   historyIndex: 0,
   pushHistory: () => {
     const state = get();
+    const snapshot = deepClone(state.elements);
     const newHistory = state.history.slice(0, state.historyIndex + 1);
-    newHistory.push(JSON.parse(JSON.stringify(state.elements)));
+    newHistory.push(snapshot);
     set({
       history: newHistory,
       historyIndex: newHistory.length - 1,
     });
   },
   undo: () => {
+    const collaboration = get().collaboration;
+    if (collaboration?.historyEntries && collaboration?.historyMeta && collaboration?.elements) {
+      const { historyEntries, historyMeta, elements: sharedElements } = collaboration;
+      const currentIndex = (historyMeta.get("index") as number | undefined) ?? historyEntries.length - 1;
+      if (currentIndex > 0) {
+        const newIndex = currentIndex - 1;
+        const snapshot = historyEntries.get(newIndex);
+        if (snapshot) {
+          const doc = sharedElements.doc;
+          doc?.transact(() => {
+            sharedElements.delete(0, sharedElements.length);
+            sharedElements.insert(0, deepClone(snapshot));
+            historyMeta.set("index", newIndex);
+          });
+        }
+      }
+      return;
+    }
+
     const state = get();
     if (state.historyIndex > 0) {
       const newIndex = state.historyIndex - 1;
       set({
-        elements: JSON.parse(JSON.stringify(state.history[newIndex])),
+        elements: deepClone(state.history[newIndex]),
         historyIndex: newIndex,
       });
     }
   },
   redo: () => {
+    const collaboration = get().collaboration;
+    if (collaboration?.historyEntries && collaboration?.historyMeta && collaboration?.elements) {
+      const { historyEntries, historyMeta, elements: sharedElements } = collaboration;
+      const currentIndex = (historyMeta.get("index") as number | undefined) ?? historyEntries.length - 1;
+      if (currentIndex < historyEntries.length - 1) {
+        const newIndex = currentIndex + 1;
+        const snapshot = historyEntries.get(newIndex);
+        if (snapshot) {
+          const doc = sharedElements.doc;
+          doc?.transact(() => {
+            sharedElements.delete(0, sharedElements.length);
+            sharedElements.insert(0, deepClone(snapshot));
+            historyMeta.set("index", newIndex);
+          });
+        }
+      }
+      return;
+    }
+
     const state = get();
     if (state.historyIndex < state.history.length - 1) {
       const newIndex = state.historyIndex + 1;
       set({
-        elements: JSON.parse(JSON.stringify(state.history[newIndex])),
+        elements: deepClone(state.history[newIndex]),
         historyIndex: newIndex,
       });
     }
@@ -199,8 +344,29 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   // Files
   uploadedFiles: [],
   addFile: (file) => {
+    const collaboration = get().collaboration;
+    if (collaboration?.files) {
+      const sharedFiles = collaboration.files;
+      const doc = sharedFiles.doc;
+      doc?.transact(() => {
+        sharedFiles.push([file]);
+      });
+      return;
+    }
+
     set((state) => ({
       uploadedFiles: [...state.uploadedFiles, file],
     }));
   },
+
+  // Collaboration bindings
+  collaboration: null,
+  setCollaboration: (collaboration) => set({ collaboration }),
+  setElementsFromDoc: (elements) => set({ elements }),
+  setUploadedFilesFromDoc: (files) => set({ uploadedFiles: files }),
+  setHistoryFromDoc: (history, index) =>
+    set({
+      history,
+      historyIndex: Math.max(0, Math.min(index, history.length - 1)),
+    }),
 }));
