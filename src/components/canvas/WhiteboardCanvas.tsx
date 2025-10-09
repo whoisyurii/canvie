@@ -8,7 +8,13 @@ import Konva from "konva";
 import { useDragDrop } from "./DragDropHandler";
 import { UserCursor } from "./UserCursor";
 
-const ImageElement = ({ element }: { element: any }) => {
+const ImageElement = ({
+  element,
+  highlight,
+}: {
+  element: any;
+  highlight?: Record<string, unknown>;
+}) => {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
 
   useEffect(() => {
@@ -32,6 +38,7 @@ const ImageElement = ({ element }: { element: any }) => {
       height={element.height}
       opacity={element.opacity}
       rotation={element.rotation}
+      {...highlight}
     />
   ) : null;
 };
@@ -58,6 +65,7 @@ export const WhiteboardCanvas = () => {
     setPan,
     zoom,
     users,
+    focusedElementId,
   } = useWhiteboardStore();
 
   const handleMouseDown = (e: any) => {
@@ -208,6 +216,16 @@ export const WhiteboardCanvas = () => {
         <Layer>
           {/* Render all elements */}
           {elements.map((element) => {
+            const highlightProps =
+              focusedElementId === element.id
+                ? {
+                    shadowColor: "#38bdf8",
+                    shadowBlur: 24,
+                    shadowOpacity: 0.85,
+                    shadowOffsetX: 0,
+                    shadowOffsetY: 0,
+                  }
+                : {};
             if (element.type === "rectangle") {
               return (
                 <Rect
@@ -222,6 +240,7 @@ export const WhiteboardCanvas = () => {
                   fill={element.fillColor}
                   opacity={element.opacity}
                   rotation={element.rotation}
+                  {...highlightProps}
                 />
               );
             } else if (element.type === "ellipse") {
@@ -238,6 +257,7 @@ export const WhiteboardCanvas = () => {
                   fill={element.fillColor}
                   opacity={element.opacity}
                   rotation={element.rotation}
+                  {...highlightProps}
                 />
               );
             } else if (element.type === "line") {
@@ -253,6 +273,7 @@ export const WhiteboardCanvas = () => {
                   opacity={element.opacity}
                   lineCap="round"
                   lineJoin="round"
+                  {...highlightProps}
                 />
               );
             } else if (element.type === "arrow") {
@@ -272,6 +293,7 @@ export const WhiteboardCanvas = () => {
                   pointerWidth={12}
                   pointerAtBeginning={pointerAtBeginning}
                   pointerAtEnding={pointerAtEnding}
+                  {...highlightProps}
                 />
               );
             } else if (element.type === "pen") {
@@ -287,6 +309,7 @@ export const WhiteboardCanvas = () => {
                   lineCap="round"
                   lineJoin="round"
                   tension={element.sloppiness === "smooth" ? 0.75 : element.sloppiness === "rough" ? 0.2 : 0.5}
+                  {...highlightProps}
                 />
               );
             } else if (element.type === "text") {
@@ -299,10 +322,13 @@ export const WhiteboardCanvas = () => {
                   fontSize={20}
                   fill={element.strokeColor}
                   opacity={element.opacity}
+                  {...highlightProps}
                 />
               );
             } else if (element.type === "image") {
-              return <ImageElement key={element.id} element={element} />;
+              return (
+                <ImageElement key={element.id} element={element} highlight={highlightProps} />
+              );
             } else if (element.type === "file") {
               return (
                 <Rect
@@ -316,6 +342,7 @@ export const WhiteboardCanvas = () => {
                   fill="white"
                   opacity={element.opacity}
                   cornerRadius={8}
+                  {...highlightProps}
                 />
               );
             }

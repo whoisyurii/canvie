@@ -1,16 +1,17 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, type DragEvent } from "react";
 import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
 import { nanoid } from "nanoid";
 import { useToast } from "@/hooks/use-toast";
+import { generateFilePreview } from "@/lib/files/preview";
 
 export const useDragDrop = () => {
-  const { addElement, addFile } = useWhiteboardStore();
+  const { addElement, addFile, currentUser } = useWhiteboardStore();
   const { toast } = useToast();
 
   const handleDrop = useCallback(
-    (e: React.DragEvent) => {
+    async (e: DragEvent) => {
       if (typeof window === "undefined") {
         return;
       }
@@ -18,13 +19,16 @@ export const useDragDrop = () => {
       e.preventDefault();
       const files = Array.from(e.dataTransfer.files);
 
-      files.forEach((file) => {
+      for (const file of files) {
         const fileType = file.type;
         const fileName = file.name;
         const fileId = nanoid();
 
         // Create object URL for preview
         const url = URL.createObjectURL(file);
+        const thumbnailUrl =
+          (await generateFilePreview(file, url)) ??
+          (fileType.startsWith("image/") ? url : undefined);
 
         // Add to files list
         addFile({
@@ -32,11 +36,14 @@ export const useDragDrop = () => {
           name: fileName,
           type: fileType,
           url,
+          ownerId: currentUser?.id ?? "local-user",
+          ownerName: currentUser?.name ?? "You",
+          thumbnailUrl,
         });
 
         // Get drop position relative to canvas
         if (!(e.target instanceof HTMLElement)) {
-          return;
+          continue;
         }
 
         const rect = e.target.getBoundingClientRect();
@@ -105,12 +112,12 @@ export const useDragDrop = () => {
           title: "File added",
           description: `${fileName} has been added to the canvas`,
         });
-      });
+      }
     },
-    [addElement, addFile, toast]
+    [addElement, addFile, currentUser?.id, currentUser?.name, toast]
   );
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  const handleDragOver = useCallback((e: DragEvent) => {
     e.preventDefault();
   }, []);
 
