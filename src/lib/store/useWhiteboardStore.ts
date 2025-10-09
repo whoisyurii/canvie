@@ -35,6 +35,8 @@ export interface CanvasElement {
   arrowType?: ArrowType;
   fileUrl?: string;
   fileName?: string;
+  fileType?: string;
+  thumbnailUrl?: string;
   selected?: boolean;
 }
 
@@ -118,6 +120,8 @@ interface CollaborationBindings {
 
 const deepClone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 
+const MAX_HISTORY_LENGTH = 200;
+
 const applySharedHistoryUpdate = (
   historyEntries: Y.Array<CanvasElement[]>,
   historyMeta: Y.Map<any>,
@@ -130,7 +134,15 @@ const applySharedHistoryUpdate = (
   }
 
   historyEntries.push([deepClone(snapshot)]);
-  historyMeta.set("index", historyEntries.length - 1);
+  let nextIndex = historyEntries.length - 1;
+  historyMeta.set("index", nextIndex);
+
+  const overflow = historyEntries.length - MAX_HISTORY_LENGTH;
+  if (overflow > 0) {
+    historyEntries.delete(0, overflow);
+    nextIndex = Math.max(0, nextIndex - overflow);
+    historyMeta.set("index", nextIndex);
+  }
 };
 
 interface WhiteboardState {
@@ -356,9 +368,28 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
     const snapshot = deepClone(state.elements);
     const newHistory = state.history.slice(0, state.historyIndex + 1);
     newHistory.push(snapshot);
+
+    let historyIndex = newHistory.length - 1;
+    const overflow = newHistory.length - MAX_HISTORY_LENGTH;
+    if (overflow > 0) {
+      newHistory.splice(0, overflow);
+      historyIndex = Math.max(0, historyIndex - overflow);
+    }
+
+    const collaboration = state.collaboration;
+    if (collaboration?.historyEntries && collaboration?.historyMeta && collaboration?.elements) {
+      const { historyEntries, historyMeta, elements: sharedElements } = collaboration;
+      const doc = historyEntries.doc ?? sharedElements.doc;
+      const sharedSnapshot = deepClone(sharedElements?.toArray?.() ?? state.elements);
+      doc?.transact(() => {
+        applySharedHistoryUpdate(historyEntries, historyMeta, sharedSnapshot);
+      });
+      return;
+    }
+
     set({
       history: newHistory,
-      historyIndex: newHistory.length - 1,
+      historyIndex,
     });
   },
   undo: () => {
@@ -510,9 +541,17 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   setElementsFromDoc: (elements) => set({ elements }),
   setUploadedFilesFromDoc: (files) => set({ uploadedFiles: files }),
   setHistoryFromDoc: (history, index) =>
-    set({
-      history,
-      historyIndex: Math.max(0, Math.min(index, history.length - 1)),
+    set(() => {
+      const trimmedHistory = history.slice(-MAX_HISTORY_LENGTH);
+      const overflow = history.length - trimmedHistory.length;
+      const nextIndex = trimmedHistory.length
+        ? Math.max(0, Math.min(index - overflow, trimmedHistory.length - 1))
+        : 0;
+
+      return {
+        history: trimmedHistory.length > 0 ? trimmedHistory : [[]],
+        historyIndex: trimmedHistory.length > 0 ? nextIndex : 0,
+      };
     }),
 
   // Focus management
