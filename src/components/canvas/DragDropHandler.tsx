@@ -6,8 +6,24 @@ import { nanoid } from "nanoid";
 import { useToast } from "@/hooks/use-toast";
 import { generateFilePreview } from "@/lib/files/preview";
 
+const toCanvasCoordinates = (
+  e: DragEvent,
+  target: HTMLElement,
+  pan: { x: number; y: number },
+  zoom: number,
+) => {
+  const rect = target.getBoundingClientRect();
+  const localX = e.clientX - rect.left;
+  const localY = e.clientY - rect.top;
+
+  return {
+    x: (localX - pan.x) / zoom,
+    y: (localY - pan.y) / zoom,
+  };
+};
+
 export const useDragDrop = () => {
-  const { addElement, addFile, currentUser } = useWhiteboardStore();
+  const { addElement, addFile, currentUser, pan, zoom } = useWhiteboardStore();
   const { toast } = useToast();
 
   const handleDrop = useCallback(
@@ -26,9 +42,9 @@ export const useDragDrop = () => {
 
         // Create object URL for preview
         const url = URL.createObjectURL(file);
+        const generatedThumbnail = await generateFilePreview(file, url);
         const thumbnailUrl =
-          (await generateFilePreview(file, url)) ??
-          (fileType.startsWith("image/") ? url : undefined);
+          generatedThumbnail ?? (fileType.startsWith("image/") ? url : undefined);
 
         // Add to files list
         addFile({
@@ -45,10 +61,7 @@ export const useDragDrop = () => {
         if (!(e.target instanceof HTMLElement)) {
           continue;
         }
-
-        const rect = e.target.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        const { x, y } = toCanvasCoordinates(e, e.target, pan, zoom);
 
         // Create canvas element based on file type
         if (fileType.startsWith("image/")) {
@@ -68,25 +81,47 @@ export const useDragDrop = () => {
               opacity: 1,
               fileUrl: url,
               fileName,
+              fileType,
             });
           };
           img.src = url;
         } else if (fileType === "application/pdf") {
-          // Add PDF placeholder
-          addElement({
-            id: fileId,
-            type: "file",
-            x,
-            y,
-            width: 200,
-            height: 250,
-            strokeColor: "#e03131",
-            strokeWidth: 2,
-            strokeStyle: "solid",
-            opacity: 1,
-            fileUrl: url,
-            fileName,
-          });
+          const addPdfElement = (width: number, height: number) => {
+            addElement({
+              id: fileId,
+              type: "file",
+              x,
+              y,
+              width,
+              height,
+              strokeColor: "#e03131",
+              strokeWidth: 2,
+              strokeStyle: "solid",
+              opacity: 1,
+              fileUrl: url,
+              fileName,
+              fileType,
+              thumbnailUrl,
+            });
+          };
+
+          if (thumbnailUrl) {
+            const previewImage = new Image();
+            previewImage.onload = () => {
+              const maxDimension = 240;
+              const scale = Math.min(
+                1,
+                maxDimension / Math.max(previewImage.width, previewImage.height),
+              );
+              addPdfElement(
+                Math.max(120, previewImage.width * scale),
+                Math.max(160, previewImage.height * scale),
+              );
+            };
+            previewImage.src = thumbnailUrl;
+          } else {
+            addPdfElement(200, 260);
+          }
         } else if (fileType === "text/plain") {
           // Read and add text content
           const reader = new FileReader();
@@ -114,7 +149,7 @@ export const useDragDrop = () => {
         });
       }
     },
-    [addElement, addFile, currentUser?.id, currentUser?.name, toast]
+    [addElement, addFile, currentUser?.id, currentUser?.name, pan, toast, zoom]
   );
 
   const handleDragOver = useCallback((e: DragEvent) => {
