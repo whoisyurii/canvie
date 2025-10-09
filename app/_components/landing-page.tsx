@@ -37,7 +37,7 @@ export default function LandingPage() {
         </div>
 
         <div className="space-y-4">
-          <Button size="lg" className="h-12 w-full bg-accent text-lg hover:bg-accent/90" onClick={createRoom}>
+          <Button size="lg" className="h-12 w-full text-lg" onClick={createRoom}>
             <Pencil className="mr-2 h-5 w-5" />
             Create New Room
           </Button>
