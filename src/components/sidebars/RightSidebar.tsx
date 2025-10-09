@@ -314,9 +314,9 @@ export const RightSidebar = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="participants" className="mt-0 flex-1 p-4">
+        <TabsContent value="participants" className="mt-0 flex-1 px-0 py-0">
           <ScrollArea className="h-full">
-            <div className="space-y-3">
+            <div className="space-y-3 px-4 py-3">
               {participantCards.map(({ user, isLocal }) => renderParticipant(user, { isLocal }))}
               {!users.length ? (
                 <p className="rounded-xl border border-dashed border-sidebar-border/60 px-3 py-4 text-center text-xs text-muted-foreground">
@@ -327,10 +327,10 @@ export const RightSidebar = () => {
           </ScrollArea>
         </TabsContent>
 
-        <TabsContent value="files" className="mt-0 flex-1 p-4">
+        <TabsContent value="files" className="mt-0 flex-1 px-0 py-0">
           <ScrollArea className="h-full">
             {uploadedFiles.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+              <div className="flex h-full flex-col items-center justify-center gap-2 px-4 py-3 text-center">
                 <FileText className="h-8 w-8 text-muted-foreground" />
                 <div>
                   <p className="text-sm font-medium text-sidebar-foreground">No files yet</p>
@@ -340,7 +340,7 @@ export const RightSidebar = () => {
                 </div>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 px-4 py-3">
                 {uploadedFiles.map((file) => {
                   const canManage = currentUser?.id
                     ? file.ownerId === currentUser.id

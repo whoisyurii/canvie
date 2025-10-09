@@ -43,7 +43,7 @@ export default function RoomPage() {
           <LeftSidebar />
         </div>
 
-        <div className="absolute right-4 top-20 z-40">
+        <div className="absolute right-4 top-1/2 z-40 -translate-y-1/2">
           <RightSidebar />
         </div>
 

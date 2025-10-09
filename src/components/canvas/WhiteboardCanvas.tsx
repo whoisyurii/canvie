@@ -9,6 +9,7 @@ import Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { useDragDrop } from "./DragDropHandler";
 import { UserCursor } from "./UserCursor";
+import { cn } from "@/lib/utils";
 
 type HighlightProps = Record<string, unknown> | undefined;
 
@@ -218,6 +219,7 @@ export const WhiteboardCanvas = () => {
   const stageRef = useRef<Konva.Stage>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentShape, setCurrentShape] = useState<any>(null);
+  const [isPanning, setIsPanning] = useState(false);
   const [stageSize, setStageSize] = useState(() => ({
     width: typeof window !== "undefined" ? window.innerWidth : 0,
     height: typeof window !== "undefined" ? window.innerHeight : 0,
@@ -237,12 +239,14 @@ export const WhiteboardCanvas = () => {
     sloppiness,
     pan,
     zoom,
+    setPan,
     users,
     focusedElementId,
   } = useWhiteboardStore();
 
   const panX = pan.x;
   const panY = pan.y;
+  const safeZoom = zoom || 1;
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -263,7 +267,6 @@ export const WhiteboardCanvas = () => {
       return null;
     }
 
-    const safeZoom = zoom || 1;
     const viewportMinX = -panX / safeZoom;
     const viewportMinY = -panY / safeZoom;
     const viewportWidth = stageSize.width / safeZoom;
@@ -307,7 +310,60 @@ export const WhiteboardCanvas = () => {
         height: viewportHeight,
       },
     };
-  }, [elements, panX, panY, stageSize.height, stageSize.width, zoom]);
+  }, [elements, panX, panY, safeZoom, stageSize.height, stageSize.width]);
+
+  const renderBounds = useMemo(() => {
+    if (stageSize.width === 0 || stageSize.height === 0) {
+      return null;
+    }
+
+    const viewportMinX = -panX / safeZoom;
+    const viewportMinY = -panY / safeZoom;
+    const viewportWidth = stageSize.width / safeZoom;
+    const viewportHeight = stageSize.height / safeZoom;
+    const overscan = 800;
+
+    return {
+      minX: viewportMinX - overscan,
+      minY: viewportMinY - overscan,
+      maxX: viewportMinX + viewportWidth + overscan,
+      maxY: viewportMinY + viewportHeight + overscan,
+    };
+  }, [panX, panY, safeZoom, stageSize.height, stageSize.width]);
+
+  const visibleElements = useMemo(() => {
+    if (!renderBounds) {
+      return elements;
+    }
+
+    return elements.filter((element) => {
+      const bounds = getElementBounds(element);
+      return (
+        bounds.maxX >= renderBounds.minX &&
+        bounds.minX <= renderBounds.maxX &&
+        bounds.maxY >= renderBounds.minY &&
+        bounds.minY <= renderBounds.maxY
+      );
+    });
+  }, [elements, renderBounds]);
+
+  const syncPanFromStage = (event: KonvaEventObject<DragEvent>) => {
+    const stage = event.target.getStage();
+    if (!stage) return;
+    const position = stage.position();
+    setPan({ x: position.x, y: position.y });
+  };
+
+  const backgroundSize = `${Math.max(4, 20 * safeZoom)}px ${Math.max(4, 20 * safeZoom)}px`;
+  const backgroundPosition = `${panX}px ${panY}px`;
+  const stageCursorClass =
+    activeTool === "pan"
+      ? isPanning
+        ? "cursor-grabbing"
+        : "cursor-grab"
+      : activeTool === "select"
+        ? "cursor-default"
+        : "cursor-crosshair";
 
   const handleMouseDown = (e: KonvaEventObject<MouseEvent>) => {
     const stage = stageRef.current;
@@ -493,6 +549,7 @@ export const WhiteboardCanvas = () => {
   return (
     <div
       className="absolute inset-0 dotted-grid"
+      style={{ backgroundSize, backgroundPosition }}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
     >
@@ -509,10 +566,17 @@ export const WhiteboardCanvas = () => {
         scaleY={zoom}
         x={panX}
         y={panY}
+        className={cn("h-full w-full", stageCursorClass)}
+        onDragStart={() => setIsPanning(true)}
+        onDragMove={syncPanFromStage}
+        onDragEnd={(event) => {
+          setIsPanning(false);
+          syncPanFromStage(event);
+        }}
       >
         <Layer>
           {/* Render all elements */}
-          {elements.map((element) => {
+          {visibleElements.map((element) => {
             const highlightProps =
               focusedElementId === element.id
                 ? {
