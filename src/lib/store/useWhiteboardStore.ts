@@ -50,7 +50,63 @@ export interface User {
   isConnected: boolean;
 }
 
-export type SharedFile = { id: string; name: string; type: string; url: string };
+export type SharedFile = {
+  id: string;
+  name: string;
+  type: string;
+  url: string;
+  ownerId: string;
+  ownerName: string;
+  thumbnailUrl?: string;
+};
+
+const getElementCenter = (element: CanvasElement) => {
+  if (element.type === "rectangle" || element.type === "ellipse" || element.type === "image" || element.type === "file") {
+    const width = element.width ?? 0;
+    const height = element.height ?? 0;
+    return {
+      x: element.x + width / 2,
+      y: element.y + height / 2,
+    };
+  }
+
+  if (element.type === "line" || element.type === "arrow") {
+    if (element.points && element.points.length >= 4) {
+      const endX = element.x + element.points[element.points.length - 2];
+      const endY = element.y + element.points[element.points.length - 1];
+      return {
+        x: (element.x + endX) / 2,
+        y: (element.y + endY) / 2,
+      };
+    }
+    return { x: element.x, y: element.y };
+  }
+
+  if (element.type === "pen" && element.points && element.points.length >= 2) {
+    let minX = 0;
+    let maxX = 0;
+    let minY = 0;
+    let maxY = 0;
+
+    for (let index = 0; index < element.points.length; index += 2) {
+      const pointX = element.points[index];
+      const pointY = element.points[index + 1];
+      minX = Math.min(minX, pointX);
+      maxX = Math.max(maxX, pointX);
+      minY = Math.min(minY, pointY);
+      maxY = Math.max(maxY, pointY);
+    }
+
+    return {
+      x: element.x + (minX + maxX) / 2,
+      y: element.y + (minY + maxY) / 2,
+    };
+  }
+
+  return { x: element.x, y: element.y };
+};
+
+let focusTimeout: ReturnType<typeof setTimeout> | undefined;
 
 interface CollaborationBindings {
   ydoc: Y.Doc | null;
@@ -126,10 +182,14 @@ interface WhiteboardState {
   users: User[];
   setUsers: (users: User[]) => void;
   updateUser: (id: string, updates: Partial<User>) => void;
+  currentUser: User | null;
+  setCurrentUser: (user: User | null) => void;
 
   // Files
   uploadedFiles: SharedFile[];
   addFile: (file: SharedFile) => void;
+  renameFile: (id: string, name: string) => void;
+  removeFile: (id: string) => void;
 
   // Collaboration bindings
   collaboration: CollaborationBindings | null;
@@ -137,6 +197,10 @@ interface WhiteboardState {
   setElementsFromDoc: (elements: CanvasElement[]) => void;
   setUploadedFilesFromDoc: (files: SharedFile[]) => void;
   setHistoryFromDoc: (history: CanvasElement[][], index: number) => void;
+
+  // Focus management
+  focusedElementId: string | null;
+  focusElement: (id: string) => void;
 }
 
 export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
@@ -364,6 +428,8 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       users: state.users.map((user) => (user.id === id ? { ...user, ...updates } : user)),
     }));
   },
+  currentUser: null,
+  setCurrentUser: (user) => set({ currentUser: user }),
 
   // Files
   uploadedFiles: [],
@@ -382,6 +448,61 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       uploadedFiles: [...state.uploadedFiles, file],
     }));
   },
+  renameFile: (id, name) => {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      return;
+    }
+
+    const collaboration = get().collaboration;
+    if (collaboration?.files) {
+      const sharedFiles = collaboration.files;
+      const doc = sharedFiles.doc;
+      doc?.transact(() => {
+        for (let index = 0; index < sharedFiles.length; index += 1) {
+          const current = sharedFiles.get(index);
+          if (current?.id === id) {
+            sharedFiles.delete(index, 1);
+            sharedFiles.insert(index, [{ ...current, name: trimmedName }]);
+            break;
+          }
+        }
+      });
+    } else {
+      set((state) => ({
+        uploadedFiles: state.uploadedFiles.map((file) =>
+          file.id === id ? { ...file, name: trimmedName } : file,
+        ),
+      }));
+    }
+
+    const element = get().elements.find((item) => item.id === id);
+    if (element) {
+      get().updateElement(id, { fileName: trimmedName });
+    }
+  },
+  removeFile: (id) => {
+    const collaboration = get().collaboration;
+    if (collaboration?.files) {
+      const sharedFiles = collaboration.files;
+      const doc = sharedFiles.doc;
+      doc?.transact(() => {
+        for (let index = 0; index < sharedFiles.length; index += 1) {
+          const current = sharedFiles.get(index);
+          if (current?.id === id) {
+            sharedFiles.delete(index, 1);
+            break;
+          }
+        }
+      });
+    } else {
+      set((state) => ({
+        uploadedFiles: state.uploadedFiles.filter((file) => file.id !== id),
+      }));
+    }
+
+    get().deleteElement(id);
+  },
 
   // Collaboration bindings
   collaboration: null,
@@ -393,4 +514,43 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       history,
       historyIndex: Math.max(0, Math.min(index, history.length - 1)),
     }),
+
+  // Focus management
+  focusedElementId: null,
+  focusElement: (id) => {
+    const state = get();
+    const element = state.elements.find((item) => item.id === id);
+    if (!element) {
+      return;
+    }
+
+    const center = getElementCenter(element);
+    const { zoom } = state;
+    let nextPan = state.pan;
+
+    if (typeof window !== "undefined") {
+      const stageWidth = window.innerWidth;
+      const stageHeight = window.innerHeight;
+      nextPan = {
+        x: stageWidth / 2 - center.x * zoom,
+        y: stageHeight / 2 - center.y * zoom,
+      };
+    }
+
+    set({
+      pan: nextPan,
+      selectedIds: [id],
+      focusedElementId: id,
+    });
+
+    if (typeof window !== "undefined") {
+      if (focusTimeout) {
+        window.clearTimeout(focusTimeout);
+      }
+      focusTimeout = window.setTimeout(() => {
+        set({ focusedElementId: null });
+        focusTimeout = undefined;
+      }, 1800);
+    }
+  },
 }));

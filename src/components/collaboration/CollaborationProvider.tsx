@@ -64,12 +64,14 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
     setElementsFromDoc,
     setUploadedFilesFromDoc,
     setHistoryFromDoc,
+    setCurrentUser,
   } = useWhiteboardStore((state) => ({
     setUsers: state.setUsers,
     setCollaboration: state.setCollaboration,
     setElementsFromDoc: state.setElementsFromDoc,
     setUploadedFilesFromDoc: state.setUploadedFilesFromDoc,
     setHistoryFromDoc: state.setHistoryFromDoc,
+    setCurrentUser: state.setCurrentUser,
   }));
   const activeTool = useWhiteboardStore((state) => state.activeTool);
   const strokeColor = useWhiteboardStore((state) => state.strokeColor);
@@ -154,6 +156,15 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
     };
 
     setLocalState();
+    setCurrentUser(
+      buildRemoteUser({
+        id: userIdRef.current,
+        name: userNameRef.current,
+        color: userColorRef.current,
+        cursorX: 0,
+        cursorY: 0,
+      }),
+    );
 
     const cleanupTimers = removalTimersRef.current;
     const remoteUsers = remoteUsersRef.current;
@@ -238,15 +249,27 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
         return;
       }
       pendingCursorRef.current = null;
+      const nextUserState = {
+        ...currentState.user,
+        cursorX: coords.x,
+        cursorY: coords.y,
+        cursor: { x: coords.x, y: coords.y },
+        lastUpdated: Date.now(),
+      };
       awareness.setLocalState({
-        user: {
-          ...currentState.user,
-          cursorX: coords.x,
-          cursorY: coords.y,
-          cursor: { x: coords.x, y: coords.y },
-          lastUpdated: Date.now(),
-        },
+        user: nextUserState,
       });
+      setCurrentUser(
+        buildRemoteUser({
+          id: nextUserState.id,
+          name: nextUserState.name,
+          color: nextUserState.color,
+          cursorX: nextUserState.cursorX,
+          cursorY: nextUserState.cursorY,
+          tool: nextUserState.tool as Tool | undefined,
+          strokeColor: nextUserState.strokeColor,
+        }),
+      );
       lastCursorUpdateRef.current = performance.now();
     };
 
@@ -288,6 +311,7 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       setUploadedFilesFromDoc([]);
       setHistoryFromDoc([[]], 0);
       setCollaboration(null);
+      setCurrentUser(null);
       providerRef.current = undefined;
       ydocRef.current = undefined;
       previousRoomIdRef.current = undefined;
@@ -295,7 +319,15 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       provider.destroy();
       ydoc.destroy();
     };
-  }, [roomId, setCollaboration, setElementsFromDoc, setUploadedFilesFromDoc, setHistoryFromDoc, setUsers]);
+  }, [
+    roomId,
+    setCollaboration,
+    setElementsFromDoc,
+    setUploadedFilesFromDoc,
+    setHistoryFromDoc,
+    setUsers,
+    setCurrentUser,
+  ]);
 
   useEffect(() => {
     const provider = providerRef.current;
@@ -308,14 +340,19 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       return;
     }
 
+    const updatedUser = {
+      ...currentState.user,
+      tool: activeTool,
+      strokeColor,
+    };
     awareness.setLocalState({
-      user: {
-        ...currentState.user,
-        tool: activeTool,
-        strokeColor,
-      },
+      user: updatedUser,
     });
-  }, [activeTool, strokeColor]);
+    const existing = useWhiteboardStore.getState().currentUser;
+    if (existing) {
+      setCurrentUser({ ...existing, tool: activeTool, strokeColor });
+    }
+  }, [activeTool, setCurrentUser, strokeColor]);
 
   return <>{children}</>;
 };

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useWhiteboardStore, Tool } from "@/lib/store/useWhiteboardStore";
+import { generateFilePreview } from "@/lib/files/preview";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -78,6 +79,7 @@ export const TopToolbar = () => {
     strokeStyle,
     fillColor,
     opacity,
+    currentUser,
   } = useWhiteboardStore();
   const { toast } = useToast();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -88,35 +90,40 @@ export const TopToolbar = () => {
   );
 
   const processFile = useCallback(
-    (file: File) =>
-      new Promise<void>((resolve) => {
-        if (typeof window === "undefined") {
-          resolve();
-          return;
-        }
+    async (file: File) => {
+      if (typeof window === "undefined") {
+        return;
+      }
 
-        const fileId = nanoid();
-        const fileUrl = URL.createObjectURL(file);
+      const fileId = nanoid();
+      const fileUrl = URL.createObjectURL(file);
+      const thumbnailUrl =
+        (await generateFilePreview(file, fileUrl)) ??
+        (file.type.startsWith("image/") ? fileUrl : undefined);
 
-        addFile({
-          id: fileId,
-          name: file.name,
-          type: file.type,
-          url: fileUrl,
-        });
+      addFile({
+        id: fileId,
+        name: file.name,
+        type: file.type,
+        url: fileUrl,
+        ownerId: currentUser?.id ?? "local-user",
+        ownerName: currentUser?.name ?? "You",
+        thumbnailUrl,
+      });
 
-        const baseElement = {
-          id: fileId,
-          x: 240,
-          y: 160,
-          strokeColor,
-          strokeWidth,
-          strokeStyle,
-          fillColor,
-          opacity,
-        };
+      const baseElement = {
+        id: fileId,
+        x: 240,
+        y: 160,
+        strokeColor,
+        strokeWidth,
+        strokeStyle,
+        fillColor,
+        opacity,
+      };
 
-        if (file.type.startsWith("image/")) {
+      if (file.type.startsWith("image/")) {
+        await new Promise<void>((resolve) => {
           const image = new window.Image();
           image.onload = () => {
             addElement({
@@ -129,22 +136,53 @@ export const TopToolbar = () => {
             });
             resolve();
           };
+          image.onerror = () => resolve();
           image.src = fileUrl;
-        } else if (file.type === "application/pdf") {
-          addElement({
-            ...baseElement,
-            type: "file",
-            width: 220,
-            height: 280,
-            fileUrl,
-            fileName: file.name,
-          });
-          resolve();
-        } else {
-          resolve();
-        }
-      }),
-    [addElement, addFile, fillColor, opacity, strokeColor, strokeStyle, strokeWidth]
+        });
+        return;
+      }
+
+      if (file.type === "application/pdf") {
+        addElement({
+          ...baseElement,
+          type: "file",
+          width: 220,
+          height: 280,
+          fileUrl,
+          fileName: file.name,
+        });
+        return;
+      }
+
+      if (file.type === "text/plain") {
+        await new Promise<void>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (evt) => {
+            const text = evt.target?.result as string;
+            addElement({
+              ...baseElement,
+              type: "text",
+              text: text.slice(0, 200),
+              fileName: file.name,
+            });
+            resolve();
+          };
+          reader.onerror = () => resolve();
+          reader.readAsText(file);
+        });
+      }
+    },
+    [
+      addElement,
+      addFile,
+      currentUser?.id,
+      currentUser?.name,
+      fillColor,
+      opacity,
+      strokeColor,
+      strokeStyle,
+      strokeWidth,
+    ]
   );
 
   const handleFileSelection = useCallback(
