@@ -1,3 +1,5 @@
+"use client";
+
 import { Circle, Text, Group } from "react-konva";
 import { User } from "@/lib/store/useWhiteboardStore";
 
