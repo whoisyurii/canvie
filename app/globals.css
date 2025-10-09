@@ -1,64 +1,108 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@plugin "tailwindcss-animate";
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+@source "./app/**/*.{js,ts,jsx,tsx,mdx}";
+@source "./components/**/*.{js,ts,jsx,tsx,mdx}";
+@source "./lib/**/*.{js,ts,jsx,tsx,mdx}";
+@source "./src/**/*.{js,ts,jsx,tsx,mdx}";
 
-@layer base {
-  :root {
-    /* Whiteboard color scheme */
-    --bg-board: 42 44% 91%;
-    --bg-sidebar: 60 3% 27%;
-    --bg-topbar: 60 3% 27%;
-    --color-accent: 60 14% 37%;
-    --color-text: 0 0% 95%;
-    --color-highlight: 24 34% 60%;
-    
-    /* Standard tokens */
-    --background: 42 44% 91%;
-    --foreground: 60 3% 27%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 60 3% 27%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 60 3% 27%;
-
-    --primary: 60 3% 27%;
-    --primary-foreground: 0 0% 95%;
-
-    --secondary: 60 14% 37%;
-    --secondary-foreground: 0 0% 95%;
-
-    --muted: 60 14% 90%;
-    --muted-foreground: 60 3% 50%;
-
-    --accent: 24 34% 60%;
-    --accent-foreground: 0 0% 95%;
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 60 14% 85%;
-    --input: 60 14% 85%;
-    --ring: 24 34% 60%;
-
-    --radius: 0.75rem;
-
-    --sidebar-background: 60 3% 27%;
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 24 34% 60%;
-    --sidebar-primary-foreground: 0 0% 95%;
-    --sidebar-accent: 60 14% 37%;
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 60 3% 35%;
-    --sidebar-ring: 24 34% 60%;
-  }
+@theme {
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-sidebar: hsl(var(--sidebar-background));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
 }
 
 @layer base {
+  :root {
+    /* Convex palette */
+    --convex-sand-1: 0 0% 100%;
+    --convex-sand-2: 42 44% 91%;
+    --convex-sand-3: 60 14% 90%;
+    --convex-sand-4: 60 14% 85%;
+    --convex-stone-8: 60 3% 35%;
+    --convex-stone-9: 60 3% 50%;
+    --convex-stone-11: 60 3% 27%;
+    --convex-stone-12: 0 0% 95%;
+    --convex-amber-8: 24 34% 60%;
+    --convex-amber-9: 60 14% 37%;
+    --convex-crimson-9: 0 84% 60%;
+    --convex-crimson-1: 0 0% 98%;
+
+    /* Whiteboard semantic tokens */
+    --bg-board: var(--convex-sand-2);
+    --bg-sidebar: var(--convex-stone-11);
+    --bg-topbar: var(--convex-stone-11);
+    --color-accent: var(--convex-amber-9);
+    --color-text: var(--convex-stone-12);
+    --color-highlight: var(--convex-amber-8);
+
+    --background: var(--convex-sand-2);
+    --foreground: var(--convex-stone-11);
+
+    --card: var(--convex-sand-1);
+    --card-foreground: var(--convex-stone-11);
+
+    --popover: var(--convex-sand-1);
+    --popover-foreground: var(--convex-stone-11);
+
+    --primary: var(--convex-stone-11);
+    --primary-foreground: var(--convex-stone-12);
+
+    --secondary: var(--convex-amber-9);
+    --secondary-foreground: var(--convex-stone-12);
+
+    --muted: var(--convex-sand-3);
+    --muted-foreground: var(--convex-stone-9);
+
+    --accent: var(--convex-amber-8);
+    --accent-foreground: var(--convex-stone-12);
+
+    --destructive: var(--convex-crimson-9);
+    --destructive-foreground: var(--convex-crimson-1);
+
+    --border: var(--convex-sand-4);
+    --input: var(--convex-sand-4);
+    --ring: var(--convex-amber-8);
+
+    --radius: 0.75rem;
+
+    --sidebar-background: var(--convex-stone-11);
+    --sidebar-foreground: var(--convex-stone-12);
+    --sidebar-primary: var(--convex-amber-8);
+    --sidebar-primary-foreground: var(--convex-stone-12);
+    --sidebar-accent: var(--convex-amber-9);
+    --sidebar-accent-foreground: var(--convex-stone-12);
+    --sidebar-border: var(--convex-stone-8);
+    --sidebar-ring: var(--convex-amber-8);
+  }
+
   * {
     @apply border-border;
   }
@@ -68,21 +112,49 @@ All colors MUST be HSL.
   }
 }
 
+@keyframes accordion-down {
+  from {
+    height: 0;
+  }
+
+  to {
+    height: var(--radix-accordion-content-height);
+  }
+}
+
+@keyframes accordion-up {
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+
+  to {
+    height: 0;
+  }
+}
+
 @layer utilities {
   .dotted-grid {
     background-image: radial-gradient(circle, hsl(var(--foreground) / 0.15) 1px, transparent 1px);
     background-size: 20px 20px;
   }
-  
+
   .floating-panel {
     @apply bg-sidebar text-sidebar-foreground rounded-xl shadow-lg border border-sidebar-border;
   }
-  
+
   .tool-button {
     @apply h-10 w-10 flex items-center justify-center rounded-lg transition-all hover:bg-sidebar-accent hover:text-accent-foreground;
   }
-  
+
   .tool-button-active {
     @apply bg-accent text-accent-foreground;
+  }
+
+  .animate-accordion-down {
+    animation: accordion-down 0.2s ease-out;
+  }
+
+  .animate-accordion-up {
+    animation: accordion-up 0.2s ease-out;
   }
 }
