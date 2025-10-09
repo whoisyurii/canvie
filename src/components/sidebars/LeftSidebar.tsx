@@ -57,7 +57,10 @@ export const LeftSidebar = () => {
   const hasSelection = selectedIds.length > 0;
 
   return (
-    <div className="floating-panel flex h-[420px] w-[320px] flex-col">
+    <div
+      className="floating-panel flex w-[320px] flex-col"
+      style={{ height: "min(720px, calc(100vh - 5rem))" }}
+    >
       <div className="border-b border-sidebar-border px-4 py-3">
         <h3 className="text-sm font-semibold text-sidebar-foreground">Tool Settings</h3>
         <p className="text-xs text-muted-foreground">

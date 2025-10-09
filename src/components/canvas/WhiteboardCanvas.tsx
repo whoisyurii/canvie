@@ -1,6 +1,14 @@
 "use client";
 
-import { useRef, useState, useEffect, useMemo } from "react";
+import {
+  useRef,
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  type MouseEvent as ReactMouseEvent,
+  type TouchEvent as ReactTouchEvent,
+} from "react";
 import { Stage, Layer, Rect, Circle, Line, Text as KonvaText, Arrow, Image as KonvaImage, Group } from "react-konva";
 import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
 import type { CanvasElement } from "@/lib/store/useWhiteboardStore";
@@ -94,6 +102,33 @@ const duplicateElement = (element: CanvasElement): CanvasElement => ({
   points: element.points ? [...element.points] : undefined,
   selected: false,
 });
+
+type EditingTextState = {
+  id: string;
+  x: number;
+  y: number;
+  value: string;
+  initialValue: string;
+  width: number;
+};
+
+const TEXT_MIN_WIDTH = 180;
+const TEXT_MAX_WIDTH = 360;
+const TEXT_MIN_HEIGHT = 120;
+const LINE_HEIGHT = 28;
+
+const estimateTextBoxWidth = (text?: string) => {
+  const lines = (text ?? "").split(/\r?\n/);
+  const longestLineLength = lines.reduce((max, line) => Math.max(max, line.length), 0);
+  const widthFromContent = Math.max(TEXT_MIN_WIDTH, longestLineLength * 12);
+  return Math.min(TEXT_MAX_WIDTH, widthFromContent || TEXT_MIN_WIDTH);
+};
+
+const estimateTextBoxHeight = (text?: string) => {
+  const lineCount = (text ?? "").split(/\r?\n/).length;
+  const heightFromContent = Math.max(TEXT_MIN_HEIGHT, lineCount * LINE_HEIGHT);
+  return heightFromContent;
+};
 
 const ImageElement = ({
   element,
@@ -216,20 +251,29 @@ const FileElement = ({
 };
 
 export const WhiteboardCanvas = () => {
+  const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
+  const textEditorRef = useRef<HTMLTextAreaElement>(null);
+  const editingTextRef = useRef<EditingTextState | null>(null);
+  const miniMapDragRef = useRef(false);
+  const skipNextPointerRef = useRef(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentShape, setCurrentShape] = useState<any>(null);
   const [isPanning, setIsPanning] = useState(false);
   const [stageSize, setStageSize] = useState(() => ({
-    width: typeof window !== "undefined" ? window.innerWidth : 0,
-    height: typeof window !== "undefined" ? window.innerHeight : 0,
+    width: 0,
+    height: 0,
   }));
+  const [editingText, setEditingText] = useState<EditingTextState | null>(null);
+  const [isMiniMapInteracting, setIsMiniMapInteracting] = useState(false);
   const { handleDrop, handleDragOver } = useDragDrop();
 
   const {
     activeTool,
     elements,
     addElement,
+    updateElement,
+    deleteElement,
     strokeColor,
     strokeWidth,
     strokeStyle,
@@ -240,6 +284,7 @@ export const WhiteboardCanvas = () => {
     pan,
     zoom,
     setPan,
+    setSelectedIds,
     users,
     focusedElementId,
   } = useWhiteboardStore();
@@ -248,19 +293,222 @@ export const WhiteboardCanvas = () => {
   const panY = pan.y;
   const safeZoom = zoom || 1;
 
+  const getCanvasPointerPosition = useCallback(() => {
+    const stage = stageRef.current;
+    if (!stage) return null;
+    const pos = stage.getPointerPosition();
+    if (!pos) return null;
+    return {
+      x: (pos.x - panX) / safeZoom,
+      y: (pos.y - panY) / safeZoom,
+    };
+  }, [panX, safeZoom, panY]);
+
+  const beginTextEditing = useCallback(
+    (element: CanvasElement, options?: { value?: string; width?: number }) => {
+      const initialValue = element.text ?? "";
+      const value = options?.value ?? initialValue;
+      const width = options?.width ?? estimateTextBoxWidth(value || initialValue);
+      const editingState: EditingTextState = {
+        id: element.id,
+        x: element.x,
+        y: element.y,
+        value,
+        initialValue,
+        width,
+      };
+      setSelectedIds([element.id]);
+      setEditingText(editingState);
+    },
+    [setSelectedIds],
+  );
+
+  const finishEditingText = useCallback(
+    (options?: { cancel?: boolean; skipNextPointer?: boolean }) => {
+      const current = editingTextRef.current;
+      if (!current) {
+        return;
+      }
+
+      editingTextRef.current = null;
+      setEditingText(null);
+
+      if (options?.skipNextPointer) {
+        skipNextPointerRef.current = true;
+      }
+
+      if (options?.cancel) {
+        if (current.initialValue) {
+          updateElement(current.id, { text: current.initialValue });
+        } else {
+          deleteElement(current.id);
+        }
+        return;
+      }
+
+      const trimmed = current.value.trim();
+      if (!trimmed) {
+        deleteElement(current.id);
+        return;
+      }
+
+      updateElement(current.id, { text: trimmed });
+    },
+    [deleteElement, updateElement],
+  );
+
+  const cancelIfEditing = useCallback(() => {
+    if (editingTextRef.current) {
+      finishEditingText();
+      return true;
+    }
+    return false;
+  }, [finishEditingText]);
+
+  const handleStageDoublePointer = useCallback(
+    (event: KonvaEventObject<Event>) => {
+      const stage = stageRef.current;
+      if (!stage) return;
+
+      const target = event.target;
+      if (target && target !== stage) {
+        const targetId = target.id();
+        if (!targetId) return;
+        const element = elements.find((item) => item.id === targetId);
+        if (element?.type === "text") {
+          event.evt.preventDefault();
+          beginTextEditing(element);
+        }
+      }
+    },
+    [beginTextEditing, elements],
+  );
+
+  const getMiniMapCoordinates = useCallback(
+    (event: ReactMouseEvent<SVGSVGElement> | ReactTouchEvent<SVGSVGElement>) => {
+      const rect = event.currentTarget.getBoundingClientRect();
+      if ("touches" in event) {
+        const touch = event.touches[0];
+        if (!touch) return null;
+        return {
+          x: touch.clientX - rect.left,
+          y: touch.clientY - rect.top,
+        };
+      }
+      return {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+      };
+    },
+    [],
+  );
+
+  const panToMiniMapPoint = useCallback(
+    (pointX: number, pointY: number) => {
+      if (!miniMapData) return;
+
+      const worldX = pointX / miniMapData.scale + miniMapData.offsetX;
+      const worldY = pointY / miniMapData.scale + miniMapData.offsetY;
+
+      const viewportWidth = stageSize.width / safeZoom;
+      const viewportHeight = stageSize.height / safeZoom;
+
+      const nextPanX = -(worldX - viewportWidth / 2) * safeZoom;
+      const nextPanY = -(worldY - viewportHeight / 2) * safeZoom;
+
+      setPan({
+        x: Number.isFinite(nextPanX) ? nextPanX : panX,
+        y: Number.isFinite(nextPanY) ? nextPanY : panY,
+      });
+    },
+    [miniMapData, panX, panY, safeZoom, setPan, stageSize.height, stageSize.width],
+  );
+
+  const updatePanFromMiniMap = useCallback(
+    (event: ReactMouseEvent<SVGSVGElement> | ReactTouchEvent<SVGSVGElement>) => {
+      const coords = getMiniMapCoordinates(event);
+      if (!coords) return;
+      panToMiniMapPoint(coords.x, coords.y);
+    },
+    [getMiniMapCoordinates, panToMiniMapPoint],
+  );
+
+  const handleMiniMapPointerDown = useCallback(
+    (event: ReactMouseEvent<SVGSVGElement> | ReactTouchEvent<SVGSVGElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      miniMapDragRef.current = true;
+      setIsMiniMapInteracting(true);
+      updatePanFromMiniMap(event);
+    },
+    [updatePanFromMiniMap],
+  );
+
+  const handleMiniMapPointerMove = useCallback(
+    (event: ReactMouseEvent<SVGSVGElement> | ReactTouchEvent<SVGSVGElement>) => {
+      if (!miniMapDragRef.current) return;
+      event.preventDefault();
+      updatePanFromMiniMap(event);
+    },
+    [updatePanFromMiniMap],
+  );
+
+  const endMiniMapInteraction = useCallback(() => {
+    miniMapDragRef.current = false;
+    setIsMiniMapInteracting(false);
+  }, []);
+
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
 
-    const updateStageSize = () => {
-      setStageSize({ width: window.innerWidth, height: window.innerHeight });
-    };
+    const element = containerRef.current;
+    if (!element) {
+      return;
+    }
 
-    updateStageSize();
-    window.addEventListener("resize", updateStageSize);
-    return () => window.removeEventListener("resize", updateStageSize);
+    if (typeof window.ResizeObserver === "undefined") {
+      const rect = element.getBoundingClientRect();
+      setStageSize({ width: rect.width, height: rect.height });
+      return;
+    }
+
+    const observer = new window.ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const { width, height } = entry.contentRect;
+      setStageSize({ width, height });
+    });
+
+    const rect = element.getBoundingClientRect();
+    setStageSize({ width: rect.width, height: rect.height });
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+    };
   }, []);
+
+  useEffect(() => {
+    editingTextRef.current = editingText;
+  }, [editingText]);
+
+  useEffect(() => {
+    if (!editingText) {
+      return;
+    }
+
+    const textarea = textEditorRef.current;
+    if (!textarea) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    });
+  }, [editingText]);
 
   const miniMapData = useMemo(() => {
     if (stageSize.width === 0 || stageSize.height === 0) {
@@ -369,6 +617,17 @@ export const WhiteboardCanvas = () => {
     const stage = stageRef.current;
     if (!stage) return;
 
+    if (skipNextPointerRef.current) {
+      skipNextPointerRef.current = false;
+      e.evt.preventDefault();
+      return;
+    }
+
+    if (cancelIfEditing()) {
+      e.evt.preventDefault();
+      return;
+    }
+
     if (e.evt.altKey && activeTool === "select") {
       const target = e.target;
       if (target && target !== stage) {
@@ -387,15 +646,49 @@ export const WhiteboardCanvas = () => {
       }
     }
 
+    if (activeTool === "text") {
+      const target = e.target;
+      if (target && target !== stage) {
+        const targetId = target.id();
+        if (targetId) {
+          const element = elements.find((item) => item.id === targetId);
+          if (element?.type === "text") {
+            e.evt.preventDefault();
+            beginTextEditing(element);
+            return;
+          }
+        }
+      }
+
+      const pointer = getCanvasPointerPosition();
+      if (!pointer) return;
+
+      const newText: CanvasElement = {
+        id: nanoid(),
+        type: "text",
+        x: pointer.x,
+        y: pointer.y,
+        text: "",
+        strokeColor,
+        fillColor,
+        strokeWidth,
+        strokeStyle,
+        opacity,
+        sloppiness,
+      };
+      addElement(newText);
+      beginTextEditing(newText, { width: estimateTextBoxWidth("") });
+      return;
+    }
+
     if (activeTool === "select" || activeTool === "pan") {
       return;
     }
 
-    const pos = stage.getPointerPosition();
-    if (!pos) return;
+    const pointer = getCanvasPointerPosition();
+    if (!pointer) return;
 
-    const x = (pos.x - panX) / zoom;
-    const y = (pos.y - panY) / zoom;
+    const { x, y } = pointer;
 
     setIsDrawing(true);
 
@@ -546,13 +839,62 @@ export const WhiteboardCanvas = () => {
     }
   };
 
+  const editorHeight = editingText ? estimateTextBoxHeight(editingText.value) : 0;
+  const editorStyle = editingText
+    ? {
+        left: panX + editingText.x * safeZoom,
+        top: panY + editingText.y * safeZoom,
+        width: editingText.width * safeZoom,
+        height: editorHeight * safeZoom,
+        fontSize: 20 * safeZoom,
+        padding: `${12 * safeZoom}px`,
+        borderRadius: `${12 * safeZoom}px`,
+      }
+    : undefined;
+
   return (
     <div
+      ref={containerRef}
       className="absolute inset-0 dotted-grid"
       style={{ backgroundSize, backgroundPosition }}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
     >
+      {editingText && editorStyle && (
+        <textarea
+          ref={textEditorRef}
+          className="pointer-events-auto absolute z-40 resize-none border-2 border-sky-400 bg-white/95 text-slate-800 shadow-lg outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200/80"
+          style={{
+            ...editorStyle,
+            lineHeight: `${LINE_HEIGHT * safeZoom}px`,
+          }}
+          value={editingText.value}
+          onChange={(event) => {
+            const { value } = event.target;
+            setEditingText((current) => {
+              if (!current) return current;
+              return {
+                ...current,
+                value,
+                width: estimateTextBoxWidth(value),
+              };
+            });
+          }}
+          onBlur={() => finishEditingText({ skipNextPointer: true })}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              finishEditingText({ cancel: true });
+            }
+            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+              event.preventDefault();
+              finishEditingText();
+            }
+          }}
+          spellCheck
+          placeholder="Type something"
+        />
+      )}
       <Stage
         ref={stageRef}
         width={Math.max(stageSize.width, 1)}
@@ -560,6 +902,8 @@ export const WhiteboardCanvas = () => {
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
+        onDblClick={handleStageDoublePointer}
+        onDblTap={handleStageDoublePointer}
         onWheel={handleWheel}
         draggable={activeTool === "pan"}
         scaleX={zoom}
@@ -587,6 +931,7 @@ export const WhiteboardCanvas = () => {
                     shadowOffsetY: 0,
                   }
                 : {};
+            const isEditingElement = editingText?.id === element.id;
             if (element.type === "rectangle") {
               return (
                 <Rect
@@ -679,6 +1024,9 @@ export const WhiteboardCanvas = () => {
                 />
               );
             } else if (element.type === "text") {
+              if (isEditingElement) {
+                return null;
+              }
               return (
                 <KonvaText
                   key={element.id}
@@ -783,13 +1131,35 @@ export const WhiteboardCanvas = () => {
       </Stage>
 
       {miniMapData && (
-        <div className="pointer-events-none absolute bottom-6 right-6 rounded-xl border border-slate-200/80 bg-white/80 p-3 shadow-lg backdrop-blur">
+        <div
+          className={cn(
+            "absolute bottom-6 right-6 z-30 rounded-xl border border-slate-200/80 bg-white/80 p-3 backdrop-blur transition-shadow",
+            isMiniMapInteracting ? "shadow-xl" : "shadow-lg",
+          )}
+        >
           <svg
             width={miniMapData.mapWidth}
             height={miniMapData.mapHeight}
-            className="block"
+            className={cn(
+              "block select-none",
+              isMiniMapInteracting ? "cursor-grabbing" : "cursor-pointer",
+            )}
             viewBox={`0 0 ${miniMapData.mapWidth} ${miniMapData.mapHeight}`}
             aria-hidden="true"
+            onMouseDown={handleMiniMapPointerDown}
+            onMouseMove={handleMiniMapPointerMove}
+            onMouseUp={(event) => {
+              event.preventDefault();
+              endMiniMapInteraction();
+            }}
+            onMouseLeave={endMiniMapInteraction}
+            onTouchStart={handleMiniMapPointerDown}
+            onTouchMove={handleMiniMapPointerMove}
+            onTouchEnd={(event) => {
+              event.preventDefault();
+              endMiniMapInteraction();
+            }}
+            onTouchCancel={endMiniMapInteraction}
           >
             <rect
               x={0}
