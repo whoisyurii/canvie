@@ -11,6 +11,10 @@ export const useDragDrop = () => {
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
+      if (typeof window === "undefined") {
+        return;
+      }
+
       e.preventDefault();
       const files = Array.from(e.dataTransfer.files);
 
@@ -31,7 +35,11 @@ export const useDragDrop = () => {
         });
 
         // Get drop position relative to canvas
-        const rect = (e.target as HTMLElement).getBoundingClientRect();
+        if (!(e.target instanceof HTMLElement)) {
+          return;
+        }
+
+        const rect = e.target.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
 

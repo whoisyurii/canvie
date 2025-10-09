@@ -20,9 +20,13 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
   const ydocRef = useRef<Y.Doc>();
   const providerRef = useRef<WebrtcProvider>();
   const userIdRef = useRef(nanoid());
-  const { setUsers, updateUser } = useWhiteboardStore();
+  const { setUsers } = useWhiteboardStore();
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
     // Initialize Y.js document
     const ydoc = new Y.Doc();
     ydocRef.current = ydoc;
