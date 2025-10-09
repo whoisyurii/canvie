@@ -1,14 +1,26 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Stage, Layer, Rect, Circle, Line, Text as KonvaText, Arrow, Image as KonvaImage } from "react-konva";
 import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
 import { nanoid } from "nanoid";
 import Konva from "konva";
 import { useDragDrop } from "./DragDropHandler";
-import useImage from "use-image";
 import { UserCursor } from "./UserCursor";
 
 const ImageElement = ({ element }: { element: any }) => {
-  const [image] = useImage(element.fileUrl || "");
+  const [image, setImage] = useState<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    if (!element.fileUrl) return;
+    
+    const img = new window.Image();
+    img.src = element.fileUrl;
+    img.onload = () => setImage(img);
+    
+    return () => {
+      img.onload = null;
+    };
+  }, [element.fileUrl]);
+
   return image ? (
     <KonvaImage
       image={image}
