@@ -48,7 +48,7 @@ const cursorConfigs = [
     color: "text-blue-500",
   },
   {
-    position: "top-[60%] left-1/2 -translate-x-1/2 sm:top-[54%]",
+    position: "top-[70%] left-[58%] sm:top-[60%] sm:left-[62%]",
     driftX: "20px",
     driftY: "18px",
     duration: "17s",
