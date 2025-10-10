@@ -17,13 +17,13 @@ const STROKE_COLORS = ["#1f2937", "#e03131", "#2f9e44", "#1971c2", "#f59f00", "#
 const FILL_COLORS = ["#e03131", "#2f9e44", "#1971c2", "#f59f00", "#ae3ec9", "#f4f4f5"];
 const STROKE_WIDTHS = [1, 2, 4, 8];
 
-const STROKE_TOOLS: Tool[] = ["rectangle", "ellipse", "line", "arrow", "pen", "text"];
-const FILL_TOOLS: Tool[] = ["rectangle", "ellipse"];
-const WIDTH_TOOLS: Tool[] = ["rectangle", "ellipse", "line", "arrow", "pen"];
-const STYLE_TOOLS: Tool[] = ["rectangle", "ellipse", "line", "arrow"];
-const SLOPPINESS_TOOLS: Tool[] = ["rectangle", "ellipse", "line", "arrow", "pen"];
+const STROKE_TOOLS: Tool[] = ["rectangle", "diamond", "ellipse", "line", "arrow", "pen", "text"];
+const FILL_TOOLS: Tool[] = ["rectangle", "diamond", "ellipse"];
+const WIDTH_TOOLS: Tool[] = ["rectangle", "diamond", "ellipse", "line", "arrow", "pen"];
+const STYLE_TOOLS: Tool[] = ["rectangle", "diamond", "ellipse", "line", "arrow"];
+const SLOPPINESS_TOOLS: Tool[] = ["rectangle", "diamond", "ellipse", "line", "arrow", "pen"];
 const ARROW_TOOLS: Tool[] = ["arrow"];
-const OPACITY_TOOLS: Tool[] = ["rectangle", "ellipse", "line", "arrow", "pen", "text"];
+const OPACITY_TOOLS: Tool[] = ["rectangle", "diamond", "ellipse", "line", "arrow", "pen", "text"];
 
 export const LeftSidebar = () => {
   const {

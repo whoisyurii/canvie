@@ -13,6 +13,7 @@ import {
   Eraser,
   Shapes,
   ImagePlus,
+  Diamond,
 } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useWhiteboardStore, Tool } from "@/lib/store/useWhiteboardStore";
@@ -63,6 +64,7 @@ const primaryTools: ToolbarTool[] = [
 
 const shapeTools: ToolbarTool[] = [
   { id: "rectangle", icon: Square, label: "Rectangle", hotkey: "R" },
+  { id: "diamond", icon: Diamond, label: "Diamond", hotkey: "D" },
   { id: "ellipse", icon: Circle, label: "Ellipse", hotkey: "O" },
   { id: "line", icon: Minus, label: "Line", hotkey: "L" },
   { id: "arrow", icon: ArrowRight, label: "Arrow", hotkey: "A" },

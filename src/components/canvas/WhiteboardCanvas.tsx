@@ -42,9 +42,36 @@ const normalizeRectBounds = (
   return { minX, minY, maxX, maxY };
 };
 
+const getDiamondShape = (
+  x: number,
+  y: number,
+  width = 0,
+  height = 0,
+) => {
+  const bounds = normalizeRectBounds(x, y, width, height);
+  const drawWidth = bounds.maxX - bounds.minX;
+  const drawHeight = bounds.maxY - bounds.minY;
+
+  return {
+    x: bounds.minX,
+    y: bounds.minY,
+    points: [
+      drawWidth / 2,
+      0,
+      drawWidth,
+      drawHeight / 2,
+      drawWidth / 2,
+      drawHeight,
+      0,
+      drawHeight / 2,
+    ],
+  };
+};
+
 const getElementBounds = (element: CanvasElement): Bounds => {
   switch (element.type) {
     case "rectangle":
+    case "diamond":
     case "ellipse":
     case "image":
     case "file": {
@@ -894,6 +921,11 @@ export const WhiteboardCanvas = () => {
         newElement.width = 0;
         newElement.height = 0;
         break;
+      case "diamond":
+        newElement.type = "diamond";
+        newElement.width = 0;
+        newElement.height = 0;
+        break;
       case "ellipse":
         newElement.type = "ellipse";
         newElement.width = 0;
@@ -929,7 +961,11 @@ export const WhiteboardCanvas = () => {
     const y = (pos.y - panY) / zoom;
     const shiftPressed = e.evt.shiftKey;
 
-    if (currentShape.type === "rectangle" || currentShape.type === "ellipse") {
+    if (
+      currentShape.type === "rectangle" ||
+      currentShape.type === "diamond" ||
+      currentShape.type === "ellipse"
+    ) {
       const deltaX = x - currentShape.x;
       const deltaY = y - currentShape.y;
       let width = deltaX;
@@ -1134,6 +1170,31 @@ export const WhiteboardCanvas = () => {
                   {...highlightProps}
                 />
               );
+            } else if (element.type === "diamond") {
+              const diamond = getDiamondShape(
+                element.x,
+                element.y,
+                element.width ?? 0,
+                element.height ?? 0,
+              );
+              return (
+                <Line
+                  key={element.id}
+                  id={element.id}
+                  x={diamond.x}
+                  y={diamond.y}
+                  points={diamond.points}
+                  stroke={element.strokeColor}
+                  strokeWidth={element.strokeWidth}
+                  dash={getStrokeDash(element.strokeStyle)}
+                  fill={element.fillColor}
+                  opacity={element.opacity}
+                  rotation={element.rotation}
+                  closed
+                  lineJoin="round"
+                  {...highlightProps}
+                />
+              );
             } else if (element.type === "ellipse") {
               return (
                 <Circle
@@ -1249,6 +1310,30 @@ export const WhiteboardCanvas = () => {
                   fill={currentShape.fillColor}
                   opacity={currentShape.opacity * 0.7}
                 />
+              )}
+              {currentShape.type === "diamond" && (
+                (() => {
+                  const diamond = getDiamondShape(
+                    currentShape.x,
+                    currentShape.y,
+                    currentShape.width ?? 0,
+                    currentShape.height ?? 0,
+                  );
+                  return (
+                    <Line
+                      x={diamond.x}
+                      y={diamond.y}
+                      points={diamond.points}
+                      stroke={currentShape.strokeColor}
+                      strokeWidth={currentShape.strokeWidth}
+                      dash={getStrokeDash(currentShape.strokeStyle)}
+                      fill={currentShape.fillColor}
+                      opacity={currentShape.opacity * 0.7}
+                      closed
+                      lineJoin="round"
+                    />
+                  );
+                })()
               )}
               {currentShape.type === "ellipse" && (
                 <Circle
