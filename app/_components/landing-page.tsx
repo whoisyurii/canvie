@@ -3,14 +3,7 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { nanoid } from "nanoid";
-import {
-  Layers,
-  MousePointer2,
-  Pencil,
-  Sparkles,
-  Users,
-  Wand2,
-} from "lucide-react";
+import { Layers, MousePointer2, Sparkles, Users, Wand2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,35 +33,27 @@ const nouns = [
 const cursorConfigs = [
   {
     position: "top-10 left-10",
-    driftX: "18px",
-    driftY: "-12px",
+    driftX: "16px",
+    driftY: "-10px",
     duration: "14s",
     delay: "0s",
-    color: "text-primary",
+    color: "text-destructive",
   },
   {
     position: "top-16 right-12",
-    driftX: "-20px",
-    driftY: "16px",
+    driftX: "-18px",
+    driftY: "14px",
     duration: "16s",
     delay: "-3s",
-    color: "text-secondary",
+    color: "text-blue-500",
   },
   {
-    position: "bottom-14 left-12",
-    driftX: "22px",
-    driftY: "20px",
-    duration: "18s",
+    position: "top-[58%] left-1/2 -translate-x-1/2 sm:top-[52%]",
+    driftX: "20px",
+    driftY: "18px",
+    duration: "17s",
     delay: "-6s",
-    color: "text-accent",
-  },
-  {
-    position: "bottom-10 right-10",
-    driftX: "-16px",
-    driftY: "-18px",
-    duration: "15s",
-    delay: "-9s",
-    color: "text-muted-foreground",
+    color: "text-green-500",
   },
 ];
 
@@ -230,8 +215,8 @@ function AnimatedCursor({
       <span className="rounded-full bg-card/80 px-3 py-1 text-xs font-medium text-muted-foreground shadow">
         {name}
       </span>
-      <div className="rounded-lg bg-card/90 p-3 shadow-lg ring-1 ring-border/40 backdrop-blur">
-        <MousePointer2 className={`h-6 w-6 ${color}`} aria-hidden />
+      <div className="rounded-lg bg-card/90 p-2.5 shadow-lg ring-1 ring-border/40 backdrop-blur">
+        <MousePointer2 className={`h-5 w-5 ${color}`} aria-hidden />
       </div>
     </div>
   );
