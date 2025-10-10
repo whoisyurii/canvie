@@ -5,6 +5,7 @@ export type Tool =
   | "select"
   | "pan"
   | "rectangle"
+  | "diamond"
   | "ellipse"
   | "arrow"
   | "line"
@@ -18,7 +19,16 @@ export type ArrowType = "line" | "arrow-start" | "arrow-end" | "arrow-both";
 
 export interface CanvasElement {
   id: string;
-  type: "rectangle" | "ellipse" | "arrow" | "line" | "text" | "pen" | "image" | "file";
+  type:
+    | "rectangle"
+    | "diamond"
+    | "ellipse"
+    | "arrow"
+    | "line"
+    | "text"
+    | "pen"
+    | "image"
+    | "file";
   x: number;
   y: number;
   width?: number;
@@ -63,7 +73,13 @@ export type SharedFile = {
 };
 
 const getElementCenter = (element: CanvasElement) => {
-  if (element.type === "rectangle" || element.type === "ellipse" || element.type === "image" || element.type === "file") {
+  if (
+    element.type === "rectangle" ||
+    element.type === "diamond" ||
+    element.type === "ellipse" ||
+    element.type === "image" ||
+    element.type === "file"
+  ) {
     const width = element.width ?? 0;
     const height = element.height ?? 0;
     return {
