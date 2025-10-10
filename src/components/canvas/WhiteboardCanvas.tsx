@@ -9,6 +9,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type TouchEvent as ReactTouchEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import { Stage, Layer, Rect, Circle, Line, Text as KonvaText, Arrow, Image as KonvaImage, Group } from "react-konva";
 import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
 import type { CanvasElement } from "@/lib/store/useWhiteboardStore";
@@ -266,7 +267,36 @@ export const WhiteboardCanvas = () => {
   }));
   const [editingText, setEditingText] = useState<EditingTextState | null>(null);
   const [isMiniMapInteracting, setIsMiniMapInteracting] = useState(false);
+  const [miniMapContainer, setMiniMapContainer] = useState<HTMLElement | null>(null);
   const { handleDrop, handleDragOver } = useDragDrop();
+
+  useEffect(() => {
+    const updateContainer = () => {
+      if (typeof document === "undefined") return;
+      const node = document.getElementById("right-sidebar-minimap");
+      setMiniMapContainer((current) => (current === node ? current : node));
+    };
+
+    updateContainer();
+
+    if (typeof MutationObserver === "undefined") {
+      return;
+    }
+
+    const sidebarRoot = document.getElementById("right-sidebar-root");
+    const observerTarget = sidebarRoot ?? document.body;
+
+    if (!observerTarget) {
+      return;
+    }
+
+    const observer = new MutationObserver(updateContainer);
+    observer.observe(observerTarget, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   const {
     activeTool,
@@ -632,6 +662,96 @@ export const WhiteboardCanvas = () => {
       : activeTool === "select"
         ? "cursor-default"
         : "cursor-crosshair";
+
+  const miniMapContent = miniMapData ? (
+    <div
+      className={cn(
+        "pointer-events-auto w-full rounded-xl border border-slate-200/80 bg-white/80 p-3 backdrop-blur transition-shadow",
+        isMiniMapInteracting ? "shadow-xl ring-1 ring-sky-200/70" : "shadow-lg",
+      )}
+    >
+      <svg
+        width={miniMapData.mapWidth}
+        height={miniMapData.mapHeight}
+        className={cn(
+          "block h-auto w-full max-h-[200px] select-none sm:max-h-[240px]",
+          isMiniMapInteracting ? "cursor-grabbing" : "cursor-pointer",
+        )}
+        viewBox={`0 0 ${miniMapData.mapWidth} ${miniMapData.mapHeight}`}
+        aria-hidden="true"
+        onMouseDown={handleMiniMapPointerDown}
+        onMouseMove={handleMiniMapPointerMove}
+        onMouseUp={(event) => {
+          event.preventDefault();
+          endMiniMapInteraction();
+        }}
+        onMouseLeave={endMiniMapInteraction}
+        onTouchStart={handleMiniMapPointerDown}
+        onTouchMove={handleMiniMapPointerMove}
+        onTouchEnd={(event) => {
+          event.preventDefault();
+          endMiniMapInteraction();
+        }}
+        onTouchCancel={endMiniMapInteraction}
+      >
+        <rect
+          x={0}
+          y={0}
+          width={miniMapData.mapWidth}
+          height={miniMapData.mapHeight}
+          fill="#f8fafc"
+          stroke="rgba(148, 163, 184, 0.45)"
+          strokeWidth={1}
+          rx={12}
+          ry={12}
+        />
+        {elements.map((element) => {
+          const bounds = getElementBounds(element);
+          const x = (bounds.minX - miniMapData.offsetX) * miniMapData.scale;
+          const y = (bounds.minY - miniMapData.offsetY) * miniMapData.scale;
+          const width = Math.max(2, (bounds.maxX - bounds.minX) * miniMapData.scale);
+          const height = Math.max(2, (bounds.maxY - bounds.minY) * miniMapData.scale);
+
+          return (
+            <rect
+              key={`mini-${element.id}`}
+              x={x}
+              y={y}
+              width={width}
+              height={height}
+              fill="rgba(148, 163, 184, 0.35)"
+              stroke="rgba(148, 163, 184, 0.55)"
+              strokeWidth={1}
+              rx={width < 6 ? 1.5 : 3}
+              ry={height < 6 ? 1.5 : 3}
+            />
+          );
+        })}
+        {(() => {
+          const viewportX =
+            (miniMapData.viewport.minX - miniMapData.offsetX) * miniMapData.scale;
+          const viewportY =
+            (miniMapData.viewport.minY - miniMapData.offsetY) * miniMapData.scale;
+          const viewportWidth = Math.max(4, miniMapData.viewport.width * miniMapData.scale);
+          const viewportHeight = Math.max(4, miniMapData.viewport.height * miniMapData.scale);
+
+          return (
+            <rect
+              x={viewportX}
+              y={viewportY}
+              width={viewportWidth}
+              height={viewportHeight}
+              fill="rgba(14, 165, 233, 0.1)"
+              stroke="#0284c7"
+              strokeWidth={1.5}
+              rx={6}
+              ry={6}
+            />
+          );
+        })()}
+      </svg>
+    </div>
+  ) : null;
 
   const handleMouseDown = (e: KonvaEventObject<MouseEvent>) => {
     const stage = stageRef.current;
@@ -1150,95 +1270,14 @@ export const WhiteboardCanvas = () => {
         </Layer>
       </Stage>
 
-      {miniMapData && (
-        <div
-          className={cn(
-            "absolute bottom-6 right-6 z-30 rounded-xl border border-slate-200/80 bg-white/80 p-3 backdrop-blur transition-shadow",
-            isMiniMapInteracting ? "shadow-xl" : "shadow-lg",
-          )}
-        >
-          <svg
-            width={miniMapData.mapWidth}
-            height={miniMapData.mapHeight}
-            className={cn(
-              "block select-none",
-              isMiniMapInteracting ? "cursor-grabbing" : "cursor-pointer",
-            )}
-            viewBox={`0 0 ${miniMapData.mapWidth} ${miniMapData.mapHeight}`}
-            aria-hidden="true"
-            onMouseDown={handleMiniMapPointerDown}
-            onMouseMove={handleMiniMapPointerMove}
-            onMouseUp={(event) => {
-              event.preventDefault();
-              endMiniMapInteraction();
-            }}
-            onMouseLeave={endMiniMapInteraction}
-            onTouchStart={handleMiniMapPointerDown}
-            onTouchMove={handleMiniMapPointerMove}
-            onTouchEnd={(event) => {
-              event.preventDefault();
-              endMiniMapInteraction();
-            }}
-            onTouchCancel={endMiniMapInteraction}
-          >
-            <rect
-              x={0}
-              y={0}
-              width={miniMapData.mapWidth}
-              height={miniMapData.mapHeight}
-              fill="#f8fafc"
-              stroke="rgba(148, 163, 184, 0.45)"
-              strokeWidth={1}
-              rx={12}
-              ry={12}
-            />
-            {elements.map((element) => {
-              const bounds = getElementBounds(element);
-              const x = (bounds.minX - miniMapData.offsetX) * miniMapData.scale;
-              const y = (bounds.minY - miniMapData.offsetY) * miniMapData.scale;
-              const width = Math.max(2, (bounds.maxX - bounds.minX) * miniMapData.scale);
-              const height = Math.max(2, (bounds.maxY - bounds.minY) * miniMapData.scale);
-
-              return (
-                <rect
-                  key={`mini-${element.id}`}
-                  x={x}
-                  y={y}
-                  width={width}
-                  height={height}
-                  fill="rgba(148, 163, 184, 0.35)"
-                  stroke="rgba(148, 163, 184, 0.55)"
-                  strokeWidth={1}
-                  rx={width < 6 ? 1.5 : 3}
-                  ry={height < 6 ? 1.5 : 3}
-                />
-              );
-            })}
-            {(() => {
-              const viewportX =
-                (miniMapData.viewport.minX - miniMapData.offsetX) * miniMapData.scale;
-              const viewportY =
-                (miniMapData.viewport.minY - miniMapData.offsetY) * miniMapData.scale;
-              const viewportWidth = Math.max(4, miniMapData.viewport.width * miniMapData.scale);
-              const viewportHeight = Math.max(4, miniMapData.viewport.height * miniMapData.scale);
-
-              return (
-                <rect
-                  x={viewportX}
-                  y={viewportY}
-                  width={viewportWidth}
-                  height={viewportHeight}
-                  fill="rgba(14, 165, 233, 0.1)"
-                  stroke="#0284c7"
-                  strokeWidth={1.5}
-                  rx={6}
-                  ry={6}
-                />
-              );
-            })()}
-          </svg>
-        </div>
-      )}
+      {miniMapContent &&
+        (miniMapContainer
+          ? createPortal(miniMapContent, miniMapContainer)
+          : (
+              <div className="pointer-events-none absolute bottom-6 left-6 z-30 w-max max-w-[200px] sm:max-w-[240px] [&>*]:pointer-events-auto">
+                {miniMapContent}
+              </div>
+            ))}
     </div>
   );
 };

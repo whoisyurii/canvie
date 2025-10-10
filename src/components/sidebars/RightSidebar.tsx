@@ -301,74 +301,88 @@ export const RightSidebar = () => {
         </Button>
       </div>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(value) => setActiveTab(value as "participants" | "files")}
-        className="flex flex-1 flex-col"
-      >
-        <TabsList className="grid w-full grid-cols-2 bg-sidebar-accent text-xs">
-          <TabsTrigger value="participants" className="flex items-center gap-1">
-            <Users className="h-4 w-4" />
-            Participants
-          </TabsTrigger>
-          <TabsTrigger value="files" className="flex items-center gap-1">
-            <FileText className="h-4 w-4" />
-            Files
-          </TabsTrigger>
-        </TabsList>
+      <div className="flex flex-1 flex-col">
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as "participants" | "files")}
+          className="flex flex-1 flex-col"
+        >
+          <TabsList className="grid w-full grid-cols-2 bg-sidebar-accent text-xs">
+            <TabsTrigger value="participants" className="flex items-center gap-1">
+              <Users className="h-4 w-4" />
+              Participants
+            </TabsTrigger>
+            <TabsTrigger value="files" className="flex items-center gap-1">
+              <FileText className="h-4 w-4" />
+              Files
+            </TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="participants" className="mt-0 flex-1 px-0 py-0">
-          <ScrollArea className="h-full">
-            <div className="space-y-3 px-4 py-3">
-              {participantCards.map(({ user, isLocal }) => renderParticipant(user, { isLocal }))}
-              {!users.length ? (
-                <p className="rounded-xl border border-dashed border-sidebar-border/60 px-3 py-4 text-center text-xs text-muted-foreground">
-                  Invite teammates to collaborate in real time.
-                </p>
-              ) : null}
-            </div>
-          </ScrollArea>
-        </TabsContent>
-
-        <TabsContent value="files" className="mt-0 flex-1 px-0 py-0">
-          <ScrollArea className="h-full">
-            {uploadedFiles.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center gap-2 px-4 py-3 text-center">
-                <FileText className="h-8 w-8 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium text-sidebar-foreground">No files yet</p>
-                  <p className="text-xs text-muted-foreground">
-                    Drop images, PDFs, or text files onto the canvas to share them here.
-                  </p>
-                </div>
-              </div>
-            ) : (
+          <TabsContent value="participants" className="mt-0 flex-1 px-0 py-0">
+            <ScrollArea className="h-full">
               <div className="space-y-3 px-4 py-3">
-                {uploadedFiles.map((file) => {
-                  const canManage = currentUser?.id
-                    ? file.ownerId === currentUser.id
-                    : file.ownerId === "local-user";
-                  return renderFileRow(file, {
-                    canManage,
-                    onFocus: () => focusElement(file.id),
-                    onRename: () => {
-                      setRenamingFile(file);
-                      setRenameValue(file.name);
-                    },
-                    onRemove: () => setPendingDelete(file),
-                  });
-                })}
+                {participantCards.map(({ user, isLocal }) => renderParticipant(user, { isLocal }))}
+                {!users.length ? (
+                  <p className="rounded-xl border border-dashed border-sidebar-border/60 px-3 py-4 text-center text-xs text-muted-foreground">
+                    Invite teammates to collaborate in real time.
+                  </p>
+                ) : null}
               </div>
-            )}
-          </ScrollArea>
-        </TabsContent>
-      </Tabs>
+            </ScrollArea>
+          </TabsContent>
+
+          <TabsContent value="files" className="mt-0 flex-1 px-0 py-0">
+            <ScrollArea className="h-full">
+              {uploadedFiles.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center gap-2 px-4 py-3 text-center">
+                  <FileText className="h-8 w-8 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium text-sidebar-foreground">No files yet</p>
+                    <p className="text-xs text-muted-foreground">
+                      Drop images, PDFs, or text files onto the canvas to share them here.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3 px-4 py-3">
+                  {uploadedFiles.map((file) => {
+                    const canManage = currentUser?.id
+                      ? file.ownerId === currentUser.id
+                      : file.ownerId === "local-user";
+                    return renderFileRow(file, {
+                      canManage,
+                      onFocus: () => focusElement(file.id),
+                      onRename: () => {
+                        setRenamingFile(file);
+                        setRenameValue(file.name);
+                      },
+                      onRemove: () => setPendingDelete(file),
+                    });
+                  })}
+                </div>
+              )}
+            </ScrollArea>
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      <div className="border-t border-sidebar-border/60 px-4 py-3">
+        <div className="flex justify-center">
+          <div
+            id="right-sidebar-minimap"
+            className="pointer-events-none w-full max-w-[240px] [&>*]:pointer-events-auto"
+          />
+        </div>
+      </div>
     </div>
   );
 
   return (
     <TooltipProvider>
-      {isCollapsed ? collapsedRail : expandedPanel}
+      <div id="right-sidebar-root" className="relative">
+        <div className={cn(isCollapsed ? "hidden" : "block")}>{expandedPanel}</div>
+        <div className={cn(isCollapsed ? "block" : "hidden")}>{collapsedRail}</div>
+      </div>
 
       <Dialog open={Boolean(renamingFile)} onOpenChange={(open) => !open && setRenamingFile(null)}>
         <DialogContent className="sm:max-w-md">
