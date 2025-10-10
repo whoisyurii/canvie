@@ -173,6 +173,19 @@
     @apply bg-sidebar text-sidebar-foreground rounded-xl shadow-lg border border-sidebar-border;
   }
 
+  .top-toolbar {
+    @apply flex items-center gap-2 px-3 py-2;
+  }
+
+  .toolbar-section {
+    @apply flex items-center gap-1;
+  }
+
+  .toolbar-separator {
+    @apply mx-1 h-8 bg-sidebar-border;
+    width: 1px;
+  }
+
   .tool-button {
     @apply h-10 w-10 flex items-center justify-center rounded-lg transition-all hover:bg-sidebar-accent hover:text-accent-foreground;
   }

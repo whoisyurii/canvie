@@ -300,6 +300,7 @@ interface WhiteboardState {
   bringToFront: () => void;
   sendToBack: () => void;
   clearSelection: () => void;
+  deleteSelection: () => void;
   selectedIds: string[];
   setSelectedIds: (ids: string[]) => void;
 
@@ -308,6 +309,7 @@ interface WhiteboardState {
   setPan: (pan: { x: number; y: number }) => void;
   zoom: number;
   setZoom: (zoom: number) => void;
+  resetView: () => void;
 
   // History
   history: CanvasElement[][];
@@ -328,6 +330,7 @@ interface WhiteboardState {
   addFile: (file: SharedFile) => void;
   renameFile: (id: string, name: string) => void;
   removeFile: (id: string) => void;
+  clearCanvas: () => void;
 
   // Collaboration bindings
   collaboration: CollaborationBindings | null;
@@ -495,6 +498,49 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       selectedIds: [],
     }));
   },
+  deleteSelection: () => {
+    const selectedIds = get().selectedIds;
+    if (selectedIds.length === 0) {
+      return;
+    }
+
+    const collaboration = get().collaboration;
+    if (collaboration?.elements) {
+      const { elements: sharedElements, files: sharedFiles, historyEntries, historyMeta } = collaboration;
+      const doc = sharedElements.doc ?? sharedFiles?.doc;
+      doc?.transact(() => {
+        for (let index = sharedElements.length - 1; index >= 0; index -= 1) {
+          const current = sharedElements.get(index);
+          if (current?.id && selectedIds.includes(current.id)) {
+            sharedElements.delete(index, 1);
+          }
+        }
+
+        if (sharedFiles) {
+          for (let index = sharedFiles.length - 1; index >= 0; index -= 1) {
+            const current = sharedFiles.get(index);
+            if (current?.id && selectedIds.includes(current.id)) {
+              sharedFiles.delete(index, 1);
+            }
+          }
+        }
+
+        if (historyEntries && historyMeta) {
+          const snapshot = deepClone(sharedElements.toArray?.() ?? []);
+          applySharedHistoryUpdate(historyEntries, historyMeta, snapshot);
+        }
+      });
+      set({ selectedIds: [] });
+      return;
+    }
+
+    set((state) => ({
+      elements: state.elements.filter((el) => !selectedIds.includes(el.id)),
+      uploadedFiles: state.uploadedFiles.filter((file) => !selectedIds.includes(file.id)),
+      selectedIds: [],
+    }));
+    get().pushHistory();
+  },
   selectedIds: [],
   setSelectedIds: (ids) => set({ selectedIds: ids }),
 
@@ -503,6 +549,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   setPan: (pan) => set({ pan }),
   zoom: 1,
   setZoom: (zoom) => set({ zoom: Math.max(0.1, Math.min(5, zoom)) }),
+  resetView: () => set({ pan: { x: 0, y: 0 }, zoom: 1 }),
 
   // History
   history: [[]],
@@ -677,6 +724,29 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
     }
 
     get().deleteElement(id);
+  },
+  clearCanvas: () => {
+    const collaboration = get().collaboration;
+    if (collaboration?.elements) {
+      const { elements: sharedElements, files: sharedFiles, historyEntries, historyMeta } = collaboration;
+      const doc = sharedElements.doc ?? sharedFiles?.doc;
+      doc?.transact(() => {
+        if (sharedElements.length > 0) {
+          sharedElements.delete(0, sharedElements.length);
+        }
+        if (sharedFiles && sharedFiles.length > 0) {
+          sharedFiles.delete(0, sharedFiles.length);
+        }
+        if (historyEntries && historyMeta) {
+          applySharedHistoryUpdate(historyEntries, historyMeta, []);
+        }
+      });
+      set({ selectedIds: [], uploadedFiles: [] });
+      return;
+    }
+
+    set({ elements: [], uploadedFiles: [], selectedIds: [] });
+    get().pushHistory();
   },
 
   // Collaboration bindings
