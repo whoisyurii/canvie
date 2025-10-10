@@ -12,7 +12,7 @@ import {
 import { createPortal } from "react-dom";
 import { Stage, Layer, Rect, Circle, Line, Text as KonvaText, Arrow, Image as KonvaImage, Group } from "react-konva";
 import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
-import type { CanvasElement } from "@/lib/store/useWhiteboardStore";
+import type { CanvasElement, ArrowStyle, TextAlignment } from "@/lib/store/useWhiteboardStore";
 import { nanoid } from "nanoid";
 import Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
@@ -138,24 +138,67 @@ type EditingTextState = {
   value: string;
   initialValue: string;
   width: number;
+  fontSize: number;
+  fontFamily: string;
+  alignment: TextAlignment;
 };
 
-const TEXT_MIN_WIDTH = 180;
-const TEXT_MAX_WIDTH = 360;
-const TEXT_MIN_HEIGHT = 120;
-const LINE_HEIGHT = 28;
+const TEXT_MIN_WIDTH = 160;
+const TEXT_MAX_WIDTH = 460;
+const TEXT_BASE_PADDING = 24;
 
-const estimateTextBoxWidth = (text?: string) => {
+const FONT_FALLBACKS: Record<string, string> = {
+  Inter: "Inter, sans-serif",
+  "DM Sans": '"DM Sans", sans-serif',
+  "Roboto Mono": '"Roboto Mono", monospace',
+};
+
+const getFontFamilyCss = (fontFamily?: string) => {
+  if (!fontFamily) return FONT_FALLBACKS.Inter;
+  return FONT_FALLBACKS[fontFamily] ?? fontFamily;
+};
+
+const getLineHeight = (fontSize: number) => Math.round(fontSize * 1.4);
+
+const estimateTextBoxWidth = (text: string, fontSize: number) => {
   const lines = (text ?? "").split(/\r?\n/);
   const longestLineLength = lines.reduce((max, line) => Math.max(max, line.length), 0);
-  const widthFromContent = Math.max(TEXT_MIN_WIDTH, longestLineLength * 12);
+  const approxCharWidth = fontSize * 0.6;
+  const widthFromContent = Math.max(TEXT_MIN_WIDTH, longestLineLength * approxCharWidth + TEXT_BASE_PADDING);
   return Math.min(TEXT_MAX_WIDTH, widthFromContent || TEXT_MIN_WIDTH);
 };
 
-const estimateTextBoxHeight = (text?: string) => {
-  const lineCount = (text ?? "").split(/\r?\n/).length;
-  const heightFromContent = Math.max(TEXT_MIN_HEIGHT, lineCount * LINE_HEIGHT);
-  return heightFromContent;
+const estimateTextBoxHeight = (text: string, fontSize: number) => {
+  const lineCount = Math.max(1, (text ?? "").split(/\r?\n/).length);
+  const lineHeight = getLineHeight(fontSize);
+  return Math.max(lineCount * lineHeight + TEXT_BASE_PADDING / 2, lineHeight + TEXT_BASE_PADDING / 2);
+};
+
+const getArrowRenderConfig = (points: number[] | undefined, style: ArrowStyle | undefined) => {
+  if (!points || points.length < 4) {
+    return { points: points ?? [], bezier: false };
+  }
+
+  if (style !== "curve") {
+    return { points, bezier: false };
+  }
+
+  const [startX, startY, endX, endY] = points;
+  const dx = endX - startX;
+  const dy = endY - startY;
+  const length = Math.sqrt(dx * dx + dy * dy) || 1;
+  const normalX = -dy / length;
+  const normalY = dx / length;
+  const midX = (startX + endX) / 2;
+  const midY = (startY + endY) / 2;
+  const offset = Math.min(120, length * 0.3);
+  const controlX = midX + normalX * offset;
+  const controlY = midY + normalY * offset;
+
+  return {
+    bezier: true,
+    points: [startX, startY, controlX, controlY, controlX, controlY, endX, endY],
+  };
 };
 
 const ImageElement = ({
@@ -337,7 +380,13 @@ export const WhiteboardCanvas = () => {
     fillColor,
     opacity,
     arrowType,
+    arrowStyle,
     sloppiness,
+    rectangleCornerStyle,
+    penBackground,
+    textFontFamily,
+    textFontSize,
+    textAlign,
     pan,
     zoom,
     setPan,
@@ -365,7 +414,10 @@ export const WhiteboardCanvas = () => {
     (element: CanvasElement, options?: { value?: string; width?: number }) => {
       const initialValue = element.text ?? "";
       const value = options?.value ?? initialValue;
-      const width = options?.width ?? estimateTextBoxWidth(value || initialValue);
+      const fontSize = element.fontSize ?? textFontSize;
+      const fontFamily = element.fontFamily ?? textFontFamily;
+      const alignment = element.textAlign ?? textAlign;
+      const width = options?.width ?? element.width ?? estimateTextBoxWidth(value || initialValue, fontSize);
       const editingState: EditingTextState = {
         id: element.id,
         x: element.x,
@@ -373,11 +425,14 @@ export const WhiteboardCanvas = () => {
         value,
         initialValue,
         width,
+        fontSize,
+        fontFamily,
+        alignment,
       };
       setSelectedIds([element.id]);
       setEditingText(editingState);
     },
-    [setSelectedIds],
+    [setSelectedIds, textAlign, textFontFamily, textFontSize],
   );
 
   const finishEditingText = useCallback(
@@ -409,7 +464,13 @@ export const WhiteboardCanvas = () => {
         return;
       }
 
-      updateElement(current.id, { text: trimmed });
+      updateElement(current.id, {
+        text: trimmed,
+        fontSize: current.fontSize,
+        fontFamily: current.fontFamily,
+        textAlign: current.alignment,
+        width: current.width,
+      });
     },
     [deleteElement, updateElement],
   );
@@ -886,9 +947,12 @@ export const WhiteboardCanvas = () => {
         strokeStyle,
         opacity,
         sloppiness,
+        fontFamily: textFontFamily,
+        fontSize: textFontSize,
+        textAlign,
       };
       addElement(newText);
-      beginTextEditing(newText, { width: estimateTextBoxWidth("") });
+      beginTextEditing(newText, { width: estimateTextBoxWidth("", textFontSize) });
       return;
     }
 
@@ -920,6 +984,7 @@ export const WhiteboardCanvas = () => {
         newElement.type = "rectangle";
         newElement.width = 0;
         newElement.height = 0;
+        newElement.cornerRadius = rectangleCornerStyle === "rounded" ? 16 : 0;
         break;
       case "diamond":
         newElement.type = "diamond";
@@ -936,10 +1001,12 @@ export const WhiteboardCanvas = () => {
         newElement.type = activeTool;
         newElement.points = [0, 0, 0, 0];
         newElement.arrowType = arrowType;
+        newElement.arrowStyle = arrowStyle;
         break;
       case "pen":
         newElement.type = "pen";
         newElement.points = [0, 0];
+        newElement.penBackground = penBackground;
         break;
       default:
         break;
@@ -1059,16 +1126,21 @@ export const WhiteboardCanvas = () => {
     }
   };
 
-  const editorHeight = editingText ? estimateTextBoxHeight(editingText.value) : 0;
+  const editorHeight = editingText
+    ? estimateTextBoxHeight(editingText.value, editingText.fontSize)
+    : 0;
+  const editorLineHeight = editingText ? getLineHeight(editingText.fontSize) : 0;
   const editorStyle = editingText
     ? {
         left: panX + editingText.x * safeZoom,
         top: panY + editingText.y * safeZoom,
         width: editingText.width * safeZoom,
         height: editorHeight * safeZoom,
-        fontSize: 20 * safeZoom,
+        fontSize: editingText.fontSize * safeZoom,
         padding: `${12 * safeZoom}px`,
         borderRadius: `${12 * safeZoom}px`,
+        fontFamily: getFontFamilyCss(editingText.fontFamily),
+        textAlign: editingText.alignment,
       }
     : undefined;
 
@@ -1086,7 +1158,7 @@ export const WhiteboardCanvas = () => {
           className="pointer-events-auto absolute z-40 resize-none border-2 border-sky-400 bg-white/95 text-slate-800 shadow-lg outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200/80"
           style={{
             ...editorStyle,
-            lineHeight: `${LINE_HEIGHT * safeZoom}px`,
+            lineHeight: `${editorLineHeight * safeZoom}px`,
           }}
           value={editingText.value}
           onChange={(event) => {
@@ -1096,7 +1168,7 @@ export const WhiteboardCanvas = () => {
               return {
                 ...current,
                 value,
-                width: estimateTextBoxWidth(value),
+                width: estimateTextBoxWidth(value, current.fontSize),
               };
             });
           }}
@@ -1167,6 +1239,7 @@ export const WhiteboardCanvas = () => {
                   fill={element.fillColor}
                   opacity={element.opacity}
                   rotation={element.rotation}
+                  cornerRadius={element.cornerRadius ?? 0}
                   {...highlightProps}
                 />
               );
@@ -1233,13 +1306,14 @@ export const WhiteboardCanvas = () => {
             } else if (element.type === "arrow") {
               const pointerAtBeginning = element.arrowType === "arrow-start" || element.arrowType === "arrow-both";
               const pointerAtEnding = element.arrowType === "arrow-end" || element.arrowType === "arrow-both";
+              const { points: arrowPoints, bezier } = getArrowRenderConfig(element.points, element.arrowStyle);
               return (
                 <Arrow
                   key={element.id}
                   id={element.id}
                   x={element.x}
                   y={element.y}
-                  points={element.points}
+                  points={arrowPoints}
                   stroke={element.strokeColor}
                   strokeWidth={element.strokeWidth}
                   dash={getStrokeDash(element.strokeStyle)}
@@ -1248,30 +1322,56 @@ export const WhiteboardCanvas = () => {
                   pointerWidth={12}
                   pointerAtBeginning={pointerAtBeginning}
                   pointerAtEnding={pointerAtEnding}
+                  bezier={bezier}
+                  tension={bezier ? 0.4 : 0}
                   {...highlightProps}
                 />
               );
             } else if (element.type === "pen") {
+              const hasBackground = element.penBackground && element.penBackground !== "transparent";
+              const backgroundOpacity = element.opacity * 0.4 + 0.2;
               return (
-                <Line
-                  key={element.id}
-                  id={element.id}
-                  x={element.x}
-                  y={element.y}
-                  points={element.points}
-                  stroke={element.strokeColor}
-                  strokeWidth={element.strokeWidth}
-                  opacity={element.opacity}
-                  lineCap="round"
-                  lineJoin="round"
-                  tension={element.sloppiness === "smooth" ? 0.75 : element.sloppiness === "rough" ? 0.2 : 0.5}
-                  {...highlightProps}
-                />
+                <>
+                  {hasBackground && (
+                    <Line
+                      key={`${element.id}-background`}
+                      id={`${element.id}-background`}
+                      x={element.x}
+                      y={element.y}
+                      points={element.points}
+                      stroke={element.penBackground}
+                      strokeWidth={element.strokeWidth + 12}
+                      opacity={Math.min(1, backgroundOpacity)}
+                      lineCap="round"
+                      lineJoin="round"
+                      tension={element.sloppiness === "smooth" ? 0.75 : element.sloppiness === "rough" ? 0.2 : 0.5}
+                      listening={false}
+                    />
+                  )}
+                  <Line
+                    key={element.id}
+                    id={element.id}
+                    x={element.x}
+                    y={element.y}
+                    points={element.points}
+                    stroke={element.strokeColor}
+                    strokeWidth={element.strokeWidth}
+                    opacity={element.opacity}
+                    lineCap="round"
+                    lineJoin="round"
+                    tension={element.sloppiness === "smooth" ? 0.75 : element.sloppiness === "rough" ? 0.2 : 0.5}
+                    {...highlightProps}
+                  />
+                </>
               );
             } else if (element.type === "text") {
               if (isEditingElement) {
                 return null;
               }
+              const elementFontSize = element.fontSize ?? textFontSize;
+              const lineHeightRatio = elementFontSize
+                ? getLineHeight(elementFontSize) / elementFontSize
+                : 1.4;
               return (
                 <KonvaText
                   key={element.id}
@@ -1279,9 +1379,13 @@ export const WhiteboardCanvas = () => {
                   x={element.x}
                   y={element.y}
                   text={element.text || ""}
-                  fontSize={20}
+                  fontSize={elementFontSize}
+                  fontFamily={getFontFamilyCss(element.fontFamily)}
+                  lineHeight={lineHeightRatio}
+                  align={(element.textAlign as TextAlignment) ?? "left"}
                   fill={element.strokeColor}
                   opacity={element.opacity}
+                  width={element.width}
                   {...highlightProps}
                 />
               );
@@ -1309,6 +1413,7 @@ export const WhiteboardCanvas = () => {
                   dash={getStrokeDash(currentShape.strokeStyle)}
                   fill={currentShape.fillColor}
                   opacity={currentShape.opacity * 0.7}
+                  cornerRadius={currentShape.cornerRadius ?? 0}
                 />
               )}
               {currentShape.type === "diamond" && (
@@ -1362,32 +1467,80 @@ export const WhiteboardCanvas = () => {
                 />
               )}
               {currentShape.type === "arrow" && (
-                <Arrow
-                  x={currentShape.x}
-                  y={currentShape.y}
-                  points={currentShape.points}
-                  stroke={currentShape.strokeColor}
-                  strokeWidth={currentShape.strokeWidth}
-                  dash={getStrokeDash(currentShape.strokeStyle)}
-                  opacity={currentShape.opacity * 0.7}
-                  pointerLength={12}
-                  pointerWidth={12}
-                  pointerAtBeginning={currentShape.arrowType === "arrow-start" || currentShape.arrowType === "arrow-both"}
-                  pointerAtEnding={currentShape.arrowType === "arrow-end" || currentShape.arrowType === "arrow-both"}
-                />
+                (() => {
+                  const { points: arrowPoints, bezier } = getArrowRenderConfig(
+                    currentShape.points,
+                    currentShape.arrowStyle,
+                  );
+                  const pointerAtBeginning =
+                    currentShape.arrowType === "arrow-start" || currentShape.arrowType === "arrow-both";
+                  const pointerAtEnding =
+                    currentShape.arrowType === "arrow-end" || currentShape.arrowType === "arrow-both";
+                  return (
+                    <Arrow
+                      x={currentShape.x}
+                      y={currentShape.y}
+                      points={arrowPoints}
+                      stroke={currentShape.strokeColor}
+                      strokeWidth={currentShape.strokeWidth}
+                      dash={getStrokeDash(currentShape.strokeStyle)}
+                      opacity={currentShape.opacity * 0.7}
+                      pointerLength={12}
+                      pointerWidth={12}
+                      pointerAtBeginning={pointerAtBeginning}
+                      pointerAtEnding={pointerAtEnding}
+                      bezier={bezier}
+                      tension={bezier ? 0.4 : 0}
+                    />
+                  );
+                })()
               )}
               {currentShape.type === "pen" && (
-                <Line
-                  x={currentShape.x}
-                  y={currentShape.y}
-                  points={currentShape.points}
-                  stroke={currentShape.strokeColor}
-                  strokeWidth={currentShape.strokeWidth}
-                  opacity={currentShape.opacity * 0.7}
-                  lineCap="round"
-                  lineJoin="round"
-                  tension={currentShape.sloppiness === "smooth" ? 0.75 : currentShape.sloppiness === "rough" ? 0.2 : 0.5}
-                />
+                (() => {
+                  const hasBackground = currentShape.penBackground && currentShape.penBackground !== "transparent";
+                  const backgroundOpacity = currentShape.opacity * 0.4 + 0.2;
+                  return (
+                    <>
+                      {hasBackground && (
+                        <Line
+                          x={currentShape.x}
+                          y={currentShape.y}
+                          points={currentShape.points}
+                          stroke={currentShape.penBackground}
+                          strokeWidth={currentShape.strokeWidth + 12}
+                          opacity={Math.min(1, backgroundOpacity)}
+                          lineCap="round"
+                          lineJoin="round"
+                          tension={
+                            currentShape.sloppiness === "smooth"
+                              ? 0.75
+                              : currentShape.sloppiness === "rough"
+                              ? 0.2
+                              : 0.5
+                          }
+                          listening={false}
+                        />
+                      )}
+                      <Line
+                        x={currentShape.x}
+                        y={currentShape.y}
+                        points={currentShape.points}
+                        stroke={currentShape.strokeColor}
+                        strokeWidth={currentShape.strokeWidth}
+                        opacity={currentShape.opacity * 0.7}
+                        lineCap="round"
+                        lineJoin="round"
+                        tension={
+                          currentShape.sloppiness === "smooth"
+                            ? 0.75
+                            : currentShape.sloppiness === "rough"
+                            ? 0.2
+                            : 0.5
+                        }
+                      />
+                    </>
+                  );
+                })()
               )}
             </>
           )}

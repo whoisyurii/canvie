@@ -1,7 +1,8 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { SidebarSection } from "./SidebarSection";
+import { cn } from "@/lib/utils";
 
 interface StrokeWidthSelectorProps {
   widths: number[];
@@ -18,21 +19,38 @@ export const StrokeWidthSelector = ({
 }: StrokeWidthSelectorProps) => {
   return (
     <SidebarSection title="Stroke Width" disabled={disabled}>
-      <div className="grid grid-cols-4 gap-1">
+      <ToggleGroup
+        type="single"
+        value={String(value)}
+        onValueChange={(next) => {
+          if (next) {
+            onChange(Number(next));
+          }
+        }}
+        className="grid grid-cols-4 gap-2"
+      >
         {widths.map((width) => (
-          <Button
+          <ToggleGroupItem
             key={width}
-            type="button"
-            variant={value === width ? "default" : "outline"}
-            size="sm"
-            className="h-8 text-xs"
+            value={String(width)}
+            aria-label={`${width}px stroke`}
+            className={cn(
+              "h-12 rounded-md border border-sidebar-border bg-sidebar/60 transition",
+              "data-[state=on]:border-accent data-[state=on]:bg-background data-[state=on]:shadow-sm",
+              disabled && "cursor-not-allowed opacity-70"
+            )}
             disabled={disabled}
-            onClick={() => onChange(width)}
           >
-            {width}px
-          </Button>
+            <div className="flex h-full w-full flex-col items-center justify-center gap-1">
+              <div
+                className="w-8 rounded-full bg-foreground"
+                style={{ height: Math.max(2, width), minHeight: 2 }}
+              />
+              <span className="text-[11px] font-medium text-muted-foreground">{width}px</span>
+            </div>
+          </ToggleGroupItem>
         ))}
-      </div>
+      </ToggleGroup>
     </SidebarSection>
   );
 };
