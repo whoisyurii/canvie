@@ -132,6 +132,17 @@
   }
 }
 
+@keyframes cursor-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  50% {
+    transform: translate3d(var(--drift-x, 0), var(--drift-y, 0), 0);
+  }
+}
+
 @layer utilities {
   .dotted-grid {
     background-image: radial-gradient(circle, hsl(var(--foreground) / 0.15) 1px, transparent 1px);
@@ -176,5 +187,10 @@
 
   .animate-accordion-up {
     animation: accordion-up 0.2s ease-out;
+  }
+
+  .cursor-float {
+    animation: cursor-float var(--drift-duration, 12s) ease-in-out infinite;
+    animation-delay: var(--drift-delay, 0s);
   }
 }
