@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, type ChangeEvent } from "react";
+import { useCallback, useState, type ChangeEvent } from "react";
 import {
   MousePointer2,
   Hand,
@@ -11,9 +11,13 @@ import {
   Type,
   Pencil,
   Eraser,
-  Shapes,
   ImagePlus,
   Diamond,
+  MoreHorizontal,
+  ArrowUp,
+  ArrowDown,
+  Trash2,
+  Focus,
 } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useWhiteboardStore, Tool } from "@/lib/store/useWhiteboardStore";
@@ -30,7 +34,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -46,6 +49,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 type ToolbarTool = {
   id: Tool;
@@ -54,21 +58,41 @@ type ToolbarTool = {
   hotkey: string;
 };
 
-const primaryTools: ToolbarTool[] = [
-  { id: "select", icon: MousePointer2, label: "Select", hotkey: "V" },
-  { id: "pan", icon: Hand, label: "Pan", hotkey: "H" },
-  { id: "pen", icon: Pencil, label: "Pen", hotkey: "P" },
-  { id: "eraser", icon: Eraser, label: "Eraser", hotkey: "E" },
-  { id: "text", icon: Type, label: "Text", hotkey: "T" },
-];
+const TOOL_DEFINITIONS: Record<Tool, ToolbarTool> = {
+  select: { id: "select", icon: MousePointer2, label: "Select", hotkey: "V" },
+  pan: { id: "pan", icon: Hand, label: "Pan", hotkey: "H" },
+  pen: { id: "pen", icon: Pencil, label: "Pen", hotkey: "P" },
+  eraser: { id: "eraser", icon: Eraser, label: "Eraser", hotkey: "E" },
+  text: { id: "text", icon: Type, label: "Text", hotkey: "T" },
+  rectangle: { id: "rectangle", icon: Square, label: "Rectangle", hotkey: "R" },
+  diamond: { id: "diamond", icon: Diamond, label: "Diamond", hotkey: "D" },
+  ellipse: { id: "ellipse", icon: Circle, label: "Ellipse", hotkey: "O" },
+  line: { id: "line", icon: Minus, label: "Line", hotkey: "L" },
+  arrow: { id: "arrow", icon: ArrowRight, label: "Arrow", hotkey: "A" },
+};
 
-const shapeTools: ToolbarTool[] = [
-  { id: "rectangle", icon: Square, label: "Rectangle", hotkey: "R" },
-  { id: "diamond", icon: Diamond, label: "Diamond", hotkey: "D" },
-  { id: "ellipse", icon: Circle, label: "Ellipse", hotkey: "O" },
-  { id: "line", icon: Minus, label: "Line", hotkey: "L" },
-  { id: "arrow", icon: ArrowRight, label: "Arrow", hotkey: "A" },
-];
+const renderToolButton = (
+  tool: ToolbarTool,
+  params: { activeTool: Tool; onSelect: (tool: Tool) => void },
+) => (
+  <Tooltip key={tool.id}>
+    <TooltipTrigger asChild>
+      <Button
+        variant="ghost"
+        size="icon"
+        className={cn("tool-button", params.activeTool === tool.id && "tool-button-active")}
+        onClick={() => params.onSelect(tool.id)}
+      >
+        <tool.icon className="h-5 w-5" />
+      </Button>
+    </TooltipTrigger>
+    <TooltipContent>
+      <p>
+        {tool.label} <kbd className="ml-2 text-xs">({tool.hotkey})</kbd>
+      </p>
+    </TooltipContent>
+  </Tooltip>
+);
 
 export const TopToolbar = () => {
   const {
@@ -82,14 +106,18 @@ export const TopToolbar = () => {
     fillColor,
     opacity,
     currentUser,
+    bringToFront,
+    sendToBack,
+    deleteSelection,
+    clearCanvas,
+    resetView,
+    selectedIds,
+    elements,
   } = useWhiteboardStore();
   const { toast } = useToast();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
-
-  const isShapeActive = useMemo(
-    () => shapeTools.some((tool) => tool.id === activeTool),
-    [activeTool]
-  );
+  const hasSelection = selectedIds.length > 0;
+  const hasElements = elements.length > 0;
 
   const processFile = useCallback(
     async (file: File) => {
@@ -208,124 +236,224 @@ export const TopToolbar = () => {
     [processFile, setActiveTool, toast]
   );
 
+  const handleClearCanvas = useCallback(() => {
+    if (!hasElements) {
+      return;
+    }
+
+    const confirmed =
+      typeof window === "undefined" ? true : window.confirm("Clear the entire canvas?");
+    if (!confirmed) {
+      return;
+    }
+
+    clearCanvas();
+    toast({
+      title: "Canvas cleared",
+      description: "All elements have been removed from the board.",
+    });
+  }, [clearCanvas, hasElements, toast]);
+
+  const handleDeleteSelection = useCallback(() => {
+    if (!hasSelection) {
+      return;
+    }
+
+    deleteSelection();
+    toast({
+      title: "Selection deleted",
+      description: "The selected elements were removed.",
+    });
+  }, [deleteSelection, hasSelection, toast]);
+
   return (
     <TooltipProvider>
-      <div className="floating-panel px-4 py-2 flex items-center gap-2">
-        {primaryTools.map((tool) => (
-          <Tooltip key={tool.id}>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={`tool-button ${activeTool === tool.id ? "tool-button-active" : ""}`}
-                onClick={() => setActiveTool(tool.id)}
-              >
-                <tool.icon className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>
-                {tool.label} <kbd className="ml-2 text-xs">({tool.hotkey})</kbd>
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        ))}
+      <div className="floating-panel top-toolbar">
+        <div className="toolbar-section">
+          {renderToolButton(TOOL_DEFINITIONS.select, {
+            activeTool,
+            onSelect: setActiveTool,
+          })}
+        </div>
 
-        <Separator orientation="vertical" className="h-8" />
+        <Separator orientation="vertical" className="toolbar-separator" />
+
+        <div className="toolbar-section">
+          {renderToolButton(TOOL_DEFINITIONS.rectangle, {
+            activeTool,
+            onSelect: setActiveTool,
+          })}
+          {renderToolButton(TOOL_DEFINITIONS.diamond, {
+            activeTool,
+            onSelect: setActiveTool,
+          })}
+          {renderToolButton(TOOL_DEFINITIONS.ellipse, {
+            activeTool,
+            onSelect: setActiveTool,
+          })}
+        </div>
+
+        <Separator orientation="vertical" className="toolbar-separator" />
+
+        <div className="toolbar-section">
+          {renderToolButton(TOOL_DEFINITIONS.arrow, {
+            activeTool,
+            onSelect: setActiveTool,
+          })}
+          {renderToolButton(TOOL_DEFINITIONS.pan, {
+            activeTool,
+            onSelect: setActiveTool,
+          })}
+          {renderToolButton(TOOL_DEFINITIONS.line, {
+            activeTool,
+            onSelect: setActiveTool,
+          })}
+        </div>
+
+        <Separator orientation="vertical" className="toolbar-separator" />
+
+        <div className="toolbar-section">
+          {renderToolButton(TOOL_DEFINITIONS.pen, {
+            activeTool,
+            onSelect: setActiveTool,
+          })}
+          {renderToolButton(TOOL_DEFINITIONS.text, {
+            activeTool,
+            onSelect: setActiveTool,
+          })}
+
+          <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn("tool-button", isUploadOpen && "tool-button-active")}
+                  >
+                    <ImagePlus className="h-5 w-5" />
+                  </Button>
+                </DialogTrigger>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>
+                  Insert Image/PDF <kbd className="ml-2 text-xs">(Shift + I)</kbd>
+                </p>
+              </TooltipContent>
+            </Tooltip>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Insert image or PDF</DialogTitle>
+                <DialogDescription>
+                  Upload files to place them on the canvas. Drag & drop also works directly on the
+                  board.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 py-2">
+                <div className="space-y-2">
+                  <Label htmlFor="toolbar-upload" className="text-xs font-medium">
+                    Choose files
+                  </Label>
+                  <Input
+                    id="toolbar-upload"
+                    type="file"
+                    accept="image/*,application/pdf"
+                    multiple
+                    onChange={handleFileSelection}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="secondary" onClick={() => setIsUploadOpen(false)}>
+                  Close
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        <Separator orientation="vertical" className="toolbar-separator" />
+
+        <div className="toolbar-section">
+          {renderToolButton(TOOL_DEFINITIONS.eraser, {
+            activeTool,
+            onSelect: setActiveTool,
+          })}
+        </div>
+
+        <Separator orientation="vertical" className="toolbar-separator" />
 
         <DropdownMenu>
           <Tooltip>
             <TooltipTrigger asChild>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={`tool-button ${isShapeActive ? "tool-button-active" : ""}`}
-                >
-                  <Shapes className="h-5 w-5" />
+                <Button variant="ghost" size="icon" className="tool-button">
+                  <MoreHorizontal className="h-5 w-5" />
                 </Button>
               </DropdownMenuTrigger>
             </TooltipTrigger>
             <TooltipContent>
-              <p>
-                Shapes <kbd className="ml-2 text-xs">(Shift + S)</kbd>
-              </p>
+              <p>Canvas actions</p>
             </TooltipContent>
           </Tooltip>
-          <DropdownMenuContent align="center" className="w-48">
-            <DropdownMenuLabel className="text-xs uppercase text-muted-foreground">
-              Shape Tools
-            </DropdownMenuLabel>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                bringToFront();
+              }}
+              disabled={!hasSelection}
+            >
+              <ArrowUp className="mr-2 h-4 w-4" /> Bring to front
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                sendToBack();
+              }}
+              disabled={!hasSelection}
+            >
+              <ArrowDown className="mr-2 h-4 w-4" /> Send to back
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                handleDeleteSelection();
+              }}
+              disabled={!hasSelection}
+            >
+              <Trash2 className="mr-2 h-4 w-4" /> Delete selection
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
-            {shapeTools.map((tool) => (
-              <DropdownMenuItem
-                key={tool.id}
-                onSelect={(e) => {
-                  e.preventDefault();
-                  setActiveTool(tool.id);
-                }}
-                className={`flex items-center gap-2 text-sm ${
-                  activeTool === tool.id ? "text-accent" : ""
-                }`}
-              >
-                <tool.icon className="h-4 w-4" />
-                <span className="flex-1">{tool.label}</span>
-                <kbd className="text-[10px] text-muted-foreground">{tool.hotkey}</kbd>
-              </DropdownMenuItem>
-            ))}
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                resetView();
+              }}
+            >
+              <Focus className="mr-2 h-4 w-4" /> Reset view
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                handleClearCanvas();
+              }}
+              disabled={!hasElements}
+              className={cn(
+                "text-destructive focus:text-destructive",
+                !hasElements && "text-muted-foreground focus:text-muted-foreground"
+              )}
+            >
+              <Trash2
+                className={cn(
+                  "mr-2 h-4 w-4",
+                  hasElements ? "text-destructive" : "text-muted-foreground"
+                )}
+              />
+              Clear canvas
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-
-        <Separator orientation="vertical" className="h-8" />
-
-        <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <DialogTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={`tool-button ${isUploadOpen ? "tool-button-active" : ""}`}
-                >
-                  <ImagePlus className="h-5 w-5" />
-                </Button>
-              </DialogTrigger>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>
-                Insert Image/PDF <kbd className="ml-2 text-xs">(Shift + I)</kbd>
-              </p>
-            </TooltipContent>
-          </Tooltip>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Insert image or PDF</DialogTitle>
-              <DialogDescription>
-                Upload files to place them on the canvas. Drag & drop also works directly on the
-                board.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-3 py-2">
-              <div className="space-y-2">
-                <Label htmlFor="toolbar-upload" className="text-xs font-medium">
-                  Choose files
-                </Label>
-                <Input
-                  id="toolbar-upload"
-                  type="file"
-                  accept="image/*,application/pdf"
-                  multiple
-                  onChange={handleFileSelection}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="secondary" onClick={() => setIsUploadOpen(false)}>
-                Close
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
     </TooltipProvider>
   );

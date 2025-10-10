@@ -17,7 +17,7 @@ const toolShortcuts: Record<string, Tool> = {
 };
 
 export const useKeyboardShortcuts = () => {
-  const { setActiveTool, undo, redo } = useWhiteboardStore();
+  const { setActiveTool, undo, redo, deleteSelection, resetView } = useWhiteboardStore();
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -39,6 +39,18 @@ export const useKeyboardShortcuts = () => {
         return;
       }
 
+      if ((key === "delete" || key === "backspace") && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        deleteSelection();
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && key === "0") {
+        e.preventDefault();
+        resetView();
+        return;
+      }
+
       // Undo/Redo
       if ((e.ctrlKey || e.metaKey) && key === "z") {
         e.preventDefault();
@@ -53,5 +65,5 @@ export const useKeyboardShortcuts = () => {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [setActiveTool, undo, redo]);
+  }, [deleteSelection, resetView, setActiveTool, undo, redo]);
 };
