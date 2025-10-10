@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { nanoid } from "nanoid";
-import { Pencil, Users } from "lucide-react";
+import { Palette, Pencil, Sparkles, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,8 +27,13 @@ export default function LandingPage() {
     <div className="landing-radial-dots flex min-h-screen items-center justify-center bg-[hsl(var(--bg-board))]">
       <div className="mx-4 w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-sidebar">
-            <Pencil className="h-8 w-8 text-accent" />
+          <div className="relative mb-4 inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-sidebar shadow-lg">
+            <span className="absolute inset-0 bg-gradient-to-br from-accent/15 via-transparent to-transparent" aria-hidden />
+            <Palette aria-hidden className="h-10 w-10 text-muted-foreground/50" />
+            <Pencil aria-hidden className="absolute h-8 w-8 text-accent" />
+            <span className="absolute -bottom-1 -right-1 rounded-full bg-accent/20 p-1" aria-hidden>
+              <Sparkles className="h-3 w-3 text-accent" />
+            </span>
           </div>
           <h1 className="mb-2 text-4xl font-bold text-foreground">Collaborative Whiteboard</h1>
           <p className="text-muted-foreground">
