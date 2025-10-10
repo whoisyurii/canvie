@@ -300,6 +300,10 @@ export const TopToolbar = () => {
             activeTool,
             onSelect: setActiveTool,
           })}
+          {renderToolButton(TOOL_DEFINITIONS.pan, {
+            activeTool,
+            onSelect: setActiveTool,
+          })}
           {renderToolButton(TOOL_DEFINITIONS.line, {
             activeTool,
             onSelect: setActiveTool,
@@ -372,10 +376,6 @@ export const TopToolbar = () => {
 
         <div className="toolbar-section">
           {renderToolButton(TOOL_DEFINITIONS.eraser, {
-            activeTool,
-            onSelect: setActiveTool,
-          })}
-          {renderToolButton(TOOL_DEFINITIONS.pan, {
             activeTool,
             onSelect: setActiveTool,
           })}
