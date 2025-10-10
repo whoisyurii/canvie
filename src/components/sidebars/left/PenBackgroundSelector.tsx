@@ -3,40 +3,47 @@
 import { SidebarSection } from "./SidebarSection";
 import { cn } from "@/lib/utils";
 
-interface FillPaletteProps {
+interface PenBackgroundSelectorProps {
   colors: string[];
   value: string;
-  onChange: (color: string) => void;
+  onChange: (value: string) => void;
   disabled?: boolean;
 }
 
 const transparentPattern =
-  "linear-gradient(45deg, rgba(255,255,255,0.65) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.65) 75%), linear-gradient(45deg, rgba(255,255,255,0.65) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.65) 75%)";
+  "linear-gradient(45deg, rgba(255,255,255,0.6) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.6) 75%), linear-gradient(45deg, rgba(255,255,255,0.6) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.6) 75%)";
 
-export const FillPalette = ({ colors, value, onChange, disabled }: FillPaletteProps) => {
+export const PenBackgroundSelector = ({
+  colors,
+  value,
+  onChange,
+  disabled,
+}: PenBackgroundSelectorProps) => {
   const isTransparent = value === "transparent";
 
   return (
-    <SidebarSection title="Fill" disabled={disabled}>
+    <SidebarSection title="Pen Background" disabled={disabled}>
       <div className="grid grid-cols-6 gap-2">
         <button
           type="button"
           aria-pressed={isTransparent}
           disabled={disabled}
           className={cn(
-            "h-8 w-8 rounded-full border transition-transform bg-[length:10px_10px]",
+            "flex h-12 flex-col items-center justify-center rounded-md border text-[11px] font-medium transition",
             isTransparent
-              ? "border-accent ring-2 ring-accent/60"
-              : "border-sidebar-border hover:scale-105",
-            disabled && "cursor-not-allowed hover:scale-100"
+              ? "border-accent bg-background text-foreground shadow-sm"
+              : "border-sidebar-border bg-sidebar/60 text-muted-foreground hover:scale-105",
+            disabled && "cursor-not-allowed opacity-70 hover:scale-100"
           )}
           style={{
             backgroundImage: transparentPattern,
+            backgroundSize: "10px 10px",
             backgroundPosition: "0 0,5px 5px",
-            backgroundColor: "#f87171",
           }}
           onClick={() => onChange("transparent")}
-        />
+        >
+          None
+        </button>
         {colors.map((color) => {
           const isActive = value === color;
           return (
@@ -46,11 +53,11 @@ export const FillPalette = ({ colors, value, onChange, disabled }: FillPalettePr
               aria-pressed={isActive}
               disabled={disabled}
               className={cn(
-                "h-8 w-8 rounded-full border transition-transform",
+                "h-12 rounded-md border transition",
                 isActive
-                  ? "border-accent ring-2 ring-accent/60"
+                  ? "border-accent bg-background shadow-sm"
                   : "border-sidebar-border hover:scale-105",
-                disabled && "cursor-not-allowed hover:scale-100"
+                disabled && "cursor-not-allowed opacity-70 hover:scale-100"
               )}
               style={{ backgroundColor: color }}
               onClick={() => onChange(color)}

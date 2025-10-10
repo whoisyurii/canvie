@@ -16,6 +16,9 @@ export type Tool =
 export type StrokeStyle = "solid" | "dashed" | "dotted";
 export type Sloppiness = "smooth" | "normal" | "rough";
 export type ArrowType = "line" | "arrow-start" | "arrow-end" | "arrow-both";
+export type ArrowStyle = "straight" | "curve";
+export type CornerStyle = "sharp" | "rounded";
+export type TextAlignment = "left" | "center" | "right";
 
 export interface CanvasElement {
   id: string;
@@ -43,11 +46,17 @@ export interface CanvasElement {
   opacity: number;
   sloppiness?: Sloppiness;
   arrowType?: ArrowType;
+  arrowStyle?: ArrowStyle;
   fileUrl?: string;
   fileName?: string;
   fileType?: string;
   thumbnailUrl?: string;
   selected?: boolean;
+  cornerRadius?: number;
+  penBackground?: string;
+  fontFamily?: string;
+  fontSize?: number;
+  textAlign?: TextAlignment;
 }
 
 export interface User {
@@ -138,6 +147,95 @@ const deepClone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 
 const MAX_HISTORY_LENGTH = 200;
 
+type ToolSettingDefaults = {
+  strokeColor?: string;
+  fillColor?: string;
+  strokeWidth?: number;
+  strokeStyle?: StrokeStyle;
+  sloppiness?: Sloppiness;
+  arrowType?: ArrowType;
+  arrowStyle?: ArrowStyle;
+  opacity?: number;
+  rectangleCornerStyle?: CornerStyle;
+  penBackground?: string;
+  textFontFamily?: string;
+  textFontSize?: number;
+  textAlign?: TextAlignment;
+};
+
+const TOOL_DEFAULTS: Record<Tool, ToolSettingDefaults> = {
+  select: {},
+  pan: {},
+  rectangle: {
+    strokeColor: "#1f2937",
+    fillColor: "transparent",
+    strokeWidth: 2,
+    strokeStyle: "solid",
+    sloppiness: "normal",
+    opacity: 1,
+    rectangleCornerStyle: "rounded",
+  },
+  diamond: {
+    strokeColor: "#1f2937",
+    fillColor: "transparent",
+    strokeWidth: 2,
+    strokeStyle: "solid",
+    sloppiness: "normal",
+    opacity: 1,
+  },
+  ellipse: {
+    strokeColor: "#1f2937",
+    fillColor: "transparent",
+    strokeWidth: 2,
+    strokeStyle: "solid",
+    sloppiness: "normal",
+    opacity: 1,
+  },
+  arrow: {
+    strokeColor: "#1f2937",
+    fillColor: "transparent",
+    strokeWidth: 3,
+    strokeStyle: "solid",
+    sloppiness: "normal",
+    arrowType: "arrow-end",
+    arrowStyle: "straight",
+    opacity: 1,
+  },
+  line: {
+    strokeColor: "#1f2937",
+    fillColor: "transparent",
+    strokeWidth: 2,
+    strokeStyle: "solid",
+    sloppiness: "normal",
+    arrowType: "line",
+    arrowStyle: "straight",
+    opacity: 1,
+  },
+  text: {
+    strokeColor: "#1f2937",
+    fillColor: "transparent",
+    opacity: 1,
+    textFontFamily: "Inter",
+    textFontSize: 20,
+    textAlign: "left",
+  },
+  pen: {
+    strokeColor: "#1f2937",
+    fillColor: "transparent",
+    strokeWidth: 3,
+    sloppiness: "smooth",
+    penBackground: "transparent",
+    opacity: 1,
+  },
+  eraser: {
+    strokeColor: "#ffffff",
+    strokeWidth: 18,
+    strokeStyle: "solid",
+    sloppiness: "smooth",
+    opacity: 1,
+  },
+};
+
 const applySharedHistoryUpdate = (
   historyEntries: Y.Array<CanvasElement[]>,
   historyMeta: Y.Map<any>,
@@ -179,8 +277,20 @@ interface WhiteboardState {
   setSloppiness: (sloppiness: Sloppiness) => void;
   arrowType: ArrowType;
   setArrowType: (type: ArrowType) => void;
+  arrowStyle: ArrowStyle;
+  setArrowStyle: (style: ArrowStyle) => void;
   opacity: number;
   setOpacity: (opacity: number) => void;
+  rectangleCornerStyle: CornerStyle;
+  setRectangleCornerStyle: (style: CornerStyle) => void;
+  penBackground: string;
+  setPenBackground: (color: string) => void;
+  textFontFamily: string;
+  setTextFontFamily: (font: string) => void;
+  textFontSize: number;
+  setTextFontSize: (size: number) => void;
+  textAlign: TextAlignment;
+  setTextAlign: (alignment: TextAlignment) => void;
 
   // Canvas
   elements: CanvasElement[];
@@ -234,7 +344,13 @@ interface WhiteboardState {
 export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   // Tools
   activeTool: "select",
-  setActiveTool: (tool) => set({ activeTool: tool }),
+  setActiveTool: (tool) => {
+    const defaults = TOOL_DEFAULTS[tool];
+    set({
+      activeTool: tool,
+      ...defaults,
+    });
+  },
 
   // Tool settings
   strokeColor: "#000000",
@@ -249,8 +365,20 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   setSloppiness: (sloppiness) => set({ sloppiness }),
   arrowType: "arrow-end",
   setArrowType: (type) => set({ arrowType: type }),
+  arrowStyle: "straight",
+  setArrowStyle: (style) => set({ arrowStyle: style }),
   opacity: 1,
   setOpacity: (opacity) => set({ opacity }),
+  rectangleCornerStyle: "rounded",
+  setRectangleCornerStyle: (style) => set({ rectangleCornerStyle: style }),
+  penBackground: "transparent",
+  setPenBackground: (color) => set({ penBackground: color }),
+  textFontFamily: "Inter",
+  setTextFontFamily: (font) => set({ textFontFamily: font }),
+  textFontSize: 20,
+  setTextFontSize: (size) => set({ textFontSize: size }),
+  textAlign: "left",
+  setTextAlign: (alignment) => set({ textAlign: alignment }),
 
   // Canvas
   elements: [],

@@ -13,7 +13,7 @@ interface StrokePaletteProps {
 export const StrokePalette = ({ colors, value, onChange, disabled }: StrokePaletteProps) => {
   return (
     <SidebarSection title="Stroke" disabled={disabled}>
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-6 gap-2">
         {colors.map((color) => {
           const isActive = value === color;
           return (
