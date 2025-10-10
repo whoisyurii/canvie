@@ -30,7 +30,7 @@ const nouns = [
   "Light",
 ];
 
-const cursorConfigs = [
+const floatingCursorConfigs = [
   {
     position: "top-16 left-20",
     driftX: "16px",
@@ -56,6 +56,16 @@ const cursorConfigs = [
     color: "text-green-500",
   },
 ];
+
+const ctaCursorConfig = {
+  position:
+    "left-1/2 top-[calc(100%+1.75rem)] -translate-x-1/2 sm:left-1/2 sm:top-[calc(100%+1.25rem)]",
+  driftX: "4px",
+  driftY: "6px",
+  duration: "13s",
+  delay: "-8s",
+  color: "text-purple-500",
+};
 
 const features = [
   {
@@ -85,10 +95,10 @@ export default function LandingPage() {
   const [roomId, setRoomId] = useState("");
   const router = useRouter();
 
-  const cursorNames = useMemo(
-    () => cursorConfigs.map((_, index) => generateName(index + 1)),
-    [],
-  );
+  const cursorNames = useMemo(() => {
+    const configs = [...floatingCursorConfigs, ctaCursorConfig];
+    return configs.map((_, index) => generateName(index + 1));
+  }, []);
 
   const createRoom = () => {
     const newRoomId = nanoid(10);
@@ -104,7 +114,7 @@ export default function LandingPage() {
   return (
     <div className="landing-radial-dots relative flex h-svh min-h-svh flex-col overflow-hidden bg-[hsl(var(--bg-board))]">
       <div className="pointer-events-none absolute inset-0">
-        {cursorConfigs.map((config, index) => (
+        {floatingCursorConfigs.map((config, index) => (
           <AnimatedCursor key={config.position} name={cursorNames[index]} {...config} />
         ))}
       </div>
@@ -122,14 +132,17 @@ export default function LandingPage() {
           </p>
 
           <div className="mt-10 flex w-full max-w-xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-center">
-            <Button
-              size="lg"
-              onClick={createRoom}
-              className="h-12 min-w-[12rem] text-base"
-            >
-              <Sparkles className="mr-2 h-5 w-5" />
-              Create new room
-            </Button>
+            <div className="relative">
+              <Button
+                size="lg"
+                onClick={createRoom}
+                className="h-12 min-w-[12rem] text-base"
+              >
+                <Sparkles className="mr-2 h-5 w-5" />
+                Create new room
+              </Button>
+              <AnimatedCursor name={cursorNames[3]} {...ctaCursorConfig} />
+            </div>
 
             <form
               onSubmit={(event) => {
@@ -209,7 +222,7 @@ function AnimatedCursor({
 
   return (
     <div
-      className={`cursor-float absolute flex flex-col items-center gap-2 ${position}`}
+      className={`pointer-events-none cursor-float absolute flex flex-col items-center gap-2 ${position}`}
       style={style}
     >
       <span className="rounded-full bg-card/80 px-3 py-1 text-xs font-medium text-muted-foreground shadow">
