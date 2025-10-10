@@ -32,7 +32,7 @@ const nouns = [
 
 const cursorConfigs = [
   {
-    position: "top-10 left-10",
+    position: "top-16 left-20",
     driftX: "16px",
     driftY: "-10px",
     duration: "14s",
@@ -40,7 +40,7 @@ const cursorConfigs = [
     color: "text-destructive",
   },
   {
-    position: "top-16 right-12",
+    position: "top-24 right-24",
     driftX: "-18px",
     driftY: "14px",
     duration: "16s",
@@ -48,7 +48,7 @@ const cursorConfigs = [
     color: "text-blue-500",
   },
   {
-    position: "top-[58%] left-1/2 -translate-x-1/2 sm:top-[52%]",
+    position: "top-[60%] left-1/2 -translate-x-1/2 sm:top-[54%]",
     driftX: "20px",
     driftY: "18px",
     duration: "17s",
@@ -215,9 +215,7 @@ function AnimatedCursor({
       <span className="rounded-full bg-card/80 px-3 py-1 text-xs font-medium text-muted-foreground shadow">
         {name}
       </span>
-      <div className="rounded-lg bg-card/90 p-2.5 shadow-lg ring-1 ring-border/40 backdrop-blur">
-        <MousePointer2 className={`h-5 w-5 ${color}`} aria-hidden />
-      </div>
+      <MousePointer2 className={`h-5 w-5 drop-shadow-lg ${color}`} aria-hidden />
     </div>
   );
 }
