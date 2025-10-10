@@ -403,6 +403,26 @@ export const WhiteboardCanvas = () => {
     [],
   );
 
+  useEffect(() => {
+    editingTextRef.current = editingText;
+  }, [editingText]);
+
+  useEffect(() => {
+    if (!editingText) {
+      return;
+    }
+
+    const textarea = textEditorRef.current;
+    if (!textarea) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    });
+  }, [editingText]);
+
   const miniMapData = useMemo(() => {
     if (stageSize.width === 0 || stageSize.height === 0) {
       return null;
