@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ArrowBigLeft, ArrowBigRight, ArrowLeftRight, Minus, CurlyLoop, Slash } from "lucide-react";
+import { ArrowBigLeft, ArrowBigRight, ArrowLeftRight, BezierCurve, Minus, Slash } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { SidebarSection } from "./SidebarSection";
 import { ArrowStyle, ArrowType } from "@/lib/store/useWhiteboardStore";
@@ -24,7 +24,7 @@ const TYPE_OPTIONS: Array<{ value: ArrowType; label: string; icon: ReactNode }> 
 
 const STYLE_OPTIONS: Array<{ value: ArrowStyle; label: string; icon: ReactNode }> = [
   { value: "straight", label: "Straight", icon: <Slash className="h-4 w-4 -rotate-12" /> },
-  { value: "curve", label: "Curved", icon: <CurlyLoop className="h-4 w-4" /> },
+  { value: "curve", label: "Curved", icon: <BezierCurve className="h-4 w-4" /> },
 ];
 
 export const ArrowTypeSelector = ({
