@@ -462,6 +462,37 @@ export const WhiteboardCanvas = () => {
     const viewportMinY = -panY / safeZoom;
     const viewportWidth = stageSize.width / safeZoom;
     const viewportHeight = stageSize.height / safeZoom;
+    const mapWidth = 220;
+    const mapHeight = 160;
+
+    if (elements.length === 0) {
+      const anchorCenterX = viewportWidth / 2;
+      const anchorCenterY = viewportHeight / 2;
+      const defaultHalfWidth = viewportWidth * 2;
+      const defaultHalfHeight = viewportHeight * 2;
+      const minX = anchorCenterX - defaultHalfWidth;
+      const minY = anchorCenterY - defaultHalfHeight;
+      const maxX = anchorCenterX + defaultHalfWidth;
+      const maxY = anchorCenterY + defaultHalfHeight;
+
+      const worldWidth = Math.max(1, maxX - minX);
+      const worldHeight = Math.max(1, maxY - minY);
+      const scale = Math.min(mapWidth / worldWidth, mapHeight / worldHeight);
+
+      return {
+        mapWidth,
+        mapHeight,
+        scale,
+        offsetX: minX,
+        offsetY: minY,
+        viewport: {
+          minX: viewportMinX,
+          minY: viewportMinY,
+          width: viewportWidth,
+          height: viewportHeight,
+        },
+      };
+    }
 
     let minX = viewportMinX;
     let minY = viewportMinY;
@@ -484,8 +515,6 @@ export const WhiteboardCanvas = () => {
 
     const worldWidth = Math.max(1, maxX - minX);
     const worldHeight = Math.max(1, maxY - minY);
-    const mapWidth = 220;
-    const mapHeight = 160;
     const scale = Math.min(mapWidth / worldWidth, mapHeight / worldHeight);
 
     return {
