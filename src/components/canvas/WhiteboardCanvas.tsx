@@ -403,6 +403,76 @@ export const WhiteboardCanvas = () => {
     [],
   );
 
+  useEffect(() => {
+    editingTextRef.current = editingText;
+  }, [editingText]);
+
+  useEffect(() => {
+    if (!editingText) {
+      return;
+    }
+
+    const textarea = textEditorRef.current;
+    if (!textarea) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    });
+  }, [editingText]);
+
+  const miniMapData = useMemo(() => {
+    if (stageSize.width === 0 || stageSize.height === 0) {
+      return null;
+    }
+
+    const viewportMinX = -panX / safeZoom;
+    const viewportMinY = -panY / safeZoom;
+    const viewportWidth = stageSize.width / safeZoom;
+    const viewportHeight = stageSize.height / safeZoom;
+
+    let minX = viewportMinX;
+    let minY = viewportMinY;
+    let maxX = viewportMinX + viewportWidth;
+    let maxY = viewportMinY + viewportHeight;
+
+    elements.forEach((element) => {
+      const bounds = getElementBounds(element);
+      minX = Math.min(minX, bounds.minX);
+      minY = Math.min(minY, bounds.minY);
+      maxX = Math.max(maxX, bounds.maxX);
+      maxY = Math.max(maxY, bounds.maxY);
+    });
+
+    const padding = 80;
+    minX -= padding;
+    minY -= padding;
+    maxX += padding;
+    maxY += padding;
+
+    const worldWidth = Math.max(1, maxX - minX);
+    const worldHeight = Math.max(1, maxY - minY);
+    const mapWidth = 220;
+    const mapHeight = 160;
+    const scale = Math.min(mapWidth / worldWidth, mapHeight / worldHeight);
+
+    return {
+      mapWidth,
+      mapHeight,
+      scale,
+      offsetX: minX,
+      offsetY: minY,
+      viewport: {
+        minX: viewportMinX,
+        minY: viewportMinY,
+        width: viewportWidth,
+        height: viewportHeight,
+      },
+    };
+  }, [elements, panX, panY, safeZoom, stageSize.height, stageSize.width]);
+
   const panToMiniMapPoint = useCallback(
     (pointX: number, pointY: number) => {
       if (!miniMapData) return;
@@ -509,56 +579,6 @@ export const WhiteboardCanvas = () => {
       textarea.setSelectionRange(textarea.value.length, textarea.value.length);
     });
   }, [editingText]);
-
-  const miniMapData = useMemo(() => {
-    if (stageSize.width === 0 || stageSize.height === 0) {
-      return null;
-    }
-
-    const viewportMinX = -panX / safeZoom;
-    const viewportMinY = -panY / safeZoom;
-    const viewportWidth = stageSize.width / safeZoom;
-    const viewportHeight = stageSize.height / safeZoom;
-
-    let minX = viewportMinX;
-    let minY = viewportMinY;
-    let maxX = viewportMinX + viewportWidth;
-    let maxY = viewportMinY + viewportHeight;
-
-    elements.forEach((element) => {
-      const bounds = getElementBounds(element);
-      minX = Math.min(minX, bounds.minX);
-      minY = Math.min(minY, bounds.minY);
-      maxX = Math.max(maxX, bounds.maxX);
-      maxY = Math.max(maxY, bounds.maxY);
-    });
-
-    const padding = 80;
-    minX -= padding;
-    minY -= padding;
-    maxX += padding;
-    maxY += padding;
-
-    const worldWidth = Math.max(1, maxX - minX);
-    const worldHeight = Math.max(1, maxY - minY);
-    const mapWidth = 220;
-    const mapHeight = 160;
-    const scale = Math.min(mapWidth / worldWidth, mapHeight / worldHeight);
-
-    return {
-      mapWidth,
-      mapHeight,
-      scale,
-      offsetX: minX,
-      offsetY: minY,
-      viewport: {
-        minX: viewportMinX,
-        minY: viewportMinY,
-        width: viewportWidth,
-        height: viewportHeight,
-      },
-    };
-  }, [elements, panX, panY, safeZoom, stageSize.height, stageSize.width]);
 
   const renderBounds = useMemo(() => {
     if (stageSize.width === 0 || stageSize.height === 0) {
