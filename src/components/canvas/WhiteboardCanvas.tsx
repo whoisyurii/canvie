@@ -399,6 +399,27 @@ export const WhiteboardCanvas = () => {
   const panY = pan.y;
   const safeZoom = zoom || 1;
 
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    const position = stage.position();
+    if (position.x !== panX || position.y !== panY) {
+      stage.position({ x: panX, y: panY });
+      stage.batchDraw();
+    }
+  }, [panX, panY]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    if (stage.scaleX() !== safeZoom || stage.scaleY() !== safeZoom) {
+      stage.scale({ x: safeZoom, y: safeZoom });
+      stage.batchDraw();
+    }
+  }, [safeZoom]);
+
   const getCanvasPointerPosition = useCallback(() => {
     const stage = stageRef.current;
     if (!stage) return null;
