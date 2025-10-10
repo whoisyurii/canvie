@@ -187,7 +187,7 @@
   }
 
   .tool-button {
-    @apply h-10 w-10 flex items-center justify-center rounded-lg transition-all hover:bg-sidebar-accent hover:text-accent-foreground;
+    @apply h-10 w-10 flex items-center justify-center rounded-lg cursor-pointer transition-all hover:bg-sidebar-accent hover:text-accent-foreground;
   }
 
   .tool-button-active {
