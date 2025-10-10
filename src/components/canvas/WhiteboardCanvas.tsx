@@ -494,10 +494,10 @@ export const WhiteboardCanvas = () => {
       };
     }
 
-    let minX = viewportMinX;
-    let minY = viewportMinY;
-    let maxX = viewportMinX + viewportWidth;
-    let maxY = viewportMinY + viewportHeight;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
 
     elements.forEach((element) => {
       const bounds = getElementBounds(element);
@@ -507,11 +507,26 @@ export const WhiteboardCanvas = () => {
       maxY = Math.max(maxY, bounds.maxY);
     });
 
+    if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+      minX = viewportMinX;
+      minY = viewportMinY;
+      maxX = viewportMinX + viewportWidth;
+      maxY = viewportMinY + viewportHeight;
+    }
+
     const padding = 80;
     minX -= padding;
     minY -= padding;
     maxX += padding;
     maxY += padding;
+
+    const viewportMaxX = viewportMinX + viewportWidth;
+    const viewportMaxY = viewportMinY + viewportHeight;
+
+    minX = Math.min(minX, viewportMinX);
+    minY = Math.min(minY, viewportMinY);
+    maxX = Math.max(maxX, viewportMaxX);
+    maxY = Math.max(maxY, viewportMaxY);
 
     const worldWidth = Math.max(1, maxX - minX);
     const worldHeight = Math.max(1, maxY - minY);
