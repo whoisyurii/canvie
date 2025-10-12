@@ -31,6 +31,8 @@ import { useDragDrop } from "./DragDropHandler";
 import { UserCursor } from "./UserCursor";
 import { cn } from "@/lib/utils";
 
+const MINIMAP_ENABLED = false;
+
 type HighlightProps = Record<string, unknown> | undefined;
 
 type Bounds = {
@@ -371,6 +373,10 @@ export const WhiteboardCanvas = () => {
   const { handleDrop, handleDragOver } = useDragDrop();
 
   useEffect(() => {
+    if (!MINIMAP_ENABLED) {
+      return;
+    }
+
     const updateContainer = () => {
       if (typeof document === "undefined") return;
       const node = document.getElementById("right-sidebar-minimap");
@@ -596,6 +602,10 @@ export const WhiteboardCanvas = () => {
   }, [editingText]);
 
   const miniMapData = useMemo(() => {
+    if (!MINIMAP_ENABLED) {
+      return null;
+    }
+
     if (stageSize.width === 0 || stageSize.height === 0) {
       return null;
     }
@@ -876,7 +886,7 @@ export const WhiteboardCanvas = () => {
         ? "cursor-default"
         : "cursor-crosshair";
 
-  const miniMapContent = miniMapData ? (
+  const miniMapContent = MINIMAP_ENABLED && miniMapData ? (
     <div
       className={cn(
         "pointer-events-auto w-full rounded-xl border border-slate-200/80 bg-white/80 p-3 backdrop-blur transition-shadow",
