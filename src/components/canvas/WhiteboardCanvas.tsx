@@ -363,6 +363,7 @@ export const WhiteboardCanvas = () => {
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentShape, setCurrentShape] = useState<any>(null);
   const [isPanning, setIsPanning] = useState(false);
+  const [isMiddleMousePanning, setIsMiddleMousePanning] = useState(false);
   const [stageSize, setStageSize] = useState(() => ({
     width: 0,
     height: 0,
@@ -877,8 +878,10 @@ export const WhiteboardCanvas = () => {
 
   const backgroundSize = `${Math.max(4, 20 * safeZoom)}px ${Math.max(4, 20 * safeZoom)}px`;
   const backgroundPosition = `${panX}px ${panY}px`;
+  const isPanMode = activeTool === "pan" || isMiddleMousePanning;
+
   const stageCursorClass =
-    activeTool === "pan"
+    isPanMode
       ? isPanning
         ? "cursor-grabbing"
         : "cursor-grab"
@@ -979,6 +982,15 @@ export const WhiteboardCanvas = () => {
   const handleMouseDown = (e: KonvaEventObject<MouseEvent>) => {
     const stage = stageRef.current;
     if (!stage) return;
+
+    if (e.evt.button === 1) {
+      e.evt.preventDefault();
+      setIsMiddleMousePanning(true);
+      requestAnimationFrame(() => {
+        stage.startDrag();
+      });
+      return;
+    }
 
     if (skipNextPointerRef.current) {
       skipNextPointerRef.current = false;
@@ -1214,7 +1226,12 @@ export const WhiteboardCanvas = () => {
     }
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e: KonvaEventObject<MouseEvent>) => {
+    if (e.evt.button === 1 && isMiddleMousePanning) {
+      setIsMiddleMousePanning(false);
+      return;
+    }
+
     if (isDrawing && currentShape) {
       addElement(currentShape);
       setCurrentShape(null);
@@ -1454,7 +1471,7 @@ export const WhiteboardCanvas = () => {
         onDblClick={handleStageDoublePointer}
         onDblTap={handleStageDoublePointer}
         onWheel={handleWheel}
-        draggable={activeTool === "pan"}
+        draggable={isPanMode}
         scaleX={safeZoom}
         scaleY={safeZoom}
         x={panX}
@@ -1464,6 +1481,7 @@ export const WhiteboardCanvas = () => {
         onDragMove={syncPanFromStage}
         onDragEnd={(event) => {
           setIsPanning(false);
+          setIsMiddleMousePanning(false);
           syncPanFromStage(event);
         }}
       >
