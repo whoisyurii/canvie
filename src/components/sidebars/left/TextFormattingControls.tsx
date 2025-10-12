@@ -97,15 +97,15 @@ export const TextFormattingControls = ({
                 key={option.value}
                 value={option.value}
                 className={cn(
-                  "h-10 rounded-md border border-sidebar-border bg-sidebar/60 transition",
-                  "data-[state=on]:border-accent data-[state=on]:bg-background data-[state=on]:shadow-sm",
+                  "group h-10 rounded-md border border-sidebar-border bg-sidebar/60 text-muted-foreground transition",
+                  "data-[state=on]:border-accent data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm",
                   disabled && "cursor-not-allowed opacity-70"
                 )}
                 disabled={disabled}
               >
                 <div className="flex flex-col items-center justify-center gap-1 text-[11px]">
                   {option.icon}
-                  <span>{option.label}</span>
+                  <span className="font-medium">{option.label}</span>
                 </div>
               </ToggleGroupItem>
             ))}

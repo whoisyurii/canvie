@@ -32,8 +32,8 @@ export const SloppinessSelector = ({ value, onChange, disabled }: SloppinessSele
             value={option.value}
             aria-label={`${option.label} stroke`}
             className={cn(
-              "h-16 rounded-md border border-sidebar-border bg-sidebar/60 px-2 py-2 transition",
-              "data-[state=on]:border-accent data-[state=on]:bg-background data-[state=on]:shadow-sm",
+              "group h-16 rounded-md border border-sidebar-border bg-sidebar/60 px-2 py-2 text-muted-foreground transition",
+              "data-[state=on]:border-accent data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm",
               disabled && "cursor-not-allowed opacity-70"
             )}
             disabled={disabled}
@@ -42,7 +42,7 @@ export const SloppinessSelector = ({ value, onChange, disabled }: SloppinessSele
               <svg viewBox="0 0 52 20" className="h-5 w-full fill-none stroke-current">
                 <path d={option.path} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              <span className="text-[11px] font-medium text-muted-foreground">{option.label}</span>
+              <span className="text-[11px] font-medium">{option.label}</span>
             </div>
           </ToggleGroupItem>
         ))}
