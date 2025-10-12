@@ -274,6 +274,10 @@ export const TopToolbar = () => {
             activeTool,
             onSelect: setActiveTool,
           })}
+          {renderToolButton(TOOL_DEFINITIONS.pan, {
+            activeTool,
+            onSelect: setActiveTool,
+          })}
         </div>
 
         <Separator orientation="vertical" className="toolbar-separator" />
@@ -297,10 +301,6 @@ export const TopToolbar = () => {
 
         <div className="toolbar-section">
           {renderToolButton(TOOL_DEFINITIONS.arrow, {
-            activeTool,
-            onSelect: setActiveTool,
-          })}
-          {renderToolButton(TOOL_DEFINITIONS.pan, {
             activeTool,
             onSelect: setActiveTool,
           })}
