@@ -68,13 +68,18 @@ export const useDragDrop = () => {
           // Add image element
           const img = new Image();
           img.onload = () => {
+            const maxDimension = 400;
+            const scale = Math.min(
+              1,
+              maxDimension / Math.max(img.width, img.height),
+            );
             addElement({
               id: fileId,
               type: "image",
               x,
               y,
-              width: Math.min(img.width, 400),
-              height: Math.min(img.height, 400),
+              width: Math.max(1, Math.round(img.width * scale)),
+              height: Math.max(1, Math.round(img.height * scale)),
               strokeColor: "#000000",
               strokeWidth: 0,
               strokeStyle: "solid",
