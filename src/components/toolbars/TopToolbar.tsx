@@ -80,6 +80,7 @@ const renderToolButton = (
       <Button
         variant="ghost"
         size="icon"
+        aria-pressed={params.activeTool === tool.id}
         className={cn("tool-button", params.activeTool === tool.id && "tool-button-active")}
         onClick={() => params.onSelect(tool.id)}
       >
