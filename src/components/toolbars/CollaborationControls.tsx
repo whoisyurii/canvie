@@ -273,7 +273,7 @@ export const CollaborationControls = () => {
             <p>Participants</p>
           </TooltipContent>
         </Tooltip>
-        <PopoverContent align="center" className="w-[320px] p-0">
+        <PopoverContent align="center" className="floating-panel w-[320px] p-0">
           <div className="flex flex-col">
             <div className="border-b border-sidebar-border px-4 py-3">
               <h3 className="text-sm font-semibold text-sidebar-foreground">Participants</h3>
@@ -311,7 +311,7 @@ export const CollaborationControls = () => {
             <p>Shared files</p>
           </TooltipContent>
         </Tooltip>
-        <PopoverContent align="center" className="w-[360px] p-0">
+        <PopoverContent align="center" className="floating-panel w-[360px] p-0">
           <div className="flex flex-col">
             <div className="border-b border-sidebar-border px-4 py-3">
               <h3 className="text-sm font-semibold text-sidebar-foreground">Shared files</h3>
