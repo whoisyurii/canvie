@@ -4,6 +4,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import {
   Users,
   FileText,
+  ChevronLeft,
   ChevronRight,
   MoreVertical,
   Pencil,
@@ -241,138 +242,145 @@ export const RightSidebar = () => {
     }
   };
 
-  const collapsedRail = (
-    <div className="floating-panel flex w-16 flex-col items-center gap-3 py-3">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn(
-              "tool-button h-10 w-10",
-              activeTab === "participants" && "tool-button-active",
-            )}
-            onClick={() => {
-              setActiveTab("participants");
-              setIsCollapsed(false);
-            }}
-          >
-            <Users className="h-5 w-5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="left">Participants</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn(
-              "tool-button h-10 w-10",
-              activeTab === "files" && "tool-button-active",
-            )}
-            onClick={() => {
-              setActiveTab("files");
-              setIsCollapsed(false);
-            }}
-          >
-            <FileText className="h-5 w-5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="left">Files</TooltipContent>
-      </Tooltip>
-    </div>
-  );
-
-  const expandedPanel = (
-    <div
-      className="floating-panel flex w-[320px] flex-col"
-      style={{ height: "min(720px, calc(100vh - 5rem))" }}
-    >
-      <div className="flex items-center justify-between border-b border-sidebar-border px-4 py-3">
-        <h3 className="text-sm font-semibold text-sidebar-foreground">Collaboration</h3>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 text-muted-foreground"
-          onClick={() => setIsCollapsed(true)}
-        >
-          <ChevronRight className="h-4 w-4 rotate-180" />
-        </Button>
-      </div>
-
-      <div className="flex flex-1 flex-col">
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) => setActiveTab(value as "participants" | "files")}
-          className="flex flex-1 flex-col"
-        >
-          <TabsList className="grid w-full grid-cols-2 bg-sidebar-accent text-xs">
-            <TabsTrigger value="participants" className="flex items-center gap-1">
-              <Users className="h-4 w-4" />
-              Participants
-            </TabsTrigger>
-            <TabsTrigger value="files" className="flex items-center gap-1">
-              <FileText className="h-4 w-4" />
-              Files
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="participants" className="mt-0 flex-1 px-0 py-0">
-            <ScrollArea className="h-full">
-              <div className="space-y-3 px-4 py-3">
-                {participantCards.map(({ user, isLocal }) => renderParticipant(user, { isLocal }))}
-                {!users.length ? (
-                  <p className="rounded-xl border border-dashed border-sidebar-border/60 px-3 py-4 text-center text-xs text-muted-foreground">
-                    Invite teammates to collaborate in real time.
-                  </p>
-                ) : null}
-              </div>
-            </ScrollArea>
-          </TabsContent>
-
-          <TabsContent value="files" className="mt-0 flex-1 px-0 py-0">
-            <ScrollArea className="h-full">
-              {uploadedFiles.length === 0 ? (
-                <div className="flex h-full flex-col items-center justify-center gap-2 px-4 py-3 text-center">
-                  <FileText className="h-8 w-8 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium text-sidebar-foreground">No files yet</p>
-                    <p className="text-xs text-muted-foreground">
-                      Drop images, PDFs, or text files onto the canvas to share them here.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3 px-4 py-3">
-                  {uploadedFiles.map((file) => {
-                    const canManage = currentUser?.id
-                      ? file.ownerId === currentUser.id
-                      : file.ownerId === "local-user";
-                    return renderFileRow(file, {
-                      canManage,
-                      onFocus: () => focusElement(file.id),
-                      onRename: () => {
-                        setRenamingFile(file);
-                        setRenameValue(file.name);
-                      },
-                      onRemove: () => setPendingDelete(file),
-                    });
-                  })}
-                </div>
-              )}
-            </ScrollArea>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </div>
-  );
-
   return (
     <TooltipProvider>
-      <div id="right-sidebar-root" className="relative">
-        <div className={cn(isCollapsed ? "hidden" : "block")}>{expandedPanel}</div>
-        <div className={cn(isCollapsed ? "block" : "hidden")}>{collapsedRail}</div>
+      <div
+        id="right-sidebar-root"
+        className={cn(
+          "floating-panel relative flex flex-col overflow-hidden transition-[width] duration-300 ease-in-out",
+          isCollapsed ? "w-16 items-center py-3" : "w-[288px]"
+        )}
+        style={{ height: "min(720px, calc(100vh - 5rem))" }}
+      >
+        <div
+          className={cn(
+            "flex items-center border-b border-sidebar-border",
+            isCollapsed ? "justify-center px-0 py-2" : "justify-between px-3 py-3"
+          )}
+        >
+          {!isCollapsed ? (
+            <h3 className="text-sm font-semibold text-sidebar-foreground">Collaboration</h3>
+          ) : null}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 text-muted-foreground"
+            onClick={() => setIsCollapsed((current) => !current)}
+            aria-label={isCollapsed ? "Expand collaboration panel" : "Collapse collaboration panel"}
+          >
+            {isCollapsed ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </Button>
+        </div>
+
+        {isCollapsed ? (
+          <div className="flex flex-1 flex-col items-center gap-3 py-3">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "tool-button h-10 w-10",
+                    activeTab === "participants" && "tool-button-active"
+                  )}
+                  onClick={() => {
+                    setActiveTab("participants");
+                    setIsCollapsed(false);
+                  }}
+                >
+                  <Users className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left">Participants</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "tool-button h-10 w-10",
+                    activeTab === "files" && "tool-button-active"
+                  )}
+                  onClick={() => {
+                    setActiveTab("files");
+                    setIsCollapsed(false);
+                  }}
+                >
+                  <FileText className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left">Files</TooltipContent>
+            </Tooltip>
+          </div>
+        ) : (
+          <div className="flex flex-1 flex-col">
+            <Tabs
+              value={activeTab}
+              onValueChange={(value) => setActiveTab(value as "participants" | "files")}
+              className="flex flex-1 flex-col"
+            >
+              <TabsList className="grid w-full grid-cols-2 bg-sidebar-accent text-xs">
+                <TabsTrigger value="participants" className="flex items-center gap-1">
+                  <Users className="h-4 w-4" />
+                  Participants
+                </TabsTrigger>
+                <TabsTrigger value="files" className="flex items-center gap-1">
+                  <FileText className="h-4 w-4" />
+                  Files
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="participants" className="mt-0 flex-1 px-0 py-0">
+                <ScrollArea className="h-full">
+                  <div className="space-y-3 px-3 py-3">
+                    {participantCards.map(({ user, isLocal }) => renderParticipant(user, { isLocal }))}
+                    {!users.length ? (
+                      <p className="rounded-xl border border-dashed border-sidebar-border/60 px-3 py-4 text-center text-xs text-muted-foreground">
+                        Invite teammates to collaborate in real time.
+                      </p>
+                    ) : null}
+                  </div>
+                </ScrollArea>
+              </TabsContent>
+
+              <TabsContent value="files" className="mt-0 flex-1 px-0 py-0">
+                <ScrollArea className="h-full">
+                  {uploadedFiles.length === 0 ? (
+                    <div className="flex h-full flex-col items-center justify-center gap-2 px-3 py-3 text-center">
+                      <FileText className="h-8 w-8 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium text-sidebar-foreground">No files yet</p>
+                        <p className="text-xs text-muted-foreground">
+                          Drop images, PDFs, or text files onto the canvas to share them here.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 px-3 py-3">
+                      {uploadedFiles.map((file) => {
+                        const canManage = currentUser?.id
+                          ? file.ownerId === currentUser.id
+                          : file.ownerId === "local-user";
+                        return renderFileRow(file, {
+                          canManage,
+                          onFocus: () => focusElement(file.id),
+                          onRename: () => {
+                            setRenamingFile(file);
+                            setRenameValue(file.name);
+                          },
+                          onRemove: () => setPendingDelete(file),
+                        });
+                      })}
+                    </div>
+                  )}
+                </ScrollArea>
+              </TabsContent>
+            </Tabs>
+          </div>
+        )}
+
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-px bg-sidebar-border/80" aria-hidden />
       </div>
 
       <Dialog open={Boolean(renamingFile)} onOpenChange={(open) => !open && setRenamingFile(null)}>
