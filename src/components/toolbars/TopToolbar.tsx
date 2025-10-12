@@ -156,11 +156,16 @@ export const TopToolbar = () => {
         await new Promise<void>((resolve) => {
           const image = new window.Image();
           image.onload = () => {
+            const maxDimension = 420;
+            const scale = Math.min(
+              1,
+              maxDimension / Math.max(image.width, image.height),
+            );
             addElement({
               ...baseElement,
               type: "image",
-              width: Math.min(image.width, 420),
-              height: Math.min(image.height, 420),
+              width: Math.max(1, Math.round(image.width * scale)),
+              height: Math.max(1, Math.round(image.height * scale)),
               fileUrl,
               fileName: file.name,
             });
