@@ -32,8 +32,8 @@ export const StrokeStyleSelector = ({ value, onChange, disabled }: StrokeStyleSe
             value={style.value}
             aria-label={`${style.label} stroke`}
             className={cn(
-              "h-14 rounded-md border border-sidebar-border bg-sidebar/60 px-2 py-2 transition",
-              "data-[state=on]:border-accent data-[state=on]:bg-background data-[state=on]:shadow-sm",
+              "group h-14 rounded-md border border-sidebar-border bg-sidebar/60 px-2 py-2 text-muted-foreground transition",
+              "data-[state=on]:border-accent data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm",
               disabled && "cursor-not-allowed opacity-70"
             )}
             disabled={disabled}
@@ -50,7 +50,7 @@ export const StrokeStyleSelector = ({ value, onChange, disabled }: StrokeStyleSe
                   strokeLinecap="round"
                 />
               </svg>
-              <span className="text-[11px] font-medium text-muted-foreground">{style.label}</span>
+              <span className="text-[11px] font-medium">{style.label}</span>
             </div>
           </ToggleGroupItem>
         ))}
