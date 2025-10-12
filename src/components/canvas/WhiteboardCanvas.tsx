@@ -10,7 +10,18 @@ import {
   type TouchEvent as ReactTouchEvent,
 } from "react";
 import { createPortal } from "react-dom";
-import { Stage, Layer, Rect, Circle, Line, Text as KonvaText, Arrow, Image as KonvaImage, Group } from "react-konva";
+import {
+  Stage,
+  Layer,
+  Rect,
+  Line,
+  Text as KonvaText,
+  Arrow,
+  Image as KonvaImage,
+  Group,
+  Transformer,
+  Ellipse,
+} from "react-konva";
 import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
 import type { CanvasElement, ArrowStyle, TextAlignment } from "@/lib/store/useWhiteboardStore";
 import { nanoid } from "nanoid";
@@ -131,6 +142,15 @@ const duplicateElement = (element: CanvasElement): CanvasElement => ({
   selected: false,
 });
 
+const RESIZABLE_ELEMENT_TYPES = new Set<CanvasElement["type"]>([
+  "rectangle",
+  "diamond",
+  "ellipse",
+  "image",
+  "file",
+  "text",
+]);
+
 type EditingTextState = {
   id: string;
   x: number;
@@ -204,9 +224,11 @@ const getArrowRenderConfig = (points: number[] | undefined, style: ArrowStyle | 
 const ImageElement = ({
   element,
   highlight,
+  interaction,
 }: {
   element: CanvasElement;
   highlight?: HighlightProps;
+  interaction?: Record<string, any>;
 }) => {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
 
@@ -233,6 +255,7 @@ const ImageElement = ({
       opacity={element.opacity}
       rotation={element.rotation}
       {...highlight}
+      {...interaction}
     />
   ) : null;
 };
@@ -240,9 +263,11 @@ const ImageElement = ({
 const FileElement = ({
   element,
   highlight,
+  interaction,
 }: {
   element: CanvasElement;
   highlight?: HighlightProps;
+  interaction?: Record<string, any>;
 }) => {
   const [thumbnail, setThumbnail] = useState<HTMLImageElement | null>(null);
 
@@ -267,11 +292,18 @@ const FileElement = ({
   const previewHeight = Math.max(0, height - padding * 2 - 32);
 
   return (
-    <Group>
+    <Group
+      id={element.id}
+      x={element.x}
+      y={element.y}
+      width={width}
+      height={height}
+      {...highlight}
+      {...interaction}
+    >
       <Rect
-        id={element.id}
-        x={element.x}
-        y={element.y}
+        x={0}
+        y={0}
         width={width}
         height={height}
         stroke={element.strokeColor}
@@ -279,23 +311,21 @@ const FileElement = ({
         fill="white"
         opacity={element.opacity}
         cornerRadius={8}
-        {...highlight}
+        listening={false}
       />
       {thumbnail ? (
         <KonvaImage
-          id={element.id}
           image={thumbnail}
-          x={element.x + padding}
-          y={element.y + padding}
+          x={padding}
+          y={padding}
           width={Math.max(0, width - padding * 2)}
           height={previewHeight}
           listening={false}
         />
       ) : (
         <KonvaText
-          id={element.id}
-          x={element.x + padding}
-          y={element.y + padding}
+          x={padding}
+          y={padding}
           width={Math.max(0, width - padding * 2)}
           height={previewHeight}
           text={(element.fileType ?? "FILE").slice(0, 8).toUpperCase()}
@@ -306,9 +336,8 @@ const FileElement = ({
         />
       )}
       <KonvaText
-        id={element.id}
-        x={element.x + padding}
-        y={element.y + height - 24 - padding / 2}
+        x={padding}
+        y={height - 24 - padding / 2}
         width={Math.max(0, width - padding * 2)}
         height={24}
         text={element.fileName ?? element.fileType ?? "Document"}
@@ -324,6 +353,7 @@ const FileElement = ({
 export const WhiteboardCanvas = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
+  const transformerRef = useRef<Konva.Transformer>(null);
   const textEditorRef = useRef<HTMLTextAreaElement>(null);
   const editingTextRef = useRef<EditingTextState | null>(null);
   const miniMapDragRef = useRef(false);
@@ -391,6 +421,9 @@ export const WhiteboardCanvas = () => {
     zoom,
     setPan,
     setSelectedIds,
+    selectedIds,
+    clearSelection,
+    pushHistory,
     users,
     focusedElementId,
   } = useWhiteboardStore();
@@ -798,6 +831,33 @@ export const WhiteboardCanvas = () => {
     });
   }, [elements, renderBounds]);
 
+  useEffect(() => {
+    const transformer = transformerRef.current;
+    const stage = stageRef.current;
+    if (!transformer || !stage) {
+      return;
+    }
+
+    if (activeTool !== "select" || selectedIds.length === 0) {
+      transformer.nodes([]);
+      transformer.getLayer()?.batchDraw();
+      return;
+    }
+
+    const nodes = selectedIds
+      .map((id) => {
+        const element = visibleElements.find((item) => item.id === id);
+        if (!element || !RESIZABLE_ELEMENT_TYPES.has(element.type)) {
+          return null;
+        }
+        return stage.findOne(`#${id}`) as Konva.Node | null;
+      })
+      .filter((node): node is Konva.Node => Boolean(node));
+
+    transformer.nodes(nodes);
+    transformer.getLayer()?.batchDraw();
+  }, [activeTool, selectedIds, visibleElements]);
+
   const syncPanFromStage = (event: KonvaEventObject<DragEvent>) => {
     const stage = event.target.getStage();
     if (!stage) return;
@@ -927,16 +987,60 @@ export const WhiteboardCanvas = () => {
         const targetId = target.id();
         if (targetId) {
           const element = elements.find((item) => item.id === targetId);
-          if (element) {
-            const clone = duplicateElement(element);
-            clone.x += 24;
-            clone.y += 24;
-            addElement(clone);
-            e.evt.preventDefault();
-            return;
+            if (element) {
+              const clone = duplicateElement(element);
+              clone.x += 24;
+              clone.y += 24;
+              addElement(clone);
+              setSelectedIds([clone.id]);
+              e.evt.preventDefault();
+              return;
+            }
           }
         }
+    }
+
+    if (activeTool === "select") {
+      const target = e.target;
+      if (!target) {
+        clearSelection();
+        return;
       }
+
+      const isTransformerHandle = target.getParent()?.className === "Transformer";
+      if (target === stage) {
+        clearSelection();
+        return;
+      }
+
+      if (isTransformerHandle) {
+        return;
+      }
+
+      const targetId = target.id();
+      if (!targetId) {
+        clearSelection();
+        return;
+      }
+
+      const element = elements.find((item) => item.id === targetId);
+      if (!element) {
+        clearSelection();
+        return;
+      }
+
+      const isMultiSelect = e.evt.shiftKey || e.evt.metaKey || e.evt.ctrlKey;
+      if (isMultiSelect) {
+        const alreadySelected = selectedIds.includes(targetId);
+        const nextSelection = alreadySelected
+          ? selectedIds.filter((id) => id !== targetId)
+          : [...selectedIds, targetId];
+        setSelectedIds(nextSelection);
+      } else {
+        setSelectedIds([targetId]);
+      }
+
+      return;
     }
 
     if (activeTool === "text") {
@@ -1108,6 +1212,90 @@ export const WhiteboardCanvas = () => {
     setIsDrawing(false);
   };
 
+  const handleElementDragMove = useCallback(
+    (event: KonvaEventObject<DragEvent>, element: CanvasElement) => {
+      if (activeTool !== "select") {
+        return;
+      }
+
+      const node = event.target;
+      const x = node.x();
+      const y = node.y();
+
+      if (element.type === "ellipse") {
+        const width = Math.max(1, node.width());
+        const height = Math.max(1, node.height());
+        updateElement(element.id, {
+          x: x - width / 2,
+          y: y - height / 2,
+        });
+        return;
+      }
+
+      updateElement(element.id, { x, y });
+    },
+    [activeTool, updateElement],
+  );
+
+  const handleElementDragEnd = useCallback(
+    (event: KonvaEventObject<DragEvent>, element: CanvasElement) => {
+      if (activeTool !== "select") {
+        return;
+      }
+
+      handleElementDragMove(event, element);
+      pushHistory();
+    },
+    [activeTool, handleElementDragMove, pushHistory],
+  );
+
+  const handleElementTransformEnd = useCallback(
+    (event: KonvaEventObject<Event>, element: CanvasElement) => {
+      if (activeTool !== "select") {
+        return;
+      }
+
+      const node = event.target;
+      const scaleX = node.scaleX();
+      const scaleY = node.scaleY();
+      const nextX = node.x();
+      const nextY = node.y();
+
+      const updates: Partial<CanvasElement> = {};
+
+      if (element.type === "ellipse") {
+        const width = Math.max(1, node.width() * scaleX);
+        const height = Math.max(1, node.height() * scaleY);
+        node.scaleX(1);
+        node.scaleY(1);
+        updates.x = nextX - width / 2;
+        updates.y = nextY - height / 2;
+        updates.width = width;
+        updates.height = height;
+      } else if (element.type === "text") {
+        const width = Math.max(TEXT_MIN_WIDTH, node.width() * scaleX);
+        node.scaleX(1);
+        node.scaleY(1);
+        updates.x = nextX;
+        updates.y = nextY;
+        updates.width = width;
+      } else {
+        const width = Math.max(1, node.width() * scaleX);
+        const height = Math.max(1, node.height() * scaleY);
+        node.scaleX(1);
+        node.scaleY(1);
+        updates.x = nextX;
+        updates.y = nextY;
+        updates.width = width;
+        updates.height = height;
+      }
+
+      updateElement(element.id, updates);
+      pushHistory();
+    },
+    [activeTool, pushHistory, updateElement],
+  );
+
   const handleWheel = (e: KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault();
 
@@ -1168,6 +1356,40 @@ export const WhiteboardCanvas = () => {
         textAlign: editingText.alignment,
       }
     : undefined;
+
+  const getInteractionProps = useCallback(
+    (element: CanvasElement) => {
+      if (activeTool !== "select") {
+        return { draggable: false };
+      }
+
+      const isSelected = selectedIds.includes(element.id);
+      const interaction: Record<string, any> = {
+        draggable: isSelected,
+      };
+
+      if (isSelected) {
+        interaction.onDragMove = (event: KonvaEventObject<DragEvent>) =>
+          handleElementDragMove(event, element);
+        interaction.onDragEnd = (event: KonvaEventObject<DragEvent>) =>
+          handleElementDragEnd(event, element);
+      }
+
+      if (RESIZABLE_ELEMENT_TYPES.has(element.type)) {
+        interaction.onTransformEnd = (event: KonvaEventObject<Event>) =>
+          handleElementTransformEnd(event, element);
+      }
+
+      return interaction;
+    },
+    [
+      activeTool,
+      handleElementDragEnd,
+      handleElementDragMove,
+      handleElementTransformEnd,
+      selectedIds,
+    ],
+  );
 
   return (
     <div
@@ -1238,7 +1460,8 @@ export const WhiteboardCanvas = () => {
         <Layer>
           {/* Render all elements */}
           {visibleElements.map((element) => {
-            const highlightProps =
+            const isSelected = selectedIds.includes(element.id);
+            const focusHighlight =
               focusedElementId === element.id
                 ? {
                     shadowColor: "#38bdf8",
@@ -1248,6 +1471,17 @@ export const WhiteboardCanvas = () => {
                     shadowOffsetY: 0,
                   }
                 : {};
+            const selectionHighlight = isSelected
+              ? {
+                  shadowColor: "#0ea5e9",
+                  shadowBlur: Math.max(18, 12 / safeZoom),
+                  shadowOpacity: 0.75,
+                  shadowOffsetX: 0,
+                  shadowOffsetY: 0,
+                }
+              : {};
+            const highlightProps = { ...focusHighlight, ...selectionHighlight };
+            const interactionProps = getInteractionProps(element);
             const isEditingElement = editingText?.id === element.id;
             if (element.type === "rectangle") {
               return (
@@ -1266,6 +1500,7 @@ export const WhiteboardCanvas = () => {
                   rotation={element.rotation}
                   cornerRadius={element.cornerRadius ?? 0}
                   {...highlightProps}
+                  {...interactionProps}
                 />
               );
             } else if (element.type === "diamond") {
@@ -1291,17 +1526,18 @@ export const WhiteboardCanvas = () => {
                   closed
                   lineJoin="round"
                   {...highlightProps}
+                  {...interactionProps}
                 />
               );
             } else if (element.type === "ellipse") {
               return (
-                <Circle
+                <Ellipse
                   key={element.id}
                   id={element.id}
-                  x={element.x + (element.width || 0) / 2}
-                  y={element.y + (element.height || 0) / 2}
-                  radiusX={Math.abs((element.width || 0) / 2)}
-                  radiusY={Math.abs((element.height || 0) / 2)}
+                  x={element.x + (element.width ?? 0) / 2}
+                  y={element.y + (element.height ?? 0) / 2}
+                  radiusX={Math.abs((element.width ?? 0) / 2)}
+                  radiusY={Math.abs((element.height ?? 0) / 2)}
                   stroke={element.strokeColor}
                   strokeWidth={element.strokeWidth}
                   dash={getStrokeDash(element.strokeStyle)}
@@ -1309,6 +1545,7 @@ export const WhiteboardCanvas = () => {
                   opacity={element.opacity}
                   rotation={element.rotation}
                   {...highlightProps}
+                  {...interactionProps}
                 />
               );
             } else if (element.type === "line") {
@@ -1326,6 +1563,7 @@ export const WhiteboardCanvas = () => {
                   lineCap="round"
                   lineJoin="round"
                   {...highlightProps}
+                  {...interactionProps}
                 />
               );
             } else if (element.type === "arrow") {
@@ -1350,6 +1588,7 @@ export const WhiteboardCanvas = () => {
                   bezier={bezier}
                   tension={bezier ? 0.4 : 0}
                   {...highlightProps}
+                  {...interactionProps}
                 />
               );
             } else if (element.type === "pen") {
@@ -1386,6 +1625,7 @@ export const WhiteboardCanvas = () => {
                     lineJoin="round"
                     tension={element.sloppiness === "smooth" ? 0.75 : element.sloppiness === "rough" ? 0.2 : 0.5}
                     {...highlightProps}
+                    {...interactionProps}
                   />
                 </>
               );
@@ -1412,17 +1652,42 @@ export const WhiteboardCanvas = () => {
                   opacity={element.opacity}
                   width={element.width}
                   {...highlightProps}
+                  {...interactionProps}
                 />
               );
             } else if (element.type === "image") {
               return (
-                <ImageElement key={element.id} element={element} highlight={highlightProps} />
+                <ImageElement
+                  key={element.id}
+                  element={element}
+                  highlight={highlightProps}
+                  interaction={interactionProps}
+                />
               );
             } else if (element.type === "file") {
-              return <FileElement key={element.id} element={element} highlight={highlightProps} />;
+              return (
+                <FileElement
+                  key={element.id}
+                  element={element}
+                  highlight={highlightProps}
+                  interaction={interactionProps}
+                />
+              );
             }
             return null;
           })}
+
+          <Transformer
+            ref={transformerRef}
+            rotateEnabled={false}
+            anchorSize={8}
+            anchorFill="#f8fafc"
+            anchorStroke="#0ea5e9"
+            anchorCornerRadius={3}
+            borderStroke="#0ea5e9"
+            borderStrokeWidth={1}
+            ignoreStroke
+          />
 
           {/* Render current drawing shape */}
           {currentShape && (
@@ -1466,7 +1731,7 @@ export const WhiteboardCanvas = () => {
                 })()
               )}
               {currentShape.type === "ellipse" && (
-                <Circle
+                <Ellipse
                   x={currentShape.x + currentShape.width / 2}
                   y={currentShape.y + currentShape.height / 2}
                   radiusX={Math.abs(currentShape.width / 2)}
