@@ -126,6 +126,41 @@ The app uses a warm, creative color palette:
 - **Accents**: Warm brown/orange tones
 - **Semantic tokens**: All colors defined in `index.css`
 
+### Tailwind "lifted" surface recipe
+
+Modern SaaS dashboards often add a subtle top rim highlight to make cards feel three-dimensional. You can achieve the same effect in Tailwind by layering a gradient pseudo-element over a softly blurred panel. The new `LiftedCard` helper component encapsulates the effect:
+
+```tsx
+import { LiftedCard } from "@/components/ui/lifted-card";
+
+export function Example() {
+  return (
+    <LiftedCard className="max-w-sm">
+      <p className="text-sm text-slate-300/90">Setup required</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">Nano Canvas</h3>
+          <p className="text-xs text-slate-400/80">Layered depth for AI image creation</p>
+        </div>
+        <button className="rounded-full bg-amber-400 px-4 py-2 text-sm font-medium text-slate-950 shadow-inner shadow-amber-200/60 transition-colors hover:bg-amber-300">
+          Setup
+        </button>
+      </div>
+    </LiftedCard>
+  );
+}
+```
+
+If you prefer to copy the styles inline, the core class stack looks like this:
+
+```html
+<div class="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/60 p-6 text-slate-100 shadow-[0_18px_45px_-15px_rgba(15,23,42,0.85)] backdrop-blur-md before:absolute before:inset-x-0 before:-top-px before:h-px before:bg-gradient-to-b before:from-white/80 before:via-white/20 before:to-transparent before:content-['']">
+  ...
+</div>
+```
+
+The thin `before` gradient creates the glossy top edge, while the deep shadow and translucent background build the layered depth.
+
 ## Known Limitations
 
 - **No Persistence**: Rooms are ephemeral (not saved to a database)
