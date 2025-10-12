@@ -78,10 +78,11 @@ export const createSloppyStrokeLayers = (
     return [];
   }
 
+  const intensity = 2 / 3;
   const config =
     mode === "rough"
-      ? { layers: 2, amplitude: 3.4, spacing: 24 }
-      : { layers: 1, amplitude: 1.6, spacing: 34 };
+      ? { layers: 2, amplitude: 3.4 * intensity, spacing: 24 }
+      : { layers: 1, amplitude: 1.6 * intensity, spacing: 34 };
 
   const lengthScale = Math.max(0.65, Math.min(1.55, baseLength / 220 + 0.55));
   const layers: SloppyStrokeLayer[] = [];
@@ -155,7 +156,8 @@ export const createSloppyStrokeLayers = (
       }
     }
 
-    const widthVariance = strokeWidth * (mode === "rough" ? 0.25 : 0.15);
+    const widthVariance =
+      strokeWidth * (mode === "rough" ? 0.25 : 0.15) * intensity;
     const strokeFactor = 0.9 + random() * 0.2;
     const stroke = Math.max(0.4, strokeWidth * strokeFactor + (random() - 0.5) * widthVariance);
     const opacity = Math.max(0.65, Math.min(1, 0.92 - layerIndex * 0.12 + (random() - 0.5) * 0.08));
