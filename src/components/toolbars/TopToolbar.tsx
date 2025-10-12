@@ -50,6 +50,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { CollaborationControls } from "./CollaborationControls";
 
 type ToolbarTool = {
   id: Tool;
@@ -386,6 +387,10 @@ export const TopToolbar = () => {
             onSelect: setActiveTool,
           })}
         </div>
+
+        <Separator orientation="vertical" className="toolbar-separator" />
+
+        <CollaborationControls />
 
         <Separator orientation="vertical" className="toolbar-separator" />
 

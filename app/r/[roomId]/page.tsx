@@ -6,7 +6,6 @@ import { useParams } from "next/navigation";
 import { BottomBar } from "@/components/toolbars/BottomBar";
 import { CollaborationProvider } from "@/components/collaboration/CollaborationProvider";
 import { LeftSidebar } from "@/components/sidebars/LeftSidebar";
-import { RightSidebar } from "@/components/sidebars/RightSidebar";
 import { TopToolbar } from "@/components/toolbars/TopToolbar";
 import { WhiteboardCanvas } from "@/components/canvas/WhiteboardCanvas";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
@@ -41,10 +40,6 @@ export default function RoomPage() {
 
         <div className="absolute left-4 top-1/2 z-40 -translate-y-1/2">
           <LeftSidebar />
-        </div>
-
-        <div className="absolute right-4 top-1/2 z-40 -translate-y-1/2">
-          <RightSidebar />
         </div>
 
         <div className="absolute left-1/2 bottom-4 z-40 -translate-x-1/2">
