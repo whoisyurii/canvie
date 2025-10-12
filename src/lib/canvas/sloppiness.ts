@@ -78,11 +78,11 @@ export const createSloppyStrokeLayers = (
     return [];
   }
 
-  const intensity = 2 / 3;
+  const intensity = 0.45;
   const config =
     mode === "rough"
-      ? { layers: 2, amplitude: 3.4 * intensity, spacing: 24 }
-      : { layers: 1, amplitude: 1.6 * intensity, spacing: 34 };
+      ? { layers: 2, amplitude: 2.8 * intensity, spacing: 28 }
+      : { layers: 1, amplitude: 1.35 * intensity, spacing: 32 };
 
   const lengthScale = Math.max(0.65, Math.min(1.55, baseLength / 220 + 0.55));
   const layers: SloppyStrokeLayer[] = [];
@@ -90,7 +90,7 @@ export const createSloppyStrokeLayers = (
   for (let layerIndex = 0; layerIndex < config.layers; layerIndex += 1) {
     const random = createRandom(`${seed}:${layerIndex}`);
     const layerAmplitude =
-      (config.amplitude + strokeWidth * (mode === "rough" ? 0.7 : 0.45)) *
+      (config.amplitude + strokeWidth * (mode === "rough" ? 0.55 : 0.35)) *
       lengthScale *
       (1 + layerIndex * 0.35);
     const spacing = config.spacing / lengthScale;
@@ -103,8 +103,8 @@ export const createSloppyStrokeLayers = (
       continue;
     }
 
-    const baseOffsetX = (random() - 0.5) * layerAmplitude * 0.6;
-    const baseOffsetY = (random() - 0.5) * layerAmplitude * 0.6;
+    const baseOffsetX = (random() - 0.5) * layerAmplitude * 0.4;
+    const baseOffsetY = (random() - 0.5) * layerAmplitude * 0.4;
 
     for (let segment = 0; segment < segmentCount; segment += 1) {
       const startIndex = segment * 2;
@@ -144,8 +144,8 @@ export const createSloppyStrokeLayers = (
         const baseX = startX + dx * t;
         const baseY = startY + dy * t;
 
-        const offsetMagnitude = (random() - 0.5) * 2 * layerAmplitude;
-        const tangentOffset = (random() - 0.5) * 2 * layerAmplitude * 0.25;
+        const offsetMagnitude = (random() - 0.5) * 1.6 * layerAmplitude;
+        const tangentOffset = (random() - 0.5) * 1.6 * layerAmplitude * 0.2;
 
         const offsetX = normalX * offsetMagnitude + tangentX * tangentOffset + baseOffsetX;
         const offsetY = normalY * offsetMagnitude + tangentY * tangentOffset + baseOffsetY;
@@ -157,10 +157,10 @@ export const createSloppyStrokeLayers = (
     }
 
     const widthVariance =
-      strokeWidth * (mode === "rough" ? 0.25 : 0.15) * intensity;
+      strokeWidth * (mode === "rough" ? 0.18 : 0.1) * intensity;
     const strokeFactor = 0.9 + random() * 0.2;
     const stroke = Math.max(0.4, strokeWidth * strokeFactor + (random() - 0.5) * widthVariance);
-    const opacity = Math.max(0.65, Math.min(1, 0.92 - layerIndex * 0.12 + (random() - 0.5) * 0.08));
+    const opacity = Math.max(0.6, Math.min(0.9, 0.86 - layerIndex * 0.1 + (random() - 0.5) * 0.08));
 
     layers.push({ points: jittered, strokeWidth: stroke, opacity });
   }
