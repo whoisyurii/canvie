@@ -1115,22 +1115,26 @@ export const WhiteboardCanvas = () => {
       const stage = stageRef.current;
       if (!stage) return;
 
-      const oldScale = zoom;
+      const currentScale = Number.isFinite(zoom) ? zoom : 1;
       const pointer = stage.getPointerPosition();
       if (!pointer) return;
 
       const mousePointTo = {
-        x: (pointer.x - panX) / oldScale,
-        y: (pointer.y - panY) / oldScale,
+        x: (pointer.x - panX) / currentScale,
+        y: (pointer.y - panY) / currentScale,
       };
 
-      const newScale = e.evt.deltaY > 0 ? oldScale * 0.95 : oldScale * 1.05;
+      const rawScale = e.evt.deltaY > 0 ? currentScale * 0.95 : currentScale * 1.05;
+      const nextScale = Math.max(0.1, Math.min(5, Number.isFinite(rawScale) ? rawScale : 1));
+      if (!Number.isFinite(nextScale)) {
+        return;
+      }
 
       useWhiteboardStore.setState({
-        zoom: Math.max(0.1, Math.min(5, newScale)),
+        zoom: nextScale,
         pan: {
-          x: pointer.x - mousePointTo.x * newScale,
-          y: pointer.y - mousePointTo.y * newScale,
+          x: pointer.x - mousePointTo.x * nextScale,
+          y: pointer.y - mousePointTo.y * nextScale,
         },
       });
     }
@@ -1219,8 +1223,8 @@ export const WhiteboardCanvas = () => {
         onDblTap={handleStageDoublePointer}
         onWheel={handleWheel}
         draggable={activeTool === "pan"}
-        scaleX={zoom}
-        scaleY={zoom}
+        scaleX={safeZoom}
+        scaleY={safeZoom}
         x={panX}
         y={panY}
         className={cn("h-full w-full", stageCursorClass)}
