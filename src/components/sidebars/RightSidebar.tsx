@@ -365,15 +365,6 @@ export const RightSidebar = () => {
           </TabsContent>
         </Tabs>
       </div>
-
-      <div className="border-t border-sidebar-border/60 px-4 py-3">
-        <div className="flex justify-center">
-          <div
-            id="right-sidebar-minimap"
-            className="pointer-events-none w-full max-w-[240px] [&>*]:pointer-events-auto"
-          />
-        </div>
-      </div>
     </div>
   );
 
