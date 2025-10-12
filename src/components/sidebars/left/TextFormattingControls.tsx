@@ -50,7 +50,7 @@ export const TextFormattingControls = ({
     <SidebarSection title="Text" disabled={disabled}>
       <div className="space-y-4">
         <div className="space-y-1">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Font</span>
+          <span className="text-xs font-semibold uppercase tracking-wide text-sidebar-foreground/80">Font</span>
           <Select
             value={fontFamily}
             onValueChange={(value) => onFontFamilyChange(value)}
@@ -70,7 +70,7 @@ export const TextFormattingControls = ({
         </div>
 
         <div className="space-y-3">
-          <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+          <div className="flex items-center justify-between text-xs font-medium text-sidebar-foreground/80">
             <span>Size</span>
             <span>{Math.round(fontSize)}</span>
           </div>
@@ -85,7 +85,7 @@ export const TextFormattingControls = ({
         </div>
 
         <div className="space-y-1">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Alignment</span>
+          <span className="text-xs font-semibold uppercase tracking-wide text-sidebar-foreground/80">Alignment</span>
           <ToggleGroup
             type="single"
             value={alignment}
@@ -97,7 +97,7 @@ export const TextFormattingControls = ({
                 key={option.value}
                 value={option.value}
                 className={cn(
-                  "group h-10 rounded-md border border-sidebar-border bg-sidebar/60 text-muted-foreground transition",
+                  "group h-10 rounded-md border border-sidebar-border bg-sidebar/60 text-sidebar-foreground/80 transition",
                   "data-[state=on]:border-accent data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm",
                   disabled && "cursor-not-allowed opacity-70"
                 )}

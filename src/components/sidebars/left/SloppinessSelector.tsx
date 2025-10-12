@@ -32,7 +32,7 @@ export const SloppinessSelector = ({ value, onChange, disabled }: SloppinessSele
             value={option.value}
             aria-label={`${option.label} stroke`}
             className={cn(
-              "group h-16 rounded-md border border-sidebar-border bg-sidebar/60 px-2 py-2 text-muted-foreground transition",
+              "group h-16 rounded-md border border-sidebar-border bg-sidebar/60 px-2 py-2 text-sidebar-foreground/80 transition",
               "data-[state=on]:border-accent data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm",
               disabled && "cursor-not-allowed opacity-70"
             )}

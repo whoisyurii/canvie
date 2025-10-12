@@ -35,7 +35,7 @@ export const StrokeWidthSelector = ({
             value={String(width)}
             aria-label={`${width}px stroke`}
             className={cn(
-              "group h-12 rounded-md border border-sidebar-border bg-sidebar/60 text-muted-foreground transition",
+              "group h-12 rounded-md border border-sidebar-border bg-sidebar/60 text-sidebar-foreground/80 transition",
               "data-[state=on]:border-accent data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm",
               disabled && "cursor-not-allowed opacity-70"
             )}

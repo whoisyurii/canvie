@@ -31,7 +31,7 @@ export const EdgeStyleSelector = ({ value, onChange, disabled }: EdgeStyleSelect
             value={option.value}
             aria-label={`${option.label} corners`}
             className={cn(
-              "group h-16 rounded-md border border-sidebar-border bg-sidebar/60 text-muted-foreground transition",
+              "group h-16 rounded-md border border-sidebar-border bg-sidebar/60 text-sidebar-foreground/80 transition",
               "data-[state=on]:border-accent data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm",
               disabled && "cursor-not-allowed opacity-70"
             )}
