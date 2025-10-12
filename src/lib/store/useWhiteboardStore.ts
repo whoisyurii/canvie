@@ -546,9 +546,20 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
 
   // Pan & Zoom
   pan: { x: 0, y: 0 },
-  setPan: (pan) => set({ pan }),
+  setPan: (pan) =>
+    set(() => ({
+      pan: {
+        x: Number.isFinite(pan.x) ? pan.x : 0,
+        y: Number.isFinite(pan.y) ? pan.y : 0,
+      },
+    })),
   zoom: 1,
-  setZoom: (zoom) => set({ zoom: Math.max(0.1, Math.min(5, zoom)) }),
+  setZoom: (zoom) =>
+    set(() => {
+      const sanitizedZoom = Number.isFinite(zoom) ? zoom : 1;
+      const nextZoom = Math.max(0.1, Math.min(5, sanitizedZoom));
+      return { zoom: nextZoom };
+    }),
   resetView: () => set({ pan: { x: 0, y: 0 }, zoom: 1 }),
 
   // History
