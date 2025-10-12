@@ -32,7 +32,7 @@ export const PenBackgroundSelector = ({
             "flex h-12 flex-col items-center justify-center rounded-md border text-[11px] font-medium transition",
             isTransparent
               ? "border-accent bg-background text-foreground shadow-sm"
-              : "border-sidebar-border bg-sidebar/60 text-muted-foreground hover:scale-105",
+              : "border-sidebar-border bg-sidebar/60 text-sidebar-foreground/80 hover:scale-105",
             disabled && "cursor-not-allowed opacity-70 hover:scale-100"
           )}
           style={{
