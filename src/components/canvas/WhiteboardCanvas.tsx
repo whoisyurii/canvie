@@ -1081,7 +1081,7 @@ export const WhiteboardCanvas = () => {
       return;
     }
 
-    if (activeTool === "select" || activeTool === "pan") {
+    if (activeTool === "pan") {
       return;
     }
 
