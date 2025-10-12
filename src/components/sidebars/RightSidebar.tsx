@@ -255,12 +255,9 @@ export const RightSidebar = () => {
         <div
           className={cn(
             "flex items-center border-b border-sidebar-border",
-            isCollapsed ? "justify-center px-0 py-2" : "justify-between px-3 py-3"
+            isCollapsed ? "justify-center px-0 py-2" : "justify-start gap-3 px-3 py-3"
           )}
         >
-          {!isCollapsed ? (
-            <h3 className="text-sm font-semibold text-sidebar-foreground">Collaboration</h3>
-          ) : null}
           <Button
             variant="ghost"
             size="icon"
@@ -270,6 +267,9 @@ export const RightSidebar = () => {
           >
             {isCollapsed ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
           </Button>
+          {!isCollapsed ? (
+            <h3 className="text-sm font-semibold text-sidebar-foreground">Collaboration</h3>
+          ) : null}
         </div>
 
         {isCollapsed ? (
