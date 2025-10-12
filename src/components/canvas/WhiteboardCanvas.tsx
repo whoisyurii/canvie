@@ -1793,6 +1793,11 @@ export const WhiteboardCanvas = () => {
             } else if (element.type === "pen") {
               const hasBackground = element.penBackground && element.penBackground !== "transparent";
               const backgroundOpacity = element.opacity * 0.4 + 0.2;
+              const penSloppyLayers = createSloppyStrokeLayers(element.points, {
+                sloppiness: element.sloppiness,
+                strokeWidth: element.strokeWidth,
+                seed: `${element.id}:pen`,
+              });
               return (
                 <>
                   {hasBackground && (
@@ -1808,7 +1813,9 @@ export const WhiteboardCanvas = () => {
                       lineCap="round"
                       lineJoin="round"
                       tension={element.sloppiness === "smooth" ? 0.75 : element.sloppiness === "rough" ? 0.2 : 0.5}
+                      strokeEnabled={element.sloppiness === "smooth"}
                       listening={false}
+                      {...highlightProps}
                     />
                   )}
                   <Line
@@ -1823,9 +1830,42 @@ export const WhiteboardCanvas = () => {
                     lineCap="round"
                     lineJoin="round"
                     tension={element.sloppiness === "smooth" ? 0.75 : element.sloppiness === "rough" ? 0.2 : 0.5}
+                    strokeEnabled={element.sloppiness === "smooth"}
+                    hitStrokeWidth={Math.max(12, element.strokeWidth)}
                     {...highlightProps}
                     {...interactionProps}
                   />
+                  {hasBackground &&
+                    penSloppyLayers.map((layer, index) => (
+                      <Line
+                        key={`${element.id}-sloppy-pen-background-${index}`}
+                        x={element.x}
+                        y={element.y}
+                        points={layer.points}
+                        stroke={element.penBackground}
+                        strokeWidth={layer.strokeWidth + 12}
+                        opacity={Math.min(1, backgroundOpacity) * layer.opacity}
+                        lineCap="round"
+                        lineJoin="round"
+                        listening={false}
+                        {...highlightProps}
+                      />
+                    ))}
+                  {penSloppyLayers.map((layer, index) => (
+                    <Line
+                      key={`${element.id}-sloppy-pen-${index}`}
+                      x={element.x}
+                      y={element.y}
+                      points={layer.points}
+                      stroke={element.strokeColor}
+                      strokeWidth={layer.strokeWidth}
+                      opacity={element.opacity * layer.opacity}
+                      lineCap="round"
+                      lineJoin="round"
+                      listening={false}
+                      {...highlightProps}
+                    />
+                  ))}
                 </>
               );
             } else if (element.type === "text") {
@@ -2153,6 +2193,11 @@ export const WhiteboardCanvas = () => {
                 (() => {
                   const hasBackground = currentShape.penBackground && currentShape.penBackground !== "transparent";
                   const backgroundOpacity = currentShape.opacity * 0.4 + 0.2;
+                  const penSloppyLayers = createSloppyStrokeLayers(currentShape.points, {
+                    sloppiness: currentShape.sloppiness,
+                    strokeWidth: currentShape.strokeWidth,
+                    seed: `${currentShape.id}-preview-pen`,
+                  });
                   return (
                     <>
                       {hasBackground && (
@@ -2172,6 +2217,7 @@ export const WhiteboardCanvas = () => {
                               ? 0.2
                               : 0.5
                           }
+                          strokeEnabled={currentShape.sloppiness === "smooth"}
                           listening={false}
                         />
                       )}
@@ -2191,7 +2237,38 @@ export const WhiteboardCanvas = () => {
                             ? 0.2
                             : 0.5
                         }
+                        strokeEnabled={currentShape.sloppiness === "smooth"}
+                        hitStrokeWidth={Math.max(12, currentShape.strokeWidth)}
                       />
+                      {hasBackground &&
+                        penSloppyLayers.map((layer, index) => (
+                          <Line
+                            key={`${currentShape.id}-preview-pen-background-${index}`}
+                            x={currentShape.x}
+                            y={currentShape.y}
+                            points={layer.points}
+                            stroke={currentShape.penBackground}
+                            strokeWidth={layer.strokeWidth + 12}
+                            opacity={Math.min(1, backgroundOpacity) * layer.opacity}
+                            lineCap="round"
+                            lineJoin="round"
+                            listening={false}
+                          />
+                        ))}
+                      {penSloppyLayers.map((layer, index) => (
+                        <Line
+                          key={`${currentShape.id}-preview-pen-${index}`}
+                          x={currentShape.x}
+                          y={currentShape.y}
+                          points={layer.points}
+                          stroke={currentShape.strokeColor}
+                          strokeWidth={layer.strokeWidth}
+                          opacity={currentShape.opacity * 0.7 * layer.opacity}
+                          lineCap="round"
+                          lineJoin="round"
+                          listening={false}
+                        />
+                      ))}
                     </>
                   );
                 })()
