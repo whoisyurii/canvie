@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as Y from "yjs";
-import { WebsocketProvider } from "y-websocket";
+import { WebrtcProvider } from "y-webrtc";
 import { Awareness } from "y-protocols/awareness";
 import { IndexeddbPersistence } from "y-indexeddb";
 import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
 import type { CanvasElement, SharedFile, Tool, User } from "@/lib/store/useWhiteboardStore";
 import { nanoid } from "nanoid";
+import { resolveCollaborationTransport } from "@/lib/collaboration/room";
 
 interface CollaborationProviderProps {
   roomId: string;
@@ -45,9 +46,25 @@ const buildRemoteUser = (params: {
   lastActive: Date.now(),
 });
 
+type ConnectionStatus = "connecting" | "connected" | "disconnected";
+
+interface DebugStats {
+  updates: number;
+  awarenessChanges: number;
+  peers: number;
+}
+
+const INITIAL_DEBUG_STATS: DebugStats = {
+  updates: 0,
+  awarenessChanges: 0,
+  peers: 0,
+};
+
+const IS_DEV = process.env.NODE_ENV === "development";
+
 export const CollaborationProvider = ({ roomId, children }: CollaborationProviderProps) => {
   const ydocRef = useRef<Y.Doc | null>(null);
-  const websocketProviderRef = useRef<WebsocketProvider | null>(null);
+  const webrtcProviderRef = useRef<WebrtcProvider | null>(null);
   const awarenessRef = useRef<Awareness | null>(null);
   const persistenceRef = useRef<IndexeddbPersistence | null>(null);
   const userIdRef = useRef(nanoid());
@@ -61,6 +78,9 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
   const remoteUsersRef = useRef(new Map<string, User>());
   const removalTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const previousRoomIdRef = useRef<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
+  const [debugStats, setDebugStats] = useState<DebugStats>(INITIAL_DEBUG_STATS);
+  const transport = resolveCollaborationTransport();
 
   const setUsers = useWhiteboardStore((state) => state.setUsers);
   const setCollaboration = useWhiteboardStore((state) => state.setCollaboration);
@@ -99,6 +119,10 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
     }
 
     previousRoomIdRef.current = roomId;
+    setConnectionStatus("connecting");
+    if (IS_DEV) {
+      setDebugStats(INITIAL_DEBUG_STATS);
+    }
 
     const ydoc = new Y.Doc();
     ydocRef.current = ydoc;
@@ -130,36 +154,67 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       awarenessInstance.setLocalState(next);
     };
 
-    let websocketProvider: WebsocketProvider | null = null;
-    let isActive = true;
-    const setupWebsocketProvider = async () => {
-      if (typeof window === "undefined") {
-        console.warn("[CollaborationProvider] WebSocket endpoint unavailable on the server.");
+    let webrtcProvider: WebrtcProvider | null = null;
+    const setupWebrtcProvider = () => {
+      if (transport !== "webrtc") {
+        console.error(`[CollaborationProvider] Unsupported transport "${transport}".`);
         return;
       }
 
-      try {
-        await fetch("/api/yjs");
-      } catch (error) {
-        console.error("[CollaborationProvider] Failed to initialize WebSocket endpoint", error);
-      }
+      const signalingEnv = process.env.NEXT_PUBLIC_WEBRTC_SIGNALING_URLS ?? "";
+      const signaling = signalingEnv
+        .split(",")
+        .map((url) => url.trim())
+        .filter((url) => url.length > 0);
+      const password = process.env.NEXT_PUBLIC_WEBRTC_ROOM_KEY?.trim();
 
-      if (!isActive) {
-        return;
-      }
-
-      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-      const websocketEndpoint = `${protocol}://${window.location.host}/api/yjs`;
-      websocketProvider = new WebsocketProvider(websocketEndpoint, roomId, ydoc, {
+      webrtcProvider = new WebrtcProvider(roomId, ydoc, {
         awareness,
-        connect: true,
-        resyncInterval: 10_000,
+        signaling: signaling.length > 0 ? signaling : undefined,
+        password: password && password.length > 0 ? password : undefined,
       });
-      websocketProviderRef.current = websocketProvider;
+
+      webrtcProviderRef.current = webrtcProvider;
       setLocalState();
+
+      if (IS_DEV) {
+        console.info("[CollaborationProvider] WebRTC provider initialized", {
+          roomId,
+          signaling: signaling.length > 0 ? signaling : "default",
+        });
+      }
+
+      const statusHandler = (event: { status: "connected" | "disconnected" }) => {
+        setConnectionStatus(event.status === "connected" ? "connected" : "disconnected");
+        if (IS_DEV) {
+          console.info(`[CollaborationProvider] transport status: ${event.status}`);
+        }
+      };
+
+      const peersHandler = (event: { webrtcPeers: Map<number, unknown>; bcPeers: Set<number> }) => {
+        if (IS_DEV) {
+          const peerCount = event.webrtcPeers.size + event.bcPeers.size;
+          console.info("[CollaborationProvider] peer update", {
+            webrtcPeers: event.webrtcPeers.size,
+            broadcastPeers: event.bcPeers.size,
+          });
+          setDebugStats((stats) => ({ ...stats, peers: peerCount }));
+        }
+      };
+
+      webrtcProvider.on("status", statusHandler);
+      webrtcProvider.on("peers", peersHandler);
+
+      return () => {
+        setConnectionStatus("disconnected");
+        if (webrtcProvider) {
+          webrtcProvider.off("status", statusHandler);
+          webrtcProvider.off("peers", peersHandler);
+        }
+      };
     };
 
-    void setupWebsocketProvider();
+    const teardownTransport = setupWebrtcProvider();
 
     let persistence: IndexeddbPersistence | null = null;
     let persistenceError: unknown = null;
@@ -313,9 +368,20 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       });
 
       publishUsers();
+      if (IS_DEV) {
+        setDebugStats((stats) => ({ ...stats, awarenessChanges: stats.awarenessChanges + 1 }));
+      }
     };
 
     awarenessInstance.on("change", awarenessChangeHandler);
+
+    const updateHandler = () => {
+      if (IS_DEV) {
+        setDebugStats((stats) => ({ ...stats, updates: stats.updates + 1 }));
+      }
+    };
+
+    ydoc.on("update", updateHandler);
 
     const flushCursorUpdate = () => {
       const coords = pendingCursorRef.current;
@@ -390,17 +456,20 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       setHistoryFromDoc([[]], 0);
       setCollaboration(null);
       setCurrentUser(null);
-      websocketProviderRef.current = null;
+      webrtcProviderRef.current = null;
       awarenessRef.current = null;
       ydocRef.current = null;
       const persistenceInstance = persistenceRef.current;
       persistenceRef.current = null;
       previousRoomIdRef.current = null;
 
-      isActive = false;
-      if (websocketProvider) {
-        websocketProvider.destroy();
+      if (teardownTransport) {
+        teardownTransport();
       }
+      if (webrtcProvider) {
+        webrtcProvider.destroy();
+      }
+      ydoc.off("update", updateHandler);
       ydoc.destroy();
       if (persistenceInstance) {
         persistenceInstance.destroy();
@@ -414,6 +483,7 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
     setHistoryFromDoc,
     setUsers,
     setCurrentUser,
+    transport,
   ]);
 
   useEffect(() => {
@@ -440,5 +510,40 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
     }
   }, [activeTool, setCurrentUser, strokeColor]);
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      {IS_DEV ? (
+        <div className="fixed bottom-4 left-4 z-[100] max-w-xs rounded-md border border-border/60 bg-background/90 p-3 text-xs text-foreground shadow-lg backdrop-blur">
+          <p className="font-semibold">Collaboration Debug</p>
+          <dl className="mt-2 space-y-1">
+            <div className="flex justify-between gap-2">
+              <dt className="text-muted-foreground">Room</dt>
+              <dd className="font-mono">{roomId}</dd>
+            </div>
+            <div className="flex justify-between gap-2">
+              <dt className="text-muted-foreground">Transport</dt>
+              <dd className="font-medium capitalize">{transport}</dd>
+            </div>
+            <div className="flex justify-between gap-2">
+              <dt className="text-muted-foreground">Status</dt>
+              <dd className="font-medium capitalize">{connectionStatus}</dd>
+            </div>
+            <div className="flex justify-between gap-2">
+              <dt className="text-muted-foreground">Peers</dt>
+              <dd className="font-mono">{debugStats.peers}</dd>
+            </div>
+            <div className="flex justify-between gap-2">
+              <dt className="text-muted-foreground">Updates</dt>
+              <dd className="font-mono">{debugStats.updates}</dd>
+            </div>
+            <div className="flex justify-between gap-2">
+              <dt className="text-muted-foreground">Awareness</dt>
+              <dd className="font-mono">{debugStats.awarenessChanges}</dd>
+            </div>
+          </dl>
+        </div>
+      ) : null}
+    </>
+  );
 };
