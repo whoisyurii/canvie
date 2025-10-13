@@ -6,7 +6,8 @@ import { setupWSConnection } from "y-websocket/bin/utils";
 const WS_PATH_PREFIX = "/api/yjs";
 
 const getOrCreateWSS = (res: NextApiResponse) => {
-  const server = res.socket?.server as any;
+  const socket = res.socket as unknown as { server?: any };
+  const server = socket?.server;
   if (!server) {
     throw new Error("WebSocket server is not available on this platform.");
   }
