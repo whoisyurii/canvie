@@ -121,8 +121,21 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
     });
     websocketProviderRef.current = websocketProvider;
 
-    const persistence = new IndexeddbPersistence(`realitea-canvas-${roomId}`, ydoc);
-    persistenceRef.current = persistence;
+    let persistence: IndexeddbPersistence | null = null;
+    let persistenceError: unknown = null;
+
+    if (typeof indexedDB !== "undefined") {
+      try {
+        persistence = new IndexeddbPersistence(`realitea-canvas-${roomId}`, ydoc);
+        persistenceRef.current = persistence;
+      } catch (error) {
+        persistenceError = error;
+        persistenceRef.current = null;
+      }
+    } else {
+      persistenceError = new Error("IndexedDB is not available in this environment.");
+      persistenceRef.current = null;
+    }
 
     const yElements = ydoc.getArray<CanvasElement>("elements");
     const yFiles = ydoc.getArray<SharedFile>("files");
@@ -163,13 +176,20 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
 
     runFullSync();
 
-    persistence
-      .whenSynced
-      .then(runFullSync)
-      .catch(() => {
-        // Ignore IndexedDB sync errors; the observers will continue to receive
-        // updates from connected peers.
-      });
+    if (persistence) {
+      persistence
+        .whenSynced
+        .then(runFullSync)
+        .catch(() => {
+          // Ignore IndexedDB sync errors; the observers will continue to receive
+          // updates from connected peers.
+        });
+    } else if (persistenceError) {
+      console.warn(
+        "[CollaborationProvider] IndexedDB persistence disabled; falling back to peer updates only.",
+        persistenceError,
+      );
+    }
 
     yElements.observe(syncElements);
     yFiles.observe(syncFiles);
@@ -364,7 +384,9 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       webrtcProvider.destroy();
       websocketProvider.destroy();
       ydoc.destroy();
-      persistenceInstance?.destroy();
+      if (persistenceInstance) {
+        persistenceInstance.destroy();
+      }
     };
   }, [
     roomId,
