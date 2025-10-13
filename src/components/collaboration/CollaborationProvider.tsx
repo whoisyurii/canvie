@@ -176,8 +176,8 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
     yHistoryEntries.observe(syncHistory);
     yHistoryMeta.observe(syncHistory);
 
-    const awareness = awarenessRef.current;
-    if (!awareness) {
+    const awarenessInstance = awarenessRef.current;
+    if (!awarenessInstance) {
       return () => undefined;
     }
     const setLocalState = (overrides: Record<string, unknown> = {}) => {
@@ -196,7 +196,7 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
           ...overrides,
         },
       };
-      awareness.setLocalState(next);
+      awarenessInstance.setLocalState(next);
     };
 
     setLocalState();
@@ -240,7 +240,7 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
     };
 
     const awarenessChangeHandler = () => {
-      const states = awareness.getStates();
+      const states = awarenessInstance.getStates();
       const connectedIds = new Set<string>();
 
       states.forEach((state: any) => {
@@ -278,14 +278,14 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       publishUsers();
     };
 
-    awareness.on("change", awarenessChangeHandler);
+    awarenessInstance.on("change", awarenessChangeHandler);
 
     const flushCursorUpdate = () => {
       const coords = pendingCursorRef.current;
       if (!coords) {
         return;
       }
-      const currentState = awareness.getLocalState();
+      const currentState = awarenessInstance.getLocalState();
       if (!currentState?.user) {
         return;
       }
@@ -297,7 +297,7 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
         cursor: { x: coords.x, y: coords.y },
         lastUpdated: Date.now(),
       };
-      awareness.setLocalState({
+      awarenessInstance.setLocalState({
         user: nextUserState,
       });
       setCurrentUser(
@@ -338,7 +338,7 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
         cursorTimeoutRef.current = null;
       }
 
-      awareness.off("change", awarenessChangeHandler);
+      awarenessInstance.off("change", awarenessChangeHandler);
       yElements.unobserve(syncElements);
       yFiles.unobserve(syncFiles);
       yHistoryEntries.unobserve(syncHistory);
