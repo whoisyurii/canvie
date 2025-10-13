@@ -3,6 +3,8 @@
 import { useEffect, useRef } from "react";
 import * as Y from "yjs";
 import { WebrtcProvider } from "y-webrtc";
+import { WebsocketProvider } from "y-websocket";
+import { Awareness } from "y-protocols/awareness";
 import { IndexeddbPersistence } from "y-indexeddb";
 import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
 import type { CanvasElement, SharedFile, Tool, User } from "@/lib/store/useWhiteboardStore";
@@ -46,7 +48,9 @@ const buildRemoteUser = (params: {
 
 export const CollaborationProvider = ({ roomId, children }: CollaborationProviderProps) => {
   const ydocRef = useRef<Y.Doc | null>(null);
-  const providerRef = useRef<WebrtcProvider | null>(null);
+  const webrtcProviderRef = useRef<WebrtcProvider | null>(null);
+  const websocketProviderRef = useRef<WebsocketProvider | null>(null);
+  const awarenessRef = useRef<Awareness | null>(null);
   const persistenceRef = useRef<IndexeddbPersistence | null>(null);
   const userIdRef = useRef(nanoid());
   const userColorRef = useRef(generateRandomColor());
@@ -92,7 +96,7 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       return;
     }
 
-    if (providerRef.current && previousRoomIdRef.current === roomId) {
+    if (webrtcProviderRef.current && previousRoomIdRef.current === roomId) {
       return;
     }
 
@@ -101,10 +105,21 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
     const ydoc = new Y.Doc();
     ydocRef.current = ydoc;
 
-    const provider = new WebrtcProvider(roomId, ydoc, {
+    const awareness = new Awareness(ydoc);
+    awarenessRef.current = awareness;
+
+    const webrtcProvider = new WebrtcProvider(roomId, ydoc, {
       signaling: ["wss://signaling.yjs.dev"],
+      awareness,
     });
-    providerRef.current = provider;
+    webrtcProviderRef.current = webrtcProvider;
+
+    const websocketProvider = new WebsocketProvider("wss://demos.yjs.dev", roomId, ydoc, {
+      awareness,
+      connect: true,
+      resyncInterval: 10_000,
+    });
+    websocketProviderRef.current = websocketProvider;
 
     const persistence = new IndexeddbPersistence(`realitea-canvas-${roomId}`, ydoc);
     persistenceRef.current = persistence;
@@ -161,7 +176,10 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
     yHistoryEntries.observe(syncHistory);
     yHistoryMeta.observe(syncHistory);
 
-    const awareness = provider.awareness;
+    const awareness = awarenessRef.current;
+    if (!awareness) {
+      return () => undefined;
+    }
     const setLocalState = (overrides: Record<string, unknown> = {}) => {
       const { activeTool: currentTool, strokeColor: currentStrokeColor } = useWhiteboardStore.getState();
       const next = {
@@ -263,9 +281,6 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
     awareness.on("change", awarenessChangeHandler);
 
     const flushCursorUpdate = () => {
-      if (!providerRef.current) {
-        return;
-      }
       const coords = pendingCursorRef.current;
       if (!coords) {
         return;
@@ -338,13 +353,16 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       setHistoryFromDoc([[]], 0);
       setCollaboration(null);
       setCurrentUser(null);
-      providerRef.current = null;
+      webrtcProviderRef.current = null;
+      websocketProviderRef.current = null;
+      awarenessRef.current = null;
       ydocRef.current = null;
       const persistenceInstance = persistenceRef.current;
       persistenceRef.current = null;
       previousRoomIdRef.current = null;
 
-      provider.destroy();
+      webrtcProvider.destroy();
+      websocketProvider.destroy();
       ydoc.destroy();
       persistenceInstance?.destroy();
     };
@@ -359,11 +377,10 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
   ]);
 
   useEffect(() => {
-    const provider = providerRef.current;
-    if (!provider) {
+    const awareness = awarenessRef.current;
+    if (!awareness) {
       return;
     }
-    const awareness = provider.awareness;
     const currentState = awareness.getLocalState();
     if (!currentState?.user) {
       return;
