@@ -461,6 +461,36 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
     const state = get();
     if (state.selectedIds.length === 0) return;
 
+    const collaboration = state.collaboration;
+    if (collaboration?.elements) {
+      const { elements: sharedElements, historyEntries, historyMeta } = collaboration;
+      const doc = sharedElements.doc;
+
+      const reorder = () => {
+        const selectedIdsSet = new Set(state.selectedIds);
+        const currentElements = sharedElements.toArray();
+        const others = currentElements.filter((el) => !selectedIdsSet.has(el.id));
+        const selected = currentElements.filter((el) => selectedIdsSet.has(el.id));
+        const reordered = [...others, ...selected];
+
+        sharedElements.delete(0, sharedElements.length);
+        sharedElements.insert(0, reordered.map((el) => ({ ...el })));
+
+        if (historyEntries && historyMeta) {
+          const snapshot = deepClone(reordered);
+          applySharedHistoryUpdate(historyEntries, historyMeta, snapshot);
+        }
+      };
+
+      if (doc) {
+        doc.transact(reorder);
+      } else {
+        reorder();
+      }
+
+      return;
+    }
+
     const selectedIdsSet = new Set(state.selectedIds);
     const others = state.elements.filter((el) => !selectedIdsSet.has(el.id));
     const selected = state.elements.filter((el) => selectedIdsSet.has(el.id));
@@ -471,6 +501,36 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   sendToBack: () => {
     const state = get();
     if (state.selectedIds.length === 0) return;
+
+    const collaboration = state.collaboration;
+    if (collaboration?.elements) {
+      const { elements: sharedElements, historyEntries, historyMeta } = collaboration;
+      const doc = sharedElements.doc;
+
+      const reorder = () => {
+        const selectedIdsSet = new Set(state.selectedIds);
+        const currentElements = sharedElements.toArray();
+        const others = currentElements.filter((el) => !selectedIdsSet.has(el.id));
+        const selected = currentElements.filter((el) => selectedIdsSet.has(el.id));
+        const reordered = [...selected, ...others];
+
+        sharedElements.delete(0, sharedElements.length);
+        sharedElements.insert(0, reordered.map((el) => ({ ...el })));
+
+        if (historyEntries && historyMeta) {
+          const snapshot = deepClone(reordered);
+          applySharedHistoryUpdate(historyEntries, historyMeta, snapshot);
+        }
+      };
+
+      if (doc) {
+        doc.transact(reorder);
+      } else {
+        reorder();
+      }
+
+      return;
+    }
 
     const selectedIdsSet = new Set(state.selectedIds);
     const others = state.elements.filter((el) => !selectedIdsSet.has(el.id));
