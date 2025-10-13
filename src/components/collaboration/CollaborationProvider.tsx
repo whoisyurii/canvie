@@ -48,7 +48,6 @@ const buildRemoteUser = (params: {
 
 export const CollaborationProvider = ({ roomId, children }: CollaborationProviderProps) => {
   const ydocRef = useRef<Y.Doc | null>(null);
-  const webrtcProviderRef = useRef<WebrtcProvider | null>(null);
   const websocketProviderRef = useRef<WebsocketProvider | null>(null);
   const awarenessRef = useRef<Awareness | null>(null);
   const persistenceRef = useRef<IndexeddbPersistence | null>(null);
