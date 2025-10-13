@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import {
   Users,
   FileText,
@@ -9,6 +9,7 @@ import {
   MoreVertical,
   Pencil,
   Trash2,
+  Upload,
 } from "lucide-react";
 import {
   useWhiteboardStore,
@@ -52,6 +53,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { useDragDrop } from "@/components/canvas/DragDropHandler";
 
 const getInitials = (name: string) => {
   const cleaned = name.replace(/[^\p{L}\p{N}]+/gu, " ").trim();
@@ -199,6 +201,9 @@ export const RightSidebar = () => {
   const [renameValue, setRenameValue] = useState("");
   const [pendingDelete, setPendingDelete] = useState<SharedFile | null>(null);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { handleFileInput } = useDragDrop();
+
   const {
     users,
     uploadedFiles,
@@ -242,6 +247,14 @@ export const RightSidebar = () => {
     }
   };
 
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFilePickerChange = (event: ChangeEvent<HTMLInputElement>) => {
+    void handleFileInput(event);
+  };
+
   return (
     <TooltipProvider>
       <div
@@ -252,6 +265,14 @@ export const RightSidebar = () => {
         )}
         style={{ height: "min(720px, calc(100vh - 5rem))" }}
       >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,application/pdf,text/plain"
+          multiple
+          className="hidden"
+          onChange={handleFilePickerChange}
+        />
         <div
           className={cn(
             "flex items-center border-b border-sidebar-border",
@@ -345,36 +366,48 @@ export const RightSidebar = () => {
               </TabsContent>
 
               <TabsContent value="files" className="mt-0 flex-1 px-0 py-0">
-                <ScrollArea className="h-full">
-                  {uploadedFiles.length === 0 ? (
-                    <div className="flex h-full flex-col items-center justify-center gap-2 px-3 py-3 text-center">
-                      <FileText className="h-8 w-8 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm font-medium text-sidebar-foreground">No files yet</p>
-                        <p className="text-xs text-muted-foreground">
-                          Drop images, PDFs, or text files onto the canvas to share them here.
-                        </p>
+                <div className="flex h-full flex-col">
+                  <div className="border-b border-sidebar-border px-3 py-3">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="w-full justify-center"
+                      onClick={handleUploadClick}
+                    >
+                      <Upload className="mr-2 h-4 w-4" /> Upload files
+                    </Button>
+                  </div>
+                  <ScrollArea className="h-full">
+                    {uploadedFiles.length === 0 ? (
+                      <div className="flex h-full flex-col items-center justify-center gap-2 px-3 py-3 text-center">
+                        <FileText className="h-8 w-8 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm font-medium text-sidebar-foreground">No files yet</p>
+                          <p className="text-xs text-muted-foreground">
+                            Drop images, PDFs, or text files onto the canvas to share them here.
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-3 px-3 py-3">
-                      {uploadedFiles.map((file) => {
-                        const canManage = currentUser?.id
-                          ? file.ownerId === currentUser.id
-                          : file.ownerId === "local-user";
-                        return renderFileRow(file, {
-                          canManage,
-                          onFocus: () => focusElement(file.id),
-                          onRename: () => {
-                            setRenamingFile(file);
-                            setRenameValue(file.name);
-                          },
-                          onRemove: () => setPendingDelete(file),
-                        });
-                      })}
-                    </div>
-                  )}
-                </ScrollArea>
+                    ) : (
+                      <div className="space-y-3 px-3 py-3">
+                        {uploadedFiles.map((file) => {
+                          const canManage = currentUser?.id
+                            ? file.ownerId === currentUser.id
+                            : file.ownerId === "local-user";
+                          return renderFileRow(file, {
+                            canManage,
+                            onFocus: () => focusElement(file.id),
+                            onRename: () => {
+                              setRenamingFile(file);
+                              setRenameValue(file.name);
+                            },
+                            onRemove: () => setPendingDelete(file),
+                          });
+                        })}
+                      </div>
+                    )}
+                  </ScrollArea>
+                </div>
               </TabsContent>
             </Tabs>
           </div>
