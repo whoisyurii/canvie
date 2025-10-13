@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import * as Y from "yjs";
-import { WebrtcProvider } from "y-webrtc";
 import { WebsocketProvider } from "y-websocket";
 import { Awareness } from "y-protocols/awareness";
 import { IndexeddbPersistence } from "y-indexeddb";
@@ -48,7 +47,6 @@ const buildRemoteUser = (params: {
 
 export const CollaborationProvider = ({ roomId, children }: CollaborationProviderProps) => {
   const ydocRef = useRef<Y.Doc | null>(null);
-  const webrtcProviderRef = useRef<WebrtcProvider | null>(null);
   const websocketProviderRef = useRef<WebsocketProvider | null>(null);
   const awarenessRef = useRef<Awareness | null>(null);
   const persistenceRef = useRef<IndexeddbPersistence | null>(null);
@@ -96,7 +94,7 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       return;
     }
 
-    if (webrtcProviderRef.current && previousRoomIdRef.current === roomId) {
+    if (websocketProviderRef.current && previousRoomIdRef.current === roomId) {
       return;
     }
 
@@ -108,18 +106,31 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
     const awareness = new Awareness(ydoc);
     awarenessRef.current = awareness;
 
-    const webrtcProvider = new WebrtcProvider(roomId, ydoc, {
-      signaling: ["wss://signaling.yjs.dev"],
-      awareness,
-    });
-    webrtcProviderRef.current = webrtcProvider;
+    let cancelled = false;
 
-    const websocketProvider = new WebsocketProvider("wss://demos.yjs.dev", roomId, ydoc, {
-      awareness,
-      connect: true,
-      resyncInterval: 10_000,
-    });
-    websocketProviderRef.current = websocketProvider;
+    const createProvider = async () => {
+      const httpProtocol = window.location.protocol;
+      const origin = `${httpProtocol}//${window.location.host}`;
+      try {
+        await fetch(`${origin}/api/sync/${roomId}`, { method: "GET" });
+      } catch (error) {
+        console.warn("[CollaborationProvider] Failed to warm up sync endpoint", error);
+      }
+      if (cancelled) {
+        return;
+      }
+
+      const wsProtocol = httpProtocol === "https:" ? "wss:" : "ws:";
+      const websocketUrl = `${wsProtocol}//${window.location.host}/api/sync`;
+      const websocketProvider = new WebsocketProvider(websocketUrl, roomId, ydoc, {
+        awareness,
+        connect: true,
+        resyncInterval: 10_000,
+      });
+      websocketProviderRef.current = websocketProvider;
+    };
+
+    void createProvider();
 
     let persistence: IndexeddbPersistence | null = null;
     let persistenceError: unknown = null;
@@ -373,7 +384,7 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       setHistoryFromDoc([[]], 0);
       setCollaboration(null);
       setCurrentUser(null);
-      webrtcProviderRef.current = null;
+      const activeProvider = websocketProviderRef.current;
       websocketProviderRef.current = null;
       awarenessRef.current = null;
       ydocRef.current = null;
@@ -381,8 +392,10 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       persistenceRef.current = null;
       previousRoomIdRef.current = null;
 
-      webrtcProvider.destroy();
-      websocketProvider.destroy();
+      cancelled = true;
+      if (activeProvider) {
+        activeProvider.destroy();
+      }
       ydoc.destroy();
       if (persistenceInstance) {
         persistenceInstance.destroy();
