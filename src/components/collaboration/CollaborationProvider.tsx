@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import * as Y from "yjs";
-import { WebrtcProvider } from "y-webrtc";
 import { WebsocketProvider } from "y-websocket";
 import { Awareness } from "y-protocols/awareness";
 import { IndexeddbPersistence } from "y-indexeddb";
@@ -48,7 +47,6 @@ const buildRemoteUser = (params: {
 
 export const CollaborationProvider = ({ roomId, children }: CollaborationProviderProps) => {
   const ydocRef = useRef<Y.Doc | null>(null);
-  const webrtcProviderRef = useRef<WebrtcProvider | null>(null);
   const websocketProviderRef = useRef<WebsocketProvider | null>(null);
   const awarenessRef = useRef<Awareness | null>(null);
   const persistenceRef = useRef<IndexeddbPersistence | null>(null);
@@ -96,7 +94,7 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       return;
     }
 
-    if (webrtcProviderRef.current && previousRoomIdRef.current === roomId) {
+    if (ydocRef.current && previousRoomIdRef.current === roomId) {
       return;
     }
 
@@ -108,18 +106,60 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
     const awareness = new Awareness(ydoc);
     awarenessRef.current = awareness;
 
-    const webrtcProvider = new WebrtcProvider(roomId, ydoc, {
-      signaling: ["wss://signaling.yjs.dev"],
-      awareness,
-    });
-    webrtcProviderRef.current = webrtcProvider;
+    const awarenessInstance = awarenessRef.current;
+    if (!awarenessInstance) {
+      return () => undefined;
+    }
 
-    const websocketProvider = new WebsocketProvider("wss://demos.yjs.dev", roomId, ydoc, {
-      awareness,
-      connect: true,
-      resyncInterval: 10_000,
-    });
-    websocketProviderRef.current = websocketProvider;
+    const setLocalState = (overrides: Record<string, unknown> = {}) => {
+      const { activeTool: currentTool, strokeColor: currentStrokeColor } = useWhiteboardStore.getState();
+      const next = {
+        user: {
+          id: userIdRef.current,
+          name: userNameRef.current,
+          color: userColorRef.current,
+          cursorX: 0,
+          cursorY: 0,
+          cursor: { x: 0, y: 0 },
+          tool: currentTool,
+          strokeColor: currentStrokeColor,
+          lastUpdated: Date.now(),
+          ...overrides,
+        },
+      };
+      awarenessInstance.setLocalState(next);
+    };
+
+    let websocketProvider: WebsocketProvider | null = null;
+    let isActive = true;
+    const setupWebsocketProvider = async () => {
+      if (typeof window === "undefined") {
+        console.warn("[CollaborationProvider] WebSocket endpoint unavailable on the server.");
+        return;
+      }
+
+      try {
+        await fetch("/api/yjs");
+      } catch (error) {
+        console.error("[CollaborationProvider] Failed to initialize WebSocket endpoint", error);
+      }
+
+      if (!isActive) {
+        return;
+      }
+
+      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+      const websocketEndpoint = `${protocol}://${window.location.host}/api/yjs`;
+      websocketProvider = new WebsocketProvider(websocketEndpoint, roomId, ydoc, {
+        awareness,
+        connect: true,
+        resyncInterval: 10_000,
+      });
+      websocketProviderRef.current = websocketProvider;
+      setLocalState();
+    };
+
+    void setupWebsocketProvider();
 
     let persistence: IndexeddbPersistence | null = null;
     let persistenceError: unknown = null;
@@ -195,29 +235,6 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
     yFiles.observe(syncFiles);
     yHistoryEntries.observe(syncHistory);
     yHistoryMeta.observe(syncHistory);
-
-    const awarenessInstance = awarenessRef.current;
-    if (!awarenessInstance) {
-      return () => undefined;
-    }
-    const setLocalState = (overrides: Record<string, unknown> = {}) => {
-      const { activeTool: currentTool, strokeColor: currentStrokeColor } = useWhiteboardStore.getState();
-      const next = {
-        user: {
-          id: userIdRef.current,
-          name: userNameRef.current,
-          color: userColorRef.current,
-          cursorX: 0,
-          cursorY: 0,
-          cursor: { x: 0, y: 0 },
-          tool: currentTool,
-          strokeColor: currentStrokeColor,
-          lastUpdated: Date.now(),
-          ...overrides,
-        },
-      };
-      awarenessInstance.setLocalState(next);
-    };
 
     setLocalState();
     setCurrentUser(
@@ -373,7 +390,6 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       setHistoryFromDoc([[]], 0);
       setCollaboration(null);
       setCurrentUser(null);
-      webrtcProviderRef.current = null;
       websocketProviderRef.current = null;
       awarenessRef.current = null;
       ydocRef.current = null;
@@ -381,8 +397,10 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       persistenceRef.current = null;
       previousRoomIdRef.current = null;
 
-      webrtcProvider.destroy();
-      websocketProvider.destroy();
+      isActive = false;
+      if (websocketProvider) {
+        websocketProvider.destroy();
+      }
       ydoc.destroy();
       if (persistenceInstance) {
         persistenceInstance.destroy();
