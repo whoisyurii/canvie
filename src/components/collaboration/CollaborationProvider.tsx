@@ -2,8 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import * as Y from "yjs";
-import { WebrtcProvider } from "y-webrtc";
 import { WebsocketProvider } from "y-websocket";
+import { WebrtcProvider } from "y-webrtc";
 import { Awareness } from "y-protocols/awareness";
 import { IndexeddbPersistence } from "y-indexeddb";
 import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
@@ -96,7 +96,7 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       return;
     }
 
-    if (webrtcProviderRef.current && previousRoomIdRef.current === roomId) {
+    if (ydocRef.current && previousRoomIdRef.current === roomId) {
       return;
     }
 
@@ -108,18 +108,148 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
     const awareness = new Awareness(ydoc);
     awarenessRef.current = awareness;
 
-    const webrtcProvider = new WebrtcProvider(roomId, ydoc, {
-      signaling: ["wss://signaling.yjs.dev"],
-      awareness,
-    });
-    webrtcProviderRef.current = webrtcProvider;
+    const awarenessInstance = awarenessRef.current;
+    if (!awarenessInstance) {
+      return () => undefined;
+    }
 
-    const websocketProvider = new WebsocketProvider("wss://demos.yjs.dev", roomId, ydoc, {
-      awareness,
-      connect: true,
-      resyncInterval: 10_000,
-    });
-    websocketProviderRef.current = websocketProvider;
+    const setLocalState = (overrides: Record<string, unknown> = {}) => {
+      const { activeTool: currentTool, strokeColor: currentStrokeColor } = useWhiteboardStore.getState();
+      const next = {
+        user: {
+          id: userIdRef.current,
+          name: userNameRef.current,
+          color: userColorRef.current,
+          cursorX: 0,
+          cursorY: 0,
+          cursor: { x: 0, y: 0 },
+          tool: currentTool,
+          strokeColor: currentStrokeColor,
+          lastUpdated: Date.now(),
+          ...overrides,
+        },
+      };
+      awarenessInstance.setLocalState(next);
+    };
+
+    setLocalState();
+
+    let websocketProvider: WebsocketProvider | null = null;
+    let websocketReconnectListener: ((event: { status: string }) => void) | null = null;
+    let webrtcProvider: WebrtcProvider | null = null;
+    let isActive = true;
+
+    const reapplyLocalAwareness = () => {
+      setLocalState({ lastUpdated: Date.now() });
+    };
+
+    const connectWebsocketWithFallback = async () => {
+      if (typeof window === "undefined") {
+        console.warn("[CollaborationProvider] WebSocket endpoint unavailable on the server.");
+        return;
+      }
+
+      const endpoints: string[] = [];
+      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+      endpoints.push(`${protocol}://${window.location.host}/api/yjs`);
+      endpoints.push("wss://demos.yjs.dev");
+
+      const attemptConnection = (endpoint: string) =>
+        new Promise<WebsocketProvider>((resolve, reject) => {
+          const provider = new WebsocketProvider(endpoint, roomId, ydoc, {
+            awareness,
+            connect: true,
+            resyncInterval: 10_000,
+          });
+
+          let settled = false;
+          let timeout: ReturnType<typeof window.setTimeout> | null = null;
+
+          const cleanup = () => {
+            if (timeout) {
+              clearTimeout(timeout);
+              timeout = null;
+            }
+            provider.off("status", handleStatus);
+            provider.off("connection-close", handleClose as any);
+          };
+
+          const handleStatus = (event: { status: string }) => {
+            if (event.status === "connected" && !settled) {
+              settled = true;
+              cleanup();
+              resolve(provider);
+            }
+          };
+
+          const handleClose = () => {
+            if (!settled) {
+              settled = true;
+              cleanup();
+              provider.destroy();
+              reject(new Error(`Connection closed before ready for ${endpoint}`));
+            }
+          };
+
+          timeout = window.setTimeout(() => {
+            if (!settled) {
+              settled = true;
+              cleanup();
+              provider.destroy();
+              reject(new Error(`Timed out connecting to ${endpoint}`));
+            }
+          }, 4000);
+
+          provider.on("status", handleStatus);
+          provider.on("connection-close", handleClose as any);
+        });
+
+      for (const endpoint of endpoints) {
+        try {
+          const provider = await attemptConnection(endpoint);
+          if (!isActive) {
+            provider.destroy();
+            return;
+          }
+
+          websocketProvider = provider;
+          websocketProviderRef.current = provider;
+          websocketReconnectListener = (event: { status: string }) => {
+            if (event.status === "connected") {
+              reapplyLocalAwareness();
+            }
+          };
+          provider.on("status", websocketReconnectListener);
+          reapplyLocalAwareness();
+          return;
+        } catch (error) {
+          console.warn("[CollaborationProvider] WebSocket endpoint failed", endpoint, error);
+        }
+      }
+
+      console.error("[CollaborationProvider] Unable to establish a WebSocket connection; relying on peer-to-peer sync only.");
+    };
+
+    const connectWebrtcProvider = () => {
+      try {
+        webrtcProvider = new WebrtcProvider(roomId, ydoc, {
+          awareness,
+          signaling: [
+            "wss://signaling.yjs.dev",
+            "wss://signaling-eu.yjs.dev",
+            "wss://y-webrtc-eu.fly.dev",
+          ],
+          maxConns: 20,
+        });
+        webrtcProviderRef.current = webrtcProvider;
+      } catch (error) {
+        console.error("[CollaborationProvider] Failed to initialise WebRTC provider", error);
+        webrtcProvider = null;
+      }
+    };
+
+    connectWebrtcProvider();
+    void connectWebsocketWithFallback();
 
     let persistence: IndexeddbPersistence | null = null;
     let persistenceError: unknown = null;
@@ -195,29 +325,6 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
     yFiles.observe(syncFiles);
     yHistoryEntries.observe(syncHistory);
     yHistoryMeta.observe(syncHistory);
-
-    const awarenessInstance = awarenessRef.current;
-    if (!awarenessInstance) {
-      return () => undefined;
-    }
-    const setLocalState = (overrides: Record<string, unknown> = {}) => {
-      const { activeTool: currentTool, strokeColor: currentStrokeColor } = useWhiteboardStore.getState();
-      const next = {
-        user: {
-          id: userIdRef.current,
-          name: userNameRef.current,
-          color: userColorRef.current,
-          cursorX: 0,
-          cursorY: 0,
-          cursor: { x: 0, y: 0 },
-          tool: currentTool,
-          strokeColor: currentStrokeColor,
-          lastUpdated: Date.now(),
-          ...overrides,
-        },
-      };
-      awarenessInstance.setLocalState(next);
-    };
 
     setLocalState();
     setCurrentUser(
@@ -373,16 +480,27 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       setHistoryFromDoc([[]], 0);
       setCollaboration(null);
       setCurrentUser(null);
-      webrtcProviderRef.current = null;
       websocketProviderRef.current = null;
+      webrtcProviderRef.current = null;
       awarenessRef.current = null;
       ydocRef.current = null;
       const persistenceInstance = persistenceRef.current;
       persistenceRef.current = null;
       previousRoomIdRef.current = null;
 
-      webrtcProvider.destroy();
-      websocketProvider.destroy();
+      isActive = false;
+      if (websocketProvider) {
+        if (websocketReconnectListener) {
+          websocketProvider.off("status", websocketReconnectListener);
+        }
+        websocketProvider.destroy();
+        websocketReconnectListener = null;
+        websocketProvider = null;
+      }
+      if (webrtcProvider) {
+        webrtcProvider.destroy();
+        webrtcProvider = null;
+      }
       ydoc.destroy();
       if (persistenceInstance) {
         persistenceInstance.destroy();
