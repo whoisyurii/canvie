@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import * as Y from "yjs";
-import { WebrtcProvider } from "y-webrtc";
 import { WebsocketProvider } from "y-websocket";
 import { Awareness } from "y-protocols/awareness";
 import { IndexeddbPersistence } from "y-indexeddb";
@@ -22,6 +21,45 @@ const generateRandomColor = () => {
 
 const CURSOR_THROTTLE_MS = 40;
 const CURSOR_FADE_MS = 4000;
+
+const LOCAL_WEBSOCKET_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+
+const resolveWebsocketBase = () => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const envValue = process.env.NEXT_PUBLIC_YJS_ENDPOINT?.trim();
+  if (envValue) {
+    if (/^wss?:\/\//i.test(envValue)) {
+      return envValue.replace(/\/+$/, "");
+    }
+
+    if (/^https?:\/\//i.test(envValue)) {
+      try {
+        const url = new URL(envValue);
+        const wsProtocol = url.protocol === "https:" ? "wss:" : "ws:";
+        return `${wsProtocol}//${url.host}${url.pathname}`.replace(/\/+$/, "");
+      } catch {
+        // Ignore invalid URLs and fall back to local heuristics below.
+      }
+    }
+
+    if (envValue.startsWith("/")) {
+      const { host, protocol } = window.location;
+      const wsProtocol = protocol === "https:" ? "wss:" : "ws:";
+      return `${wsProtocol}//${host}${envValue}`.replace(/\/+$/, "");
+    }
+  }
+
+  const { protocol, host, hostname } = window.location;
+  if (LOCAL_WEBSOCKET_HOSTS.has(hostname)) {
+    const wsProtocol = protocol === "https:" ? "wss:" : "ws:";
+    return `${wsProtocol}//${host}/api/yjs`;
+  }
+
+  return "wss://demos.yjs.dev";
+};
 
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
 
@@ -48,7 +86,6 @@ const buildRemoteUser = (params: {
 
 export const CollaborationProvider = ({ roomId, children }: CollaborationProviderProps) => {
   const ydocRef = useRef<Y.Doc | null>(null);
-  const webrtcProviderRef = useRef<WebrtcProvider | null>(null);
   const websocketProviderRef = useRef<WebsocketProvider | null>(null);
   const awarenessRef = useRef<Awareness | null>(null);
   const persistenceRef = useRef<IndexeddbPersistence | null>(null);
@@ -63,6 +100,7 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
   const remoteUsersRef = useRef(new Map<string, User>());
   const removalTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const previousRoomIdRef = useRef<string | null>(null);
+  const statusHandlerRef = useRef<((event: { status: string }) => void) | null>(null);
 
   const setUsers = useWhiteboardStore((state) => state.setUsers);
   const setCollaboration = useWhiteboardStore((state) => state.setCollaboration);
@@ -96,7 +134,7 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       return;
     }
 
-    if (webrtcProviderRef.current && previousRoomIdRef.current === roomId) {
+    if (ydocRef.current && previousRoomIdRef.current === roomId) {
       return;
     }
 
@@ -108,18 +146,84 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
     const awareness = new Awareness(ydoc);
     awarenessRef.current = awareness;
 
-    const webrtcProvider = new WebrtcProvider(roomId, ydoc, {
-      signaling: ["wss://signaling.yjs.dev"],
-      awareness,
-    });
-    webrtcProviderRef.current = webrtcProvider;
+    const awarenessInstance = awarenessRef.current;
+    if (!awarenessInstance) {
+      return () => undefined;
+    }
 
-    const websocketProvider = new WebsocketProvider("wss://demos.yjs.dev", roomId, ydoc, {
-      awareness,
-      connect: true,
-      resyncInterval: 10_000,
+    const setLocalState = (overrides: Record<string, unknown> = {}) => {
+      const { activeTool: currentTool, strokeColor: currentStrokeColor } = useWhiteboardStore.getState();
+      const next = {
+        user: {
+          id: userIdRef.current,
+          name: userNameRef.current,
+          color: userColorRef.current,
+          cursorX: 0,
+          cursorY: 0,
+          cursor: { x: 0, y: 0 },
+          tool: currentTool,
+          strokeColor: currentStrokeColor,
+          lastUpdated: Date.now(),
+          ...overrides,
+        },
+      };
+      awarenessInstance.setLocalState(next);
+    };
+
+    let websocketProvider: WebsocketProvider | null = null;
+    let isActive = true;
+    const setupWebsocketProvider = async () => {
+      if (typeof window === "undefined") {
+        console.warn("[CollaborationProvider] WebSocket endpoint unavailable on the server.");
+        return;
+      }
+
+      const websocketEndpoint = resolveWebsocketBase();
+      if (!websocketEndpoint) {
+        console.warn("[CollaborationProvider] Unable to determine a WebSocket endpoint; collaboration disabled.");
+        return;
+      }
+
+      statusHandlerRef.current = null;
+
+      try {
+        const endpointUrl = new URL(websocketEndpoint);
+        if (endpointUrl.host === window.location.host) {
+          try {
+            await fetch("/api/yjs");
+          } catch (error) {
+            console.error("[CollaborationProvider] Failed to initialize local WebSocket endpoint", error);
+          }
+        }
+      } catch {
+        // Ignore invalid URLs; the WebsocketProvider constructor will surface meaningful errors.
+      }
+
+      if (!isActive) {
+        return;
+      }
+
+      websocketProvider = new WebsocketProvider(websocketEndpoint, roomId, ydoc, {
+        awareness,
+        connect: true,
+        resyncInterval: 10_000,
+      });
+
+      const statusHandler = (event: { status: string }) => {
+        if (event.status === "connected") {
+          setLocalState();
+        }
+      };
+
+      websocketProvider.on("status", statusHandler);
+      statusHandlerRef.current = statusHandler;
+      websocketProviderRef.current = websocketProvider;
+      setLocalState();
+    };
+
+    void setupWebsocketProvider().catch((error) => {
+      console.error("[CollaborationProvider] Failed to establish WebSocket connection", error);
     });
-    websocketProviderRef.current = websocketProvider;
 
     let persistence: IndexeddbPersistence | null = null;
     let persistenceError: unknown = null;
@@ -195,29 +299,6 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
     yFiles.observe(syncFiles);
     yHistoryEntries.observe(syncHistory);
     yHistoryMeta.observe(syncHistory);
-
-    const awarenessInstance = awarenessRef.current;
-    if (!awarenessInstance) {
-      return () => undefined;
-    }
-    const setLocalState = (overrides: Record<string, unknown> = {}) => {
-      const { activeTool: currentTool, strokeColor: currentStrokeColor } = useWhiteboardStore.getState();
-      const next = {
-        user: {
-          id: userIdRef.current,
-          name: userNameRef.current,
-          color: userColorRef.current,
-          cursorX: 0,
-          cursorY: 0,
-          cursor: { x: 0, y: 0 },
-          tool: currentTool,
-          strokeColor: currentStrokeColor,
-          lastUpdated: Date.now(),
-          ...overrides,
-        },
-      };
-      awarenessInstance.setLocalState(next);
-    };
 
     setLocalState();
     setCurrentUser(
@@ -373,7 +454,6 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       setHistoryFromDoc([[]], 0);
       setCollaboration(null);
       setCurrentUser(null);
-      webrtcProviderRef.current = null;
       websocketProviderRef.current = null;
       awarenessRef.current = null;
       ydocRef.current = null;
@@ -381,8 +461,17 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       persistenceRef.current = null;
       previousRoomIdRef.current = null;
 
-      webrtcProvider.destroy();
-      websocketProvider.destroy();
+      isActive = false;
+      if (websocketProvider) {
+        const statusHandler = statusHandlerRef.current;
+        if (statusHandler) {
+          websocketProvider.off("status", statusHandler);
+        }
+        statusHandlerRef.current = null;
+        websocketProvider.destroy();
+      } else {
+        statusHandlerRef.current = null;
+      }
       ydoc.destroy();
       if (persistenceInstance) {
         persistenceInstance.destroy();
