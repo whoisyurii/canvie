@@ -7,6 +7,7 @@ import {
   MoreVertical,
   Pencil,
   Trash2,
+  Share2,
 } from "lucide-react";
 
 import {
@@ -192,9 +193,11 @@ const renderFileRow = (
 export const CollaborationControls = () => {
   const [participantsOpen, setParticipantsOpen] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [renamingFile, setRenamingFile] = useState<SharedFile | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [pendingDelete, setPendingDelete] = useState<SharedFile | null>(null);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
 
   const {
     users,
@@ -203,6 +206,8 @@ export const CollaborationControls = () => {
     focusElement,
     renameFile,
     removeFile,
+    roomId,
+    shareUrl,
   } = useWhiteboardStore();
 
   const participantCards = useMemo(() => {
@@ -219,6 +224,21 @@ export const CollaborationControls = () => {
     });
     return entries;
   }, [currentUser, users]);
+
+  const inviteUrl = useMemo(() => {
+    if (shareUrl) {
+      return shareUrl;
+    }
+
+    if (typeof window !== "undefined") {
+      if (roomId) {
+        return `${window.location.origin}/r/${roomId}`;
+      }
+      return window.location.href;
+    }
+
+    return roomId ? `/r/${roomId}` : "";
+  }, [roomId, shareUrl]);
 
   const handleRenameSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -243,6 +263,7 @@ export const CollaborationControls = () => {
     setParticipantsOpen(open);
     if (open) {
       setFilesOpen(false);
+      setInviteOpen(false);
     }
   };
 
@@ -250,8 +271,43 @@ export const CollaborationControls = () => {
     setFilesOpen(open);
     if (open) {
       setParticipantsOpen(false);
+      setInviteOpen(false);
     }
   };
+
+  const handleInviteOpenChange = (open: boolean) => {
+    setInviteOpen(open);
+    if (open) {
+      setParticipantsOpen(false);
+      setFilesOpen(false);
+    } else {
+      setCopyStatus("idle");
+    }
+  };
+
+  const handleCopyInvite = async () => {
+    if (!inviteUrl) {
+      return;
+    }
+
+    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+      setCopyStatus("error");
+      setTimeout(() => setCopyStatus("idle"), 2000);
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setCopyStatus("copied");
+      setTimeout(() => setCopyStatus("idle"), 2000);
+    } catch (error) {
+      setCopyStatus("error");
+      setTimeout(() => setCopyStatus("idle"), 2000);
+    }
+  };
+
+  const copyButtonLabel =
+    copyStatus === "copied" ? "Copied!" : copyStatus === "error" ? "Try again" : "Copy link";
 
   return (
     <div className="toolbar-section">
@@ -284,11 +340,66 @@ export const CollaborationControls = () => {
                 {participantCards.map(({ user, isLocal }) => renderParticipant(user, { isLocal }))}
                 {!users.length ? (
                   <p className="rounded-xl border border-dashed border-sidebar-border/60 px-3 py-4 text-center text-xs text-muted-foreground">
-                    Invite teammates to collaborate in real time.
+                    Use the invite button to share this board and collaborate in real time.
                   </p>
                 ) : null}
               </div>
             </ScrollArea>
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      <Popover open={inviteOpen} onOpenChange={handleInviteOpenChange}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn("tool-button", inviteOpen && "tool-button-active")}
+                aria-label="Invite collaborators"
+              >
+                <Share2 className="h-5 w-5" />
+              </Button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Invite collaborators</p>
+          </TooltipContent>
+        </Tooltip>
+        <PopoverContent align="center" className="floating-panel w-[360px] p-0">
+          <div className="flex flex-col">
+            <div className="border-b border-sidebar-border px-4 py-3">
+              <h3 className="text-sm font-semibold text-sidebar-foreground">Invite collaborators</h3>
+              <p className="text-xs text-muted-foreground">
+                Share this board and work together in real time.
+              </p>
+            </div>
+            <div className="space-y-4 px-4 py-3">
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">Send this invite link to teammates.</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 truncate rounded-lg border border-sidebar-border bg-sidebar-accent/40 px-3 py-2 text-xs font-mono text-sidebar-foreground">
+                    {inviteUrl || "Generating invite link..."}
+                  </code>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="shrink-0"
+                    onClick={handleCopyInvite}
+                    disabled={!inviteUrl}
+                  >
+                    {copyButtonLabel}
+                  </Button>
+                </div>
+              </div>
+              {roomId ? (
+                <div className="rounded-xl border border-dashed border-sidebar-border/60 bg-sidebar-accent/30 px-3 py-2 text-xs text-muted-foreground">
+                  <span className="text-sidebar-foreground">Room code:</span>{" "}
+                  <span className="font-mono text-sidebar-foreground">{roomId}</span>
+                </div>
+              ) : null}
+            </div>
           </div>
         </PopoverContent>
       </Popover>
