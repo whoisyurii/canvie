@@ -197,7 +197,8 @@ export const CollaborationControls = () => {
   const [renamingFile, setRenamingFile] = useState<SharedFile | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [pendingDelete, setPendingDelete] = useState<SharedFile | null>(null);
-  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
+  const [copyInviteStatus, setCopyInviteStatus] = useState<"idle" | "copied" | "error">("idle");
+  const [copyRoomStatus, setCopyRoomStatus] = useState<"idle" | "copied" | "error">("idle");
 
   const {
     users,
@@ -281,7 +282,8 @@ export const CollaborationControls = () => {
       setParticipantsOpen(false);
       setFilesOpen(false);
     } else {
-      setCopyStatus("idle");
+      setCopyInviteStatus("idle");
+      setCopyRoomStatus("idle");
     }
   };
 
@@ -291,23 +293,55 @@ export const CollaborationControls = () => {
     }
 
     if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
-      setCopyStatus("error");
-      setTimeout(() => setCopyStatus("idle"), 2000);
+      setCopyInviteStatus("error");
+      setTimeout(() => setCopyInviteStatus("idle"), 2000);
       return;
     }
 
     try {
       await navigator.clipboard.writeText(inviteUrl);
-      setCopyStatus("copied");
-      setTimeout(() => setCopyStatus("idle"), 2000);
+      setCopyInviteStatus("copied");
+      setTimeout(() => setCopyInviteStatus("idle"), 2000);
     } catch (error) {
-      setCopyStatus("error");
-      setTimeout(() => setCopyStatus("idle"), 2000);
+      setCopyInviteStatus("error");
+      setTimeout(() => setCopyInviteStatus("idle"), 2000);
+    }
+  };
+
+  const handleCopyRoom = async () => {
+    if (!roomId) {
+      return;
+    }
+
+    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+      setCopyRoomStatus("error");
+      setTimeout(() => setCopyRoomStatus("idle"), 2000);
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(roomId);
+      setCopyRoomStatus("copied");
+      setTimeout(() => setCopyRoomStatus("idle"), 2000);
+    } catch (error) {
+      setCopyRoomStatus("error");
+      setTimeout(() => setCopyRoomStatus("idle"), 2000);
     }
   };
 
   const copyButtonLabel =
-    copyStatus === "copied" ? "Copied!" : copyStatus === "error" ? "Try again" : "Copy link";
+    copyInviteStatus === "copied"
+      ? "Copied!"
+      : copyInviteStatus === "error"
+        ? "Try again"
+        : "Copy link";
+
+  const copyRoomButtonLabel =
+    copyRoomStatus === "copied"
+      ? "Copied!"
+      : copyRoomStatus === "error"
+        ? "Try again"
+        : "Copy code";
 
   return (
     <div className="toolbar-section">
@@ -394,9 +428,21 @@ export const CollaborationControls = () => {
                 </div>
               </div>
               {roomId ? (
-                <div className="rounded-xl border border-dashed border-sidebar-border/60 bg-sidebar-accent/30 px-3 py-2 text-xs text-muted-foreground">
-                  <span className="text-sidebar-foreground">Room code:</span>{" "}
-                  <span className="font-mono text-sidebar-foreground">{roomId}</span>
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">Prefer to share a room code instead?</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 truncate rounded-lg border border-sidebar-border bg-sidebar-accent/40 px-3 py-2 text-xs font-mono text-sidebar-foreground">
+                      {roomId}
+                    </code>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="shrink-0"
+                      onClick={handleCopyRoom}
+                    >
+                      {copyRoomButtonLabel}
+                    </Button>
+                  </div>
                 </div>
               ) : null}
             </div>
