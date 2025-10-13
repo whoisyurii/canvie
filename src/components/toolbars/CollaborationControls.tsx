@@ -434,7 +434,7 @@ export const CollaborationControls = () => {
               <div className="space-y-2">
                 <p className="text-xs text-muted-foreground">Send this invite link to teammates.</p>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 truncate rounded-lg border border-sidebar-border bg-sidebar-accent/40 px-3 py-2 text-xs font-mono text-sidebar-foreground">
+                  <code className="flex h-9 min-w-0 flex-1 items-center truncate rounded-md border border-sidebar-border bg-sidebar-accent/40 px-3 text-xs font-mono text-sidebar-foreground">
                     {inviteUrl || "Generating invite link..."}
                   </code>
                   <Button
@@ -452,7 +452,7 @@ export const CollaborationControls = () => {
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground">Prefer to share a room code instead?</p>
                   <div className="flex items-center gap-2">
-                    <code className="flex-1 truncate rounded-lg border border-sidebar-border bg-sidebar-accent/40 px-3 py-2 text-xs font-mono text-sidebar-foreground">
+                    <code className="flex h-9 min-w-0 flex-1 items-center truncate rounded-md border border-sidebar-border bg-sidebar-accent/40 px-3 text-xs font-mono text-sidebar-foreground">
                       {roomId}
                     </code>
                     <Button
