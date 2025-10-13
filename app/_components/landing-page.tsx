@@ -106,9 +106,43 @@ export default function LandingPage() {
   };
 
   const joinRoom = () => {
-    if (roomId.trim()) {
-      router.push(`/r/${roomId.trim()}`);
+    const rawInput = roomId.trim();
+    if (!rawInput) {
+      return;
     }
+
+    const extractRoomId = (value: string) => {
+      const pathMatch = value.match(/\/?r\/([^/?#]+)/i);
+      if (pathMatch?.[1]) {
+        return decodeURIComponent(pathMatch[1]);
+      }
+      return null;
+    };
+
+    let nextRoomId = rawInput;
+
+    if (rawInput.includes("/")) {
+      const fromPath = extractRoomId(rawInput);
+      if (fromPath) {
+        nextRoomId = fromPath;
+      }
+    }
+
+    if (rawInput.includes("://") || rawInput.includes(".")) {
+      try {
+        const url = rawInput.includes("://")
+          ? new URL(rawInput)
+          : new URL(`https://${rawInput}`);
+        const fromUrl = extractRoomId(url.pathname);
+        if (fromUrl) {
+          nextRoomId = fromUrl;
+        }
+      } catch {
+        // Ignore parsing errors and fall back to the raw input.
+      }
+    }
+
+    router.push(`/r/${nextRoomId}`);
   };
 
   return (
@@ -152,7 +186,7 @@ export default function LandingPage() {
               className="flex w-full flex-col gap-3 sm:flex-row"
             >
               <Input
-                placeholder="Have a room code?"
+                placeholder="Paste a room link or code"
                 value={roomId}
                 onChange={(event) => setRoomId(event.target.value)}
                 className="h-12 flex-1"
