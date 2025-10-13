@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import * as Y from "yjs";
 import { WebrtcProvider } from "y-webrtc";
+import { IndexeddbPersistence } from "y-indexeddb";
 import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
 import type { CanvasElement, SharedFile, Tool, User } from "@/lib/store/useWhiteboardStore";
 import { nanoid } from "nanoid";
@@ -46,6 +47,7 @@ const buildRemoteUser = (params: {
 export const CollaborationProvider = ({ roomId, children }: CollaborationProviderProps) => {
   const ydocRef = useRef<Y.Doc | null>(null);
   const providerRef = useRef<WebrtcProvider | null>(null);
+  const persistenceRef = useRef<IndexeddbPersistence | null>(null);
   const userIdRef = useRef(nanoid());
   const userColorRef = useRef(generateRandomColor());
   const userNameRef = useRef(
@@ -104,6 +106,9 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
     });
     providerRef.current = provider;
 
+    const persistence = new IndexeddbPersistence(`realitea-canvas-${roomId}`, ydoc);
+    persistenceRef.current = persistence;
+
     const yElements = ydoc.getArray<CanvasElement>("elements");
     const yFiles = ydoc.getArray<SharedFile>("files");
     const yHistoryEntries = ydoc.getArray<CanvasElement[]>("historyEntries");
@@ -135,9 +140,21 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       setHistoryFromDoc(entries, index);
     };
 
-    syncElements();
-    syncFiles();
-    syncHistory();
+    const runFullSync = () => {
+      syncElements();
+      syncFiles();
+      syncHistory();
+    };
+
+    runFullSync();
+
+    persistence
+      .whenSynced
+      .then(runFullSync)
+      .catch(() => {
+        // Ignore IndexedDB sync errors; the observers will continue to receive
+        // updates from connected peers.
+      });
 
     yElements.observe(syncElements);
     yFiles.observe(syncFiles);
@@ -323,10 +340,13 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       setCurrentUser(null);
       providerRef.current = null;
       ydocRef.current = null;
+      const persistenceInstance = persistenceRef.current;
+      persistenceRef.current = null;
       previousRoomIdRef.current = null;
 
       provider.destroy();
       ydoc.destroy();
+      persistenceInstance?.destroy();
     };
   }, [
     roomId,
