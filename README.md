@@ -48,12 +48,6 @@ npm run dev
 
 The app will be available at `http://localhost:8080`
 
-### Configuration
-
-- **Collaboration server**: In production the client falls back to the public Yjs demo server at `wss://demos.yjs.dev`. To use a
-  self-hosted instance, set `NEXT_PUBLIC_YJS_ENDPOINT` to the base WebSocket URL (for example, `wss://your-domain.com/api/yjs`).
-  Local development continues to use the built-in Next.js API route automatically.
-
 ### Building for Production
 
 ```bash
