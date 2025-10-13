@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import {
   Users,
   FileText,
@@ -8,6 +8,7 @@ import {
   Pencil,
   Trash2,
   Share2,
+  Upload,
 } from "lucide-react";
 
 import {
@@ -51,6 +52,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { useDragDrop } from "@/components/canvas/DragDropHandler";
 
 const getInitials = (name: string) => {
   const cleaned = name.replace(/[^\p{L}\p{N}]+/gu, " ").trim();
@@ -200,6 +202,9 @@ export const CollaborationControls = () => {
   const [copyInviteStatus, setCopyInviteStatus] = useState<"idle" | "copied" | "error">("idle");
   const [copyRoomStatus, setCopyRoomStatus] = useState<"idle" | "copied" | "error">("idle");
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { handleFileInput } = useDragDrop();
+
   const {
     users,
     uploadedFiles,
@@ -276,6 +281,14 @@ export const CollaborationControls = () => {
     }
   };
 
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFilePickerChange = (event: ChangeEvent<HTMLInputElement>) => {
+    void handleFileInput(event);
+  };
+
   const handleInviteOpenChange = (open: boolean) => {
     setInviteOpen(open);
     if (open) {
@@ -345,6 +358,14 @@ export const CollaborationControls = () => {
 
   return (
     <div className="toolbar-section">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,application/pdf,text/plain"
+        multiple
+        className="hidden"
+        onChange={handleFilePickerChange}
+      />
       <Popover open={participantsOpen} onOpenChange={handleParticipantsOpenChange}>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -413,7 +434,7 @@ export const CollaborationControls = () => {
               <div className="space-y-2">
                 <p className="text-xs text-muted-foreground">Send this invite link to teammates.</p>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 truncate rounded-lg border border-sidebar-border bg-sidebar-accent/40 px-3 py-2 text-xs font-mono text-sidebar-foreground">
+                  <code className="flex h-9 min-w-0 flex-1 items-center truncate rounded-md border border-sidebar-border bg-sidebar-accent/40 px-3 text-xs font-mono text-sidebar-foreground">
                     {inviteUrl || "Generating invite link..."}
                   </code>
                   <Button
@@ -431,7 +452,7 @@ export const CollaborationControls = () => {
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground">Prefer to share a room code instead?</p>
                   <div className="flex items-center gap-2">
-                    <code className="flex-1 truncate rounded-lg border border-sidebar-border bg-sidebar-accent/40 px-3 py-2 text-xs font-mono text-sidebar-foreground">
+                    <code className="flex h-9 min-w-0 flex-1 items-center truncate rounded-md border border-sidebar-border bg-sidebar-accent/40 px-3 text-xs font-mono text-sidebar-foreground">
                       {roomId}
                     </code>
                     <Button
@@ -470,9 +491,17 @@ export const CollaborationControls = () => {
         </Tooltip>
         <PopoverContent align="center" className="floating-panel w-[360px] p-0">
           <div className="flex flex-col">
-            <div className="border-b border-sidebar-border px-4 py-3">
+            <div className="space-y-3 border-b border-sidebar-border px-4 py-3">
               <h3 className="text-sm font-semibold text-sidebar-foreground">Shared files</h3>
               <p className="text-xs text-muted-foreground">Access uploads dropped onto the canvas.</p>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="w-full justify-center"
+                onClick={handleUploadClick}
+              >
+                <Upload className="mr-2 h-4 w-4" /> Upload files
+              </Button>
             </div>
             {uploadedFiles.length === 0 ? (
               <div className="flex h-[240px] flex-col items-center justify-center gap-2 px-4 py-4 text-center">
