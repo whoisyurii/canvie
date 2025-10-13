@@ -1,6 +1,6 @@
 # Collaborative Whiteboard
 
-A real-time collaborative whiteboard application built with React, TypeScript, and Y.js. Draw, create shapes, add text, and collaborate with others in real-time with an infinite canvas.
+A real-time collaborative whiteboard application built with Next.js, TypeScript, and Y.js. Draw, create shapes, add text, and collaborate with others in real-time with an infinite canvas.
 
 ## Features
 
@@ -15,14 +15,12 @@ A real-time collaborative whiteboard application built with React, TypeScript, a
 
 ## Tech Stack
 
-- **React 18** with TypeScript
-- **Vite** for fast development and building
+- **Next.js 15** with React 19 and TypeScript
 - **Tailwind CSS** for styling
 - **shadcn/ui** for UI components
 - **react-konva** for canvas rendering
 - **Y.js + y-webrtc** for real-time collaboration
 - **Zustand** for state management
-- **React Router** for navigation
 
 ## Getting Started
 
@@ -37,7 +35,7 @@ A real-time collaborative whiteboard application built with React, TypeScript, a
 git clone <your-repo-url>
 
 # Navigate to the project directory
-cd collaborative-whiteboard
+cd realitea-canvas
 
 # Install dependencies
 npm install
@@ -46,7 +44,7 @@ npm install
 npm run dev
 ```
 
-The app will be available at `http://localhost:8080`
+The app will be available at `http://localhost:3000`.
 
 ### Building for Production
 
@@ -98,6 +96,30 @@ Use the left sidebar to customize:
 - **Participants List**: View all active collaborators in the right sidebar
 - **File Sharing**: Drag and drop files that all users can see
 - **Ephemeral Rooms**: Rooms are temporary and reset after inactivity
+- **Peer-to-Peer Sync**: Canvas changes and presence updates replicate over WebRTC meshes — no centralized state to scale.
+
+### Collaboration Transport & Configuration
+
+Collaboration is powered by [Y.js](https://github.com/yjs/yjs) with the [`y-webrtc`](https://github.com/yjs/y-webrtc) provider. The app defaults to WebRTC transport and requires no dedicated server state. Configuration happens through environment variables:
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `NEXT_PUBLIC_COLLAB_TRANSPORT` | `webrtc` | Transport selection. Currently only `webrtc` is supported. |
+| `NEXT_PUBLIC_WEBRTC_SIGNALING_URLS` | *(Y.js defaults)* | Optional comma-separated list of signaling server URLs. Leave empty to use the public Y.js servers. |
+| `NEXT_PUBLIC_WEBRTC_ROOM_KEY` | *(unset)* | Optional shared secret that acts as a passphrase for the room. When set, all peers must provide the same value. |
+
+Additional notes:
+
+- Rooms accept IDs containing letters, numbers, underscores, and hyphens (up to 64 characters).
+- WebRTC meshes work best with up to ~6 participants. Larger rooms may see degraded performance on slower networks.
+- In development mode a “Collaboration Debug” panel appears in the bottom-left corner showing transport status, peer counts, and message activity.
+
+### Deploying to Vercel
+
+1. Create a new Vercel project and connect this repository.
+2. Set any optional environment variables (see table above). No Redis, WebSocket server, or additional infrastructure is required.
+3. Deploy — Vercel’s standard build (`npm run build`) and start (`npm start`) commands work out of the box.
+4. Share room links (`/r/<roomId>`) with collaborators. Presence and drawings will sync across all regions.
 
 ## Project Structure
 
@@ -112,8 +134,9 @@ src/
 ├── hooks/               # Custom React hooks
 ├── lib/
 │   └── store/           # Zustand store for app state
-├── pages/               # Route pages (Index, Room)
-└── index.css            # Global styles and design system
+├── app/                 # Next.js App Router entrypoints
+├── pages/               # Legacy routes (API, fallbacks)
+└── public/              # Static assets
 
 ```
 

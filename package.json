@@ -63,9 +63,8 @@
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^1.1.2",
-    "ws": "^8.18.3",
     "y-indexeddb": "^9.0.12",
-    "y-websocket": "^1.5.4",
+    "y-webrtc": "^10.3.0",
     "yjs": "^13.6.27",
     "zod": "^3.25.76",
     "zustand": "^5.0.8"
@@ -78,7 +77,6 @@
     "@types/node": "^22.16.5",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
-    "@types/ws": "^8.18.1",
     "autoprefixer": "^10.4.21",
     "eslint": "^9.32.0",
     "eslint-config-next": "^15.5.4",

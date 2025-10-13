@@ -9,19 +9,23 @@ import { LeftSidebar } from "@/components/sidebars/LeftSidebar";
 import { TopToolbar } from "@/components/toolbars/TopToolbar";
 import { WhiteboardCanvas } from "@/components/canvas/WhiteboardCanvas";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { getRoomValidationMessage, validateRoomId } from "@/lib/collaboration/room";
 
 export const runtime = "edge";
 
 export default function RoomPage() {
   const params = useParams<{ roomId: string }>();
-  const roomId = params?.roomId;
+  const rawRoomId = params?.roomId;
+  const isArrayParam = Array.isArray(rawRoomId);
+  const roomId = isArrayParam ? null : validateRoomId(rawRoomId ?? null);
+  const validationError = isArrayParam ? "Invalid room ID" : getRoomValidationMessage(rawRoomId ?? null);
 
   useKeyboardShortcuts();
 
-  if (!roomId || Array.isArray(roomId)) {
+  if (!roomId) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[hsl(var(--bg-board))]">
-        <p className="text-lg text-foreground">Invalid room ID</p>
+        <p className="text-lg text-foreground">{validationError ?? "Invalid room ID"}</p>
         <Link href="/" className="text-accent underline">
           Return to home
         </Link>
