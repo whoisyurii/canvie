@@ -64,8 +64,26 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
   const setUploadedFilesFromDoc = useWhiteboardStore((state) => state.setUploadedFilesFromDoc);
   const setHistoryFromDoc = useWhiteboardStore((state) => state.setHistoryFromDoc);
   const setCurrentUser = useWhiteboardStore((state) => state.setCurrentUser);
+  const setRoomId = useWhiteboardStore((state) => state.setRoomId);
+  const setShareUrl = useWhiteboardStore((state) => state.setShareUrl);
   const activeTool = useWhiteboardStore((state) => state.activeTool);
   const strokeColor = useWhiteboardStore((state) => state.strokeColor);
+
+  useEffect(() => {
+    setRoomId(roomId);
+    if (typeof window !== "undefined") {
+      const origin = window.location?.origin ?? "";
+      const inviteUrl = origin && roomId ? `${origin}/r/${roomId}` : window.location.href;
+      setShareUrl(inviteUrl);
+    } else {
+      setShareUrl(null);
+    }
+
+    return () => {
+      setRoomId(null);
+      setShareUrl(null);
+    };
+  }, [roomId, setRoomId, setShareUrl]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
