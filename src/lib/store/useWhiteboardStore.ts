@@ -324,6 +324,10 @@ interface WhiteboardState {
   updateUser: (id: string, updates: Partial<User>) => void;
   currentUser: User | null;
   setCurrentUser: (user: User | null) => void;
+  roomId: string | null;
+  shareUrl: string | null;
+  setRoomId: (roomId: string | null) => void;
+  setShareUrl: (shareUrl: string | null) => void;
 
   // Files
   uploadedFiles: SharedFile[];
@@ -663,6 +667,10 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   },
   currentUser: null,
   setCurrentUser: (user) => set({ currentUser: user }),
+  roomId: null,
+  shareUrl: null,
+  setRoomId: (roomId) => set({ roomId }),
+  setShareUrl: (shareUrl) => set({ shareUrl }),
 
   // Files
   uploadedFiles: [],
