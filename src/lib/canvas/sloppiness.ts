@@ -78,7 +78,8 @@ export const createSloppyStrokeLayers = (
     return [];
   }
 
-  const intensity = 0.45;
+  // Reduce overall sloppiness intensity by ~30% to tone down the effect across tools.
+  const intensity = 0.45 * 0.7;
   const config =
     mode === "rough"
       ? { layers: 2, amplitude: 2.8 * intensity, spacing: 28 }
