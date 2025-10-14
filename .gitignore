@@ -13,6 +13,9 @@ dist-ssr
 .next
 out
 *.local
+.wrangler
+.vercel
+tsconfig.tsbuildinfo
 
 # Editor directories and files
 .vscode/*
