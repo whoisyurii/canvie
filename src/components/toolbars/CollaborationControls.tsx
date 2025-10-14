@@ -337,6 +337,8 @@ export const CollaborationControls = () => {
         ? "Try again"
         : "Copy code";
 
+  const copyButtonClassName = "shrink-0 min-w-[120px] justify-center text-sm font-medium";
+
   return (
     <div className="toolbar-section">
       <input
@@ -383,7 +385,7 @@ export const CollaborationControls = () => {
                   <Button
                     size="sm"
                     variant="secondary"
-                    className="shrink-0"
+                    className={copyButtonClassName}
                     onClick={handleCopyInvite}
                     disabled={!inviteUrl}
                   >
@@ -401,7 +403,7 @@ export const CollaborationControls = () => {
                     <Button
                       size="sm"
                       variant="secondary"
-                      className="shrink-0"
+                      className={copyButtonClassName}
                       onClick={handleCopyRoom}
                     >
                       {copyRoomButtonLabel}
