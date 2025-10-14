@@ -21,10 +21,35 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
 import { cn } from "@/lib/utils";
 
-const STROKE_COLORS = ["#1f2937", "#e03131", "#2f9e44", "#1971c2", "#f59f00", "#ae3ec9", "#f4f4f5"];
-const FILL_COLORS = ["#f4f4f5", "#fde68a", "#fbcfe8", "#bbf7d0", "#bae6fd", "#fecaca"];
+const STROKE_COLORS = [
+  "#1f2937",
+  "#e03131",
+  "#f97316",
+  "#f59f00",
+  "#2f9e44",
+  "#0ea5e9",
+  "#1971c2",
+  "#6366f1",
+  "#ae3ec9",
+  "#ec4899",
+  "#14b8a6",
+  "#f4f4f5",
+];
+const FILL_COLORS = [
+  "#f4f4f5",
+  "#e4e4e7",
+  "#fde68a",
+  "#fef3c7",
+  "#fbcfe8",
+  "#fecdd3",
+  "#bbf7d0",
+  "#d9f99d",
+  "#bae6fd",
+  "#c7d2fe",
+  "#e9d5ff",
+];
 const PEN_BACKGROUND_COLORS = ["#fde68a", "#bbf7d0", "#bae6fd", "#fbcfe8", "#fecaca"];
-const STROKE_WIDTHS = [1, 2, 3, 4, 6, 8];
+const STROKE_WIDTHS = [1, 2, 3, 4, 6, 8, 10, 20];
 
 const TOOL_EMPTY_STATE: Record<string, string> = {
   select: "Select an element to view its settings.",
