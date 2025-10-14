@@ -35,7 +35,7 @@ export const StrokeWidthSelector = ({
             value={String(width)}
             aria-label={`${width}px stroke`}
             className={cn(
-              "group h-12 rounded-md border border-sidebar-border bg-sidebar/60 text-sidebar-foreground/80 transition",
+              "group h-12 rounded-md border border-sidebar-border bg-sidebar/60 text-sidebar-foreground transition",
               "data-[state=on]:border-accent data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm",
               disabled && "cursor-not-allowed opacity-70"
             )}
@@ -43,10 +43,15 @@ export const StrokeWidthSelector = ({
           >
             <div className="flex h-full w-full flex-col items-center justify-center gap-1">
               <div
-                className="w-8 rounded-full bg-foreground"
+                className={cn(
+                  "w-8 rounded-full bg-sidebar-foreground/80 transition",
+                  "group-data-[state=on]:bg-foreground"
+                )}
                 style={{ height: Math.max(2, width), minHeight: 2 }}
               />
-              <span className="text-[11px] font-medium">{width}px</span>
+              <span className="text-[11px] font-medium text-sidebar-foreground group-data-[state=on]:text-foreground">
+                {width}px
+              </span>
             </div>
           </ToggleGroupItem>
         ))}
