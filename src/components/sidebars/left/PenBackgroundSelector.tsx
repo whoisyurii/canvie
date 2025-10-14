@@ -23,13 +23,13 @@ export const PenBackgroundSelector = ({
 
   return (
     <SidebarSection title="Pen Background" disabled={disabled}>
-      <div className="grid grid-cols-6 gap-2">
+      <div className="grid grid-cols-6 gap-1.5">
         <button
           type="button"
           aria-pressed={isTransparent}
           disabled={disabled}
           className={cn(
-            "flex h-12 flex-col items-center justify-center rounded-md border text-[11px] font-medium transition",
+            "flex h-11 flex-col items-center justify-center rounded-md border text-[11px] font-medium transition",
             isTransparent
               ? "border-accent bg-background text-foreground shadow-sm"
               : "border-sidebar-border bg-sidebar/60 text-sidebar-foreground/80 hover:scale-105",
@@ -53,7 +53,7 @@ export const PenBackgroundSelector = ({
               aria-pressed={isActive}
               disabled={disabled}
               className={cn(
-                "h-12 rounded-md border transition",
+                "h-11 rounded-md border transition",
                 isActive
                   ? "border-accent bg-background shadow-sm"
                   : "border-sidebar-border hover:scale-105",

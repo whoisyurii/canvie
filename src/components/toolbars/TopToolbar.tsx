@@ -85,7 +85,7 @@ const renderToolButton = (
         className={cn("tool-button", params.activeTool === tool.id && "tool-button-active")}
         onClick={() => params.onSelect(tool.id)}
       >
-        <tool.icon className="h-5 w-5" />
+        <tool.icon className="h-4 w-4" />
       </Button>
     </TooltipTrigger>
     <TooltipContent>
@@ -338,7 +338,7 @@ export const TopToolbar = () => {
                     size="icon"
                     className={cn("tool-button", isUploadOpen && "tool-button-active")}
                   >
-                    <ImagePlus className="h-5 w-5" />
+                    <ImagePlus className="h-4 w-4" />
                   </Button>
                 </DialogTrigger>
               </TooltipTrigger>
@@ -399,7 +399,7 @@ export const TopToolbar = () => {
             <TooltipTrigger asChild>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="tool-button">
-                  <MoreHorizontal className="h-5 w-5" />
+                  <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
             </TooltipTrigger>

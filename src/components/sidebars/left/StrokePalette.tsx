@@ -13,7 +13,7 @@ interface StrokePaletteProps {
 export const StrokePalette = ({ colors, value, onChange, disabled }: StrokePaletteProps) => {
   return (
     <SidebarSection title="Stroke" disabled={disabled}>
-      <div className="grid grid-cols-6 gap-2">
+      <div className="grid grid-cols-6 gap-1.5">
         {colors.map((color) => {
           const isActive = value === color;
           return (
@@ -23,7 +23,7 @@ export const StrokePalette = ({ colors, value, onChange, disabled }: StrokePalet
               aria-pressed={isActive}
               disabled={disabled}
               className={cn(
-                "h-8 w-8 rounded-full border transition-transform",
+                "h-7 w-7 rounded-full border transition-transform",
                 isActive
                   ? "border-accent ring-2 ring-accent/60"
                   : "border-sidebar-border hover:scale-105",

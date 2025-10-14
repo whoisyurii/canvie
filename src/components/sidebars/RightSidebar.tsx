@@ -79,9 +79,9 @@ const renderParticipant = (
   return (
     <div
       key={user.id}
-      className="group flex items-center gap-3 rounded-xl border border-transparent px-2 py-2 transition-colors hover:border-sidebar-border hover:bg-sidebar-accent/60"
+      className="group flex items-center gap-2.5 rounded-xl border border-transparent px-2 py-1.5 transition-colors hover:border-sidebar-border hover:bg-sidebar-accent/60"
     >
-      <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white shadow-sm"
+      <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white shadow-sm"
         style={{ backgroundColor: user.color }}
         title={user.name}
       >
@@ -133,9 +133,9 @@ const renderFileRow = (
           params.onFocus();
         }
       }}
-      className="group flex cursor-pointer items-center gap-3 rounded-xl border border-transparent px-2 py-2 transition-colors hover:border-sidebar-border hover:bg-sidebar-accent/60 focus:outline-none"
+      className="group flex cursor-pointer items-center gap-2.5 rounded-xl border border-transparent px-2 py-1.5 transition-colors hover:border-sidebar-border hover:bg-sidebar-accent/60 focus:outline-none"
     >
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-sidebar-accent/50">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-sidebar-accent/50">
         {file.thumbnailUrl ? (
           <Image
             src={file.thumbnailUrl}
@@ -146,7 +146,7 @@ const renderFileRow = (
             unoptimized
           />
         ) : (
-          <FileText className="h-5 w-5 text-muted-foreground" />
+          <FileText className="h-4 w-4 text-muted-foreground" />
         )}
       </div>
       <div className="min-w-0 flex-1">
@@ -163,7 +163,7 @@ const renderFileRow = (
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 shrink-0 text-muted-foreground"
+              className="h-7 w-7 shrink-0 text-muted-foreground"
               onClick={(event) => event.stopPropagation()}
             >
               <MoreVertical className="h-4 w-4" />
@@ -261,9 +261,9 @@ export const RightSidebar = () => {
         id="right-sidebar-root"
         className={cn(
           "floating-panel relative flex flex-col overflow-hidden transition-[width] duration-300 ease-in-out",
-          isCollapsed ? "w-16 items-center py-3" : "w-[288px]"
+          isCollapsed ? "w-14 items-center py-2.5" : "w-[256px]"
         )}
-        style={{ height: "min(720px, calc(100vh - 5rem))" }}
+        style={{ height: "min(700px, calc(100vh - 4.5rem))" }}
       >
         <input
           ref={fileInputRef}
@@ -276,13 +276,13 @@ export const RightSidebar = () => {
         <div
           className={cn(
             "flex items-center border-b border-sidebar-border",
-            isCollapsed ? "justify-center px-0 py-2" : "justify-start gap-3 px-3 py-3"
+            isCollapsed ? "justify-center px-0 py-2" : "justify-start gap-2.5 px-3 py-2.5"
           )}
         >
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 shrink-0 text-muted-foreground"
+            className="h-7 w-7 shrink-0 text-muted-foreground"
             onClick={() => setIsCollapsed((current) => !current)}
             aria-label={isCollapsed ? "Expand collaboration panel" : "Collapse collaboration panel"}
           >
@@ -294,14 +294,14 @@ export const RightSidebar = () => {
         </div>
 
         {isCollapsed ? (
-          <div className="flex flex-1 flex-col items-center gap-3 py-3">
+          <div className="flex flex-1 flex-col items-center gap-2.5 py-2.5">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
                   className={cn(
-                    "tool-button h-10 w-10",
+                    "tool-button",
                     activeTab === "participants" && "tool-button-active"
                   )}
                   onClick={() => {
@@ -309,7 +309,7 @@ export const RightSidebar = () => {
                     setIsCollapsed(false);
                   }}
                 >
-                  <Users className="h-5 w-5" />
+                  <Users className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="left">Participants</TooltipContent>
@@ -320,7 +320,7 @@ export const RightSidebar = () => {
                   variant="ghost"
                   size="icon"
                   className={cn(
-                    "tool-button h-10 w-10",
+                    "tool-button",
                     activeTab === "files" && "tool-button-active"
                   )}
                   onClick={() => {
@@ -328,7 +328,7 @@ export const RightSidebar = () => {
                     setIsCollapsed(false);
                   }}
                 >
-                  <FileText className="h-5 w-5" />
+                  <FileText className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="left">Files</TooltipContent>
@@ -354,10 +354,10 @@ export const RightSidebar = () => {
 
               <TabsContent value="participants" className="mt-0 flex-1 px-0 py-0">
                 <ScrollArea className="h-full">
-                  <div className="space-y-3 px-3 py-3">
+                  <div className="space-y-2.5 px-2.5 py-2.5">
                     {participantCards.map(({ user, isLocal }) => renderParticipant(user, { isLocal }))}
                     {!users.length ? (
-                      <p className="rounded-xl border border-dashed border-sidebar-border/60 px-3 py-4 text-center text-xs text-muted-foreground">
+                      <p className="rounded-xl border border-dashed border-sidebar-border/60 px-2.5 py-3 text-center text-xs text-muted-foreground">
                         Invite teammates to collaborate in real time.
                       </p>
                     ) : null}
@@ -367,7 +367,7 @@ export const RightSidebar = () => {
 
               <TabsContent value="files" className="mt-0 flex-1 px-0 py-0">
                 <div className="flex h-full flex-col">
-                  <div className="border-b border-sidebar-border px-3 py-3">
+                  <div className="border-b border-sidebar-border px-2.5 py-2.5">
                     <Button
                       variant="secondary"
                       size="sm"
@@ -379,8 +379,8 @@ export const RightSidebar = () => {
                   </div>
                   <ScrollArea className="h-full">
                     {uploadedFiles.length === 0 ? (
-                      <div className="flex h-full flex-col items-center justify-center gap-2 px-3 py-3 text-center">
-                        <FileText className="h-8 w-8 text-muted-foreground" />
+                      <div className="flex h-full flex-col items-center justify-center gap-2 px-2.5 py-2.5 text-center">
+                        <FileText className="h-7 w-7 text-muted-foreground" />
                         <div>
                           <p className="text-sm font-medium text-sidebar-foreground">No files yet</p>
                           <p className="text-xs text-muted-foreground">
@@ -389,7 +389,7 @@ export const RightSidebar = () => {
                         </div>
                       </div>
                     ) : (
-                      <div className="space-y-3 px-3 py-3">
+                      <div className="space-y-2.5 px-2.5 py-2.5">
                         {uploadedFiles.map((file) => {
                           const canManage = currentUser?.id
                             ? file.ownerId === currentUser.id

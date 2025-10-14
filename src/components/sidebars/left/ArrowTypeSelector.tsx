@@ -36,12 +36,12 @@ export const ArrowTypeSelector = ({
 }: ArrowTypeSelectorProps) => {
   return (
     <SidebarSection title="Arrow" disabled={disabled}>
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         <ToggleGroup
           type="single"
           value={type}
           onValueChange={(next) => next && onTypeChange(next as ArrowType)}
-          className="grid grid-cols-4 gap-2"
+          className="grid grid-cols-4 gap-1.5"
         >
           {TYPE_OPTIONS.map((option) => (
             <ToggleGroupItem
@@ -49,7 +49,7 @@ export const ArrowTypeSelector = ({
               value={option.value}
               aria-label={`${option.label} arrowhead`}
               className={cn(
-                "group h-12 rounded-md border border-sidebar-border bg-sidebar/60 text-sidebar-foreground/80 transition",
+                "group h-11 rounded-md border border-sidebar-border bg-sidebar/60 text-sidebar-foreground/80 transition",
                 "data-[state=on]:border-accent data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm",
                 disabled && "cursor-not-allowed opacity-70"
               )}
@@ -67,7 +67,7 @@ export const ArrowTypeSelector = ({
           type="single"
           value={style}
           onValueChange={(next) => next && onStyleChange(next as ArrowStyle)}
-          className="grid grid-cols-2 gap-2"
+          className="grid grid-cols-2 gap-1.5"
         >
           {STYLE_OPTIONS.map((option) => (
             <ToggleGroupItem
@@ -75,7 +75,7 @@ export const ArrowTypeSelector = ({
               value={option.value}
               aria-label={`${option.label} arrow`}
               className={cn(
-                "group h-12 rounded-md border border-sidebar-border bg-sidebar/60 text-sidebar-foreground/80 transition",
+                "group h-11 rounded-md border border-sidebar-border bg-sidebar/60 text-sidebar-foreground/80 transition",
                 "data-[state=on]:border-accent data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm",
                 disabled && "cursor-not-allowed opacity-70"
               )}

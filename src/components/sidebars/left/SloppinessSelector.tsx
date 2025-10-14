@@ -24,7 +24,7 @@ export const SloppinessSelector = ({ value, onChange, disabled }: SloppinessSele
         type="single"
         value={value}
         onValueChange={(next) => next && onChange(next as Sloppiness)}
-        className="grid grid-cols-3 gap-2"
+        className="grid grid-cols-3 gap-1.5"
       >
         {OPTIONS.map((option) => (
           <ToggleGroupItem
@@ -32,14 +32,14 @@ export const SloppinessSelector = ({ value, onChange, disabled }: SloppinessSele
             value={option.value}
             aria-label={`${option.label} stroke`}
             className={cn(
-              "group h-16 rounded-md border border-sidebar-border bg-sidebar/60 px-2 py-2 text-sidebar-foreground/80 transition",
+              "group h-14 rounded-md border border-sidebar-border bg-sidebar/60 px-2 py-2 text-sidebar-foreground/80 transition",
               "data-[state=on]:border-accent data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm",
               disabled && "cursor-not-allowed opacity-70"
             )}
             disabled={disabled}
           >
-            <div className="flex h-full w-full flex-col items-center justify-center gap-2">
-              <svg viewBox="0 0 52 20" className="h-5 w-full fill-none stroke-current">
+            <div className="flex h-full w-full flex-col items-center justify-center gap-1.5">
+              <svg viewBox="0 0 52 20" className="h-4 w-full fill-none stroke-current">
                 <path d={option.path} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               <span className="text-[11px] font-medium">{option.label}</span>

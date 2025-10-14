@@ -27,7 +27,7 @@ export const StrokeWidthSelector = ({
             onChange(Number(next));
           }
         }}
-        className="grid grid-cols-4 gap-2"
+        className="grid grid-cols-4 gap-1.5"
       >
         {widths.map((width) => (
           <ToggleGroupItem
@@ -35,7 +35,7 @@ export const StrokeWidthSelector = ({
             value={String(width)}
             aria-label={`${width}px stroke`}
             className={cn(
-              "group h-12 rounded-md border border-sidebar-border bg-sidebar/60 text-sidebar-foreground transition",
+              "group h-11 rounded-md border border-sidebar-border bg-sidebar/60 text-sidebar-foreground transition",
               "data-[state=on]:border-accent data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm",
               disabled && "cursor-not-allowed opacity-70"
             )}
@@ -44,7 +44,7 @@ export const StrokeWidthSelector = ({
             <div className="flex h-full w-full flex-col items-center justify-center gap-1">
               <div
                 className={cn(
-                  "w-8 rounded-full bg-sidebar-foreground/80 transition",
+                  "w-7 rounded-full bg-sidebar-foreground/80 transition",
                   "group-data-[state=on]:bg-foreground"
                 )}
                 style={{ height: Math.max(2, width), minHeight: 2 }}

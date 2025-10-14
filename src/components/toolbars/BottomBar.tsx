@@ -13,7 +13,7 @@ export const BottomBar = () => {
   const resetZoom = () => setZoom(1);
 
   return (
-    <div className="floating-panel px-3 py-2 flex items-center gap-2">
+    <div className="floating-panel flex items-center gap-1.5 px-2.5 py-1.5">
       {/* Undo/Redo */}
       <Button
         variant="ghost"
@@ -22,7 +22,7 @@ export const BottomBar = () => {
         onClick={undo}
         disabled={historyIndex <= 0}
       >
-        <Undo2 className="h-5 w-5" />
+        <Undo2 className="h-4 w-4" />
       </Button>
       <Button
         variant="ghost"
@@ -31,24 +31,24 @@ export const BottomBar = () => {
         onClick={redo}
         disabled={historyIndex >= history.length - 1}
       >
-        <Redo2 className="h-5 w-5" />
+        <Redo2 className="h-4 w-4" />
       </Button>
 
-      <Separator orientation="vertical" className="h-8 mx-1" />
+      <Separator orientation="vertical" className="mx-0.5 h-7" />
 
       {/* Zoom Controls */}
       <Button variant="ghost" size="icon" className="tool-button" onClick={zoomOut}>
-        <Minus className="h-5 w-5" />
+        <Minus className="h-4 w-4" />
       </Button>
       <Button
         variant="ghost"
-        className="tool-button min-w-[60px] text-sidebar-foreground"
+        className="tool-button min-w-[56px] text-sidebar-foreground"
         onClick={resetZoom}
       >
         {Math.round(zoom * 100)}%
       </Button>
       <Button variant="ghost" size="icon" className="tool-button" onClick={zoomIn}>
-        <Plus className="h-5 w-5" />
+        <Plus className="h-4 w-4" />
       </Button>
     </div>
   );

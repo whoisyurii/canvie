@@ -23,7 +23,7 @@ export const EdgeStyleSelector = ({ value, onChange, disabled }: EdgeStyleSelect
         type="single"
         value={value}
         onValueChange={(next) => next && onChange(next as CornerStyle)}
-        className="grid grid-cols-2 gap-2"
+        className="grid grid-cols-2 gap-1.5"
       >
         {EDGE_OPTIONS.map((option) => (
           <ToggleGroupItem
@@ -31,14 +31,14 @@ export const EdgeStyleSelector = ({ value, onChange, disabled }: EdgeStyleSelect
             value={option.value}
             aria-label={`${option.label} corners`}
             className={cn(
-              "group h-16 rounded-md border border-sidebar-border bg-sidebar/60 text-sidebar-foreground/80 transition",
+              "group h-14 rounded-md border border-sidebar-border bg-sidebar/60 text-sidebar-foreground/80 transition",
               "data-[state=on]:border-accent data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm",
               disabled && "cursor-not-allowed opacity-70"
             )}
             disabled={disabled}
           >
-            <div className="flex h-full w-full flex-col items-center justify-center gap-2">
-              <div className="h-8 w-12 border-2 border-foreground" style={{ borderRadius: option.radius }} />
+            <div className="flex h-full w-full flex-col items-center justify-center gap-1.5">
+              <div className="h-7 w-11 border-2 border-foreground" style={{ borderRadius: option.radius }} />
               <span className="text-[11px] font-medium">{option.label}</span>
             </div>
           </ToggleGroupItem>
