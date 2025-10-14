@@ -1,40 +1,74 @@
 /// <reference types="@cloudflare/workers-types" />
 
 const STALE_SOCKET_TIMEOUT_MS = 60_000;
-const CLEANUP_INTERVAL_MS = 30_000;
-const decoder = new TextDecoder();
+const CLEANUP_INTERVAL_MS = 20_000;
+const RATE_INTERVAL_MS = 1_000;
+const MAX_MESSAGES_PER_INTERVAL = 120;
 
 interface PeerSession {
   id: string;
   socket: WebSocket;
-  topics: Set<string>;
   lastSeen: number;
+  rateWindowStart: number;
+  messagesInWindow: number;
 }
 
-/**
- * Durable Object that fans out y-webrtc signaling messages between peers.
- */
+interface StatsPayload {
+  roomId: string;
+  peerCount: number;
+  lastActivity: number;
+}
+
 export class SignalingRoom {
   private readonly state: DurableObjectState;
   private readonly peers = new Map<string, PeerSession>();
-  private readonly topics = new Map<string, Set<string>>();
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
+  private lastActivity = Date.now();
 
   constructor(state: DurableObjectState) {
     this.state = state;
   }
 
   async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+
+    switch (url.pathname) {
+      case "/attach":
+        return this.handleAttach(request, url);
+      case "/stats":
+        return this.handleStats();
+      default:
+        return new Response("Not found", { status: 404 });
+    }
+  }
+
+  private handleStats(): Response {
+    const payload: StatsPayload = {
+      roomId: this.state.id.toString(),
+      peerCount: this.peers.size,
+      lastActivity: this.lastActivity,
+    };
+    return new Response(JSON.stringify(payload), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+      },
+    });
+  }
+
+  private handleAttach(request: Request, url: URL): Response {
     if (request.headers.get("Upgrade") !== "websocket") {
-      return new Response("Expected WebSocket", { status: 426 });
+      return new Response("Expected WebSocket upgrade", { status: 426 });
     }
 
-    const url = new URL(request.url);
-    const clientId = url.searchParams.get("clientId") ?? crypto.randomUUID();
     const webSocket = (request as unknown as { webSocket?: WebSocket }).webSocket;
     if (!webSocket) {
       return new Response("Missing WebSocket", { status: 400 });
     }
+
+    const clientId = url.searchParams.get("clientId") ?? crypto.randomUUID();
+    const now = Date.now();
 
     this.state.acceptWebSocket(webSocket, [clientId]);
     webSocket.accept();
@@ -42,151 +76,132 @@ export class SignalingRoom {
     const session: PeerSession = {
       id: clientId,
       socket: webSocket,
-      topics: new Set<string>(),
-      lastSeen: Date.now(),
+      lastSeen: now,
+      rateWindowStart: now,
+      messagesInWindow: 0,
     };
 
     this.peers.set(clientId, session);
+    this.lastActivity = now;
     this.ensureCleanupTimer();
 
     webSocket.addEventListener("message", (event: MessageEvent) => {
       this.handleMessage(session, event.data);
     });
 
-    const closeHandler = () => this.dropPeer(session.id);
-    webSocket.addEventListener("close", closeHandler);
-    webSocket.addEventListener("error", closeHandler);
+    const handleTermination = () => this.dropPeer(clientId, true);
+    webSocket.addEventListener("close", handleTermination);
+    webSocket.addEventListener("error", handleTermination);
 
     return new Response(null, { status: 101 });
   }
 
-  private handleMessage(session: PeerSession, raw: string | ArrayBuffer | null) {
-    session.lastSeen = Date.now();
+  private handleMessage(session: PeerSession, data: string | ArrayBuffer | ArrayBufferView | null) {
+    const now = Date.now();
+    session.lastSeen = now;
+    this.lastActivity = now;
 
-    if (raw === null) {
+    if (!this.incrementRateCounter(session, now)) {
+      this.safeClose(session, 1011, "message rate exceeded");
       return;
     }
 
-    let message: any;
-    try {
-      const text = typeof raw === "string" ? raw : decoder.decode(raw);
-      message = JSON.parse(text);
-    } catch {
+    if (data === null) {
       return;
     }
 
-    if (!message || typeof message.type !== "string") {
-      return;
-    }
-
-    switch (message.type) {
-      case "subscribe":
-        this.subscribe(session, message.topics);
-        break;
-      case "unsubscribe":
-        this.unsubscribe(session, message.topics);
-        break;
-      case "publish":
-        this.publish(session, message);
-        break;
-      case "ping":
-      case "heartbeat":
-        this.safeSend(session, JSON.stringify({ type: "pong", ts: Date.now() }));
-        break;
-      default:
-        break;
-    }
-  }
-
-  private subscribe(session: PeerSession, topics: unknown) {
-    if (!Array.isArray(topics)) {
-      return;
-    }
-
-    topics
-      .map((topic) => (typeof topic === "string" ? topic : null))
-      .filter((topic): topic is string => Boolean(topic))
-      .forEach((topic) => {
-        session.topics.add(topic);
-        const subscribers = this.topics.get(topic) ?? new Set<string>();
-        subscribers.add(session.id);
-        this.topics.set(topic, subscribers);
-      });
-  }
-
-  private unsubscribe(session: PeerSession, topics: unknown) {
-    if (!Array.isArray(topics)) {
-      return;
-    }
-
-    topics
-      .map((topic) => (typeof topic === "string" ? topic : null))
-      .filter((topic): topic is string => Boolean(topic))
-      .forEach((topic) => {
-        session.topics.delete(topic);
-        const subscribers = this.topics.get(topic);
-        if (!subscribers) {
-          return;
-        }
-        subscribers.delete(session.id);
-        if (subscribers.size === 0) {
-          this.topics.delete(topic);
-        }
-      });
-  }
-
-  private publish(session: PeerSession, payload: any) {
-    const topic = typeof payload.topic === "string" ? payload.topic : null;
-    if (!topic) {
-      return;
-    }
-
-    const subscribers = this.topics.get(topic);
-    if (!subscribers || subscribers.size === 0) {
-      return;
-    }
-
-    const enriched = JSON.stringify({ ...payload, clients: subscribers.size });
-    subscribers.forEach((peerId) => {
-      const peer = this.peers.get(peerId);
-      if (!peer) {
+    if (typeof data === "string") {
+      const trimmed = data.trim();
+      if (trimmed === "ping") {
+        this.safeSend(session, "pong");
         return;
       }
-      this.safeSend(peer, enriched);
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed && typeof parsed === "object") {
+          if (parsed.type === "ping") {
+            this.safeSend(session, JSON.stringify({ type: "pong", ts: Date.now() }));
+            return;
+          }
+          if (parsed.type === "pong") {
+            return;
+          }
+        }
+      } catch {
+        // Non-JSON payloads fall through to broadcast.
+      }
+    }
+
+    this.broadcast(session.id, data);
+  }
+
+  private incrementRateCounter(session: PeerSession, now: number): boolean {
+    if (now - session.rateWindowStart > RATE_INTERVAL_MS) {
+      session.rateWindowStart = now;
+      session.messagesInWindow = 0;
+    }
+    session.messagesInWindow += 1;
+    return session.messagesInWindow <= MAX_MESSAGES_PER_INTERVAL;
+  }
+
+  private broadcast(senderId: string, payload: string | ArrayBuffer | ArrayBufferView) {
+    this.peers.forEach((peer, peerId) => {
+      if (peerId === senderId) {
+        return;
+      }
+      const data = this.clonePayload(payload);
+      if (data === null) {
+        return;
+      }
+      this.safeSend(peer, data);
     });
   }
 
-  private safeSend(peer: PeerSession, data: string) {
+  private clonePayload(payload: string | ArrayBuffer | ArrayBufferView): string | ArrayBuffer | null {
+    if (typeof payload === "string") {
+      return payload;
+    }
+    if (payload instanceof ArrayBuffer) {
+      return payload.slice(0);
+    }
+    if (ArrayBuffer.isView(payload)) {
+      const view = payload as ArrayBufferView;
+      return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
+    }
+    return null;
+  }
+
+  private safeSend(peer: PeerSession, payload: string | ArrayBuffer) {
     try {
-      peer.socket.send(data);
+      peer.socket.send(payload);
     } catch {
-      this.dropPeer(peer.id);
+      this.dropPeer(peer.id, true);
     }
   }
 
-  private dropPeer(peerId: string) {
-    const peer = this.peers.get(peerId);
-    if (!peer) {
+  private safeClose(peer: PeerSession, code: number, reason: string) {
+    try {
+      peer.socket.close(code, reason);
+    } catch {
+      // ignore close errors
+    }
+    this.dropPeer(peer.id, true);
+  }
+
+  private dropPeer(peerId: string, fromError: boolean) {
+    const session = this.peers.get(peerId);
+    if (!session) {
       return;
     }
 
     this.peers.delete(peerId);
 
-    peer.topics.forEach((topic) => {
-      const subscribers = this.topics.get(topic);
-      if (!subscribers) {
-        return;
+    if (!fromError) {
+      try {
+        session.socket.close(1000, "peer left");
+      } catch {
+        // ignore close errors on graceful shutdown
       }
-      subscribers.delete(peerId);
-      if (subscribers.size === 0) {
-        this.topics.delete(topic);
-      }
-    });
-
-    try {
-      peer.socket.close(1000, "peer disconnected");
-    } catch {
-      // Ignore close errors.
     }
 
     if (this.peers.size === 0) {
@@ -198,21 +213,24 @@ export class SignalingRoom {
     if (this.cleanupTimer) {
       return;
     }
-    this.cleanupTimer = setInterval(() => this.sweepStalePeers(), CLEANUP_INTERVAL_MS);
+    this.cleanupTimer = setInterval(() => {
+      this.sweepStalePeers();
+    }, CLEANUP_INTERVAL_MS);
   }
 
   private clearCleanupTimer() {
-    if (this.cleanupTimer) {
-      clearInterval(this.cleanupTimer);
-      this.cleanupTimer = null;
+    if (!this.cleanupTimer) {
+      return;
     }
+    clearInterval(this.cleanupTimer);
+    this.cleanupTimer = null;
   }
 
   private sweepStalePeers() {
     const threshold = Date.now() - STALE_SOCKET_TIMEOUT_MS;
     this.peers.forEach((peer, peerId) => {
       if (peer.lastSeen < threshold) {
-        this.dropPeer(peerId);
+        this.safeClose(peer, 1001, "stale connection");
       }
     });
 

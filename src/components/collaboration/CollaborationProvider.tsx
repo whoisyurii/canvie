@@ -155,6 +155,28 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
     };
 
     let webrtcProvider: WebrtcProvider | null = null;
+    const appendRoomToSignalingUrl = (url: string) => {
+      if (typeof window === "undefined") {
+        return url;
+      }
+
+      try {
+        const parsed = new URL(url, window.location.origin);
+        if (parsed.pathname.endsWith("/signaling")) {
+          parsed.searchParams.set("roomId", roomId);
+          return parsed.toString();
+        }
+      } catch {
+        if (url.includes("/signaling")) {
+          const separator = url.includes("?") ? "&" : "?";
+          return `${url}${separator}roomId=${encodeURIComponent(roomId)}`;
+        }
+        return url;
+      }
+
+      return url;
+    };
+
     const setupWebrtcProvider = () => {
       if (transport !== "webrtc") {
         console.error(`[CollaborationProvider] Unsupported transport "${transport}".`);
@@ -166,11 +188,12 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
         .split(",")
         .map((url) => url.trim())
         .filter((url) => url.length > 0);
+      const enrichedSignaling = signaling.map(appendRoomToSignalingUrl);
       const password = process.env.NEXT_PUBLIC_WEBRTC_ROOM_KEY?.trim();
 
       webrtcProvider = new WebrtcProvider(roomId, ydoc, {
         awareness,
-        signaling: signaling.length > 0 ? signaling : undefined,
+        signaling: enrichedSignaling.length > 0 ? enrichedSignaling : undefined,
         password: password && password.length > 0 ? password : undefined,
       });
 
