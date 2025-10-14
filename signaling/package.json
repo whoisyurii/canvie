@@ -1,0 +1,12 @@
+{
+  "name": "realitea-canvas-signaling",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node node_modules/y-webrtc/bin/server.js"
+  },
+  "dependencies": {
+    "y-webrtc": "^10.3.0"
+  }
+}

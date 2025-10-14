@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as Y from "yjs";
 import { WebrtcProvider } from "y-webrtc";
+import type { SignalingConn } from "y-webrtc";
 import { Awareness } from "y-protocols/awareness";
 import { IndexeddbPersistence } from "y-indexeddb";
 import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
 import type { CanvasElement, SharedFile, Tool, User } from "@/lib/store/useWhiteboardStore";
 import { nanoid } from "nanoid";
-import { resolveCollaborationTransport } from "@/lib/collaboration/room";
+import { resolveCollaborationTransport, validateRoomId } from "@/lib/collaboration/room";
 
 interface CollaborationProviderProps {
   roomId: string;
@@ -24,6 +25,127 @@ const CURSOR_THROTTLE_MS = 40;
 const CURSOR_FADE_MS = 4000;
 
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
+
+const DEFAULT_SIGNALING_URLS = ["wss://y-webrtc-eu.fly.dev"];
+
+interface ParsedSignalingConfig {
+  urls: string[];
+  rejected: string[];
+  usedFallback: boolean;
+}
+
+const normalizeSignalingUrl = (value: string): string | null => {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(value);
+    const protocol = parsed.protocol.toLowerCase();
+    const isSecureContext =
+      typeof window !== "undefined" ? window.location.protocol === "https:" : process.env.NODE_ENV !== "development";
+
+    if (protocol === "ws:") {
+      if (isSecureContext) {
+        return null;
+      }
+    } else if (protocol !== "wss:") {
+      return null;
+    }
+
+    parsed.hash = "";
+    const normalized = parsed.href.replace(/\/$/, "");
+    return normalized;
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[CollaborationProvider] Invalid signaling URL skipped", value, error);
+    }
+    return null;
+  }
+};
+
+const parseSignalingConfig = (): ParsedSignalingConfig => {
+  const raw = process.env.NEXT_PUBLIC_WEBRTC_SIGNALING_URLS ?? "";
+  const candidates = raw
+    .split(",")
+    .map((url) => url.trim())
+    .filter((url) => url.length > 0);
+
+  const seen = new Set<string>();
+  const accepted: string[] = [];
+  const rejected: string[] = [];
+
+  candidates.forEach((candidate) => {
+    const normalized = normalizeSignalingUrl(candidate);
+    if (!normalized) {
+      rejected.push(candidate);
+      return;
+    }
+    if (!seen.has(normalized)) {
+      seen.add(normalized);
+      accepted.push(normalized);
+    }
+  });
+
+  if (rejected.length > 0 && process.env.NODE_ENV !== "production") {
+    console.warn("[CollaborationProvider] Ignored signaling URLs", rejected);
+  }
+
+  if (accepted.length === 0 && process.env.NODE_ENV !== "production") {
+    console.warn(
+      "[CollaborationProvider] NEXT_PUBLIC_WEBRTC_SIGNALING_URLS is empty; falling back to public signaling. Configure dedicated servers for production reliability.",
+    );
+  }
+
+  return {
+    urls: accepted.length > 0 ? accepted : DEFAULT_SIGNALING_URLS,
+    rejected,
+    usedFallback: accepted.length === 0,
+  };
+};
+
+const parseIceServers = (): RTCIceServer[] => {
+  const raw = process.env.NEXT_PUBLIC_ICE_SERVERS;
+  if (!raw || raw.trim().length === 0) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      throw new Error("ICE servers configuration must be a JSON array.");
+    }
+
+    return parsed.filter((entry): entry is RTCIceServer => {
+      if (!entry || typeof entry !== "object") {
+        return false;
+      }
+      const candidate = entry as RTCIceServer;
+      return typeof candidate.urls === "string" || Array.isArray(candidate.urls);
+    });
+  } catch (error) {
+    console.warn("[CollaborationProvider] Failed to parse NEXT_PUBLIC_ICE_SERVERS", error);
+    return [];
+  }
+};
+
+const formatRelativeTime = (timestamp: number | null): string => {
+  if (!timestamp) {
+    return "—";
+  }
+
+  const delta = Date.now() - timestamp;
+  if (delta < 1000) {
+    return "just now";
+  }
+  if (delta < 60_000) {
+    return `${Math.round(delta / 1000)}s ago`;
+  }
+  if (delta < 3_600_000) {
+    return `${Math.round(delta / 60_000)}m ago`;
+  }
+  return `${Math.round(delta / 3_600_000)}h ago`;
+};
 
 const buildRemoteUser = (params: {
   id: string;
@@ -47,6 +169,13 @@ const buildRemoteUser = (params: {
 });
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
+
+interface SignalingDiagnostic {
+  url: string;
+  status: ConnectionStatus;
+  lastMessage: number | null;
+  retries: number;
+}
 
 interface DebugStats {
   updates: number;
@@ -80,7 +209,38 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
   const previousRoomIdRef = useRef<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
   const [debugStats, setDebugStats] = useState<DebugStats>(INITIAL_DEBUG_STATS);
+  const [signalingDiagnostics, setSignalingDiagnostics] = useState<SignalingDiagnostic[]>([]);
+  const [lastStatusChangeAt, setLastStatusChangeAt] = useState<number | null>(null);
   const transport = resolveCollaborationTransport();
+  const signalingConfig = useMemo(() => parseSignalingConfig(), []);
+  const signalingUrls = signalingConfig.urls;
+  const isUsingFallbackSignalers = signalingConfig.usedFallback;
+  const iceServers = useMemo(() => parseIceServers(), []);
+  const sanitizedRoomId = useMemo(() => validateRoomId(roomId) ?? null, [roomId]);
+  const signalingTeardownRef = useRef<(() => void)[]>([]);
+  const combinedSignalingRows = useMemo(() => {
+    const byUrl = new Map(signalingDiagnostics.map((entry) => [entry.url, entry]));
+    const rows: SignalingDiagnostic[] = signalingUrls.map((url) => {
+      const diagnostic = byUrl.get(url);
+      if (diagnostic) {
+        return diagnostic;
+      }
+      return {
+        url,
+        status: "connecting",
+        lastMessage: null,
+        retries: 0,
+      };
+    });
+
+    signalingDiagnostics.forEach((entry) => {
+      if (!signalingUrls.includes(entry.url)) {
+        rows.push(entry);
+      }
+    });
+
+    return rows;
+  }, [signalingDiagnostics, signalingUrls]);
 
   const setUsers = useWhiteboardStore((state) => state.setUsers);
   const setCollaboration = useWhiteboardStore((state) => state.setCollaboration);
@@ -94,10 +254,30 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
   const strokeColor = useWhiteboardStore((state) => state.strokeColor);
 
   useEffect(() => {
-    setRoomId(roomId);
+    if (!IS_DEV || typeof window === "undefined") {
+      return;
+    }
+    try {
+      window.localStorage.setItem("log", "y-webrtc");
+    } catch (error) {
+      console.warn("[CollaborationProvider] Failed to enable y-webrtc debug logging", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!sanitizedRoomId) {
+      setRoomId(null);
+      setShareUrl(null);
+      return () => {
+        setRoomId(null);
+        setShareUrl(null);
+      };
+    }
+
+    setRoomId(sanitizedRoomId);
     if (typeof window !== "undefined") {
       const origin = window.location?.origin ?? "";
-      const inviteUrl = origin && roomId ? `${origin}/r/${roomId}` : window.location.href;
+      const inviteUrl = origin ? `${origin}/r/${sanitizedRoomId}` : window.location.href;
       setShareUrl(inviteUrl);
     } else {
       setShareUrl(null);
@@ -107,22 +287,36 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       setRoomId(null);
       setShareUrl(null);
     };
-  }, [roomId, setRoomId, setShareUrl]);
+  }, [sanitizedRoomId, setRoomId, setShareUrl]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
 
-    if (ydocRef.current && previousRoomIdRef.current === roomId) {
+    if (!sanitizedRoomId) {
+      setConnectionStatus("disconnected");
+      setCollaboration(null);
+      setUsers([]);
+      setElementsFromDoc([]);
+      setUploadedFilesFromDoc([]);
+      setHistoryFromDoc([[]], 0);
+      setCurrentUser(null);
+      setSignalingDiagnostics([]);
       return;
     }
 
-    previousRoomIdRef.current = roomId;
+    if (ydocRef.current && previousRoomIdRef.current === sanitizedRoomId) {
+      return;
+    }
+
+    previousRoomIdRef.current = sanitizedRoomId;
     setConnectionStatus("connecting");
+    setLastStatusChangeAt(Date.now());
     if (IS_DEV) {
       setDebugStats(INITIAL_DEBUG_STATS);
     }
+    setSignalingDiagnostics([]);
 
     const ydoc = new Y.Doc();
     ydocRef.current = ydoc;
@@ -154,6 +348,51 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       awarenessInstance.setLocalState(next);
     };
 
+    const createDiagnostic = (conn: SignalingConn): SignalingDiagnostic => ({
+      url: conn.url,
+      status: conn.connected ? "connected" : conn.connecting ? "connecting" : "disconnected",
+      lastMessage:
+        typeof conn.lastMessageReceived === "number" && Number.isFinite(conn.lastMessageReceived) && conn.lastMessageReceived > 0
+          ? conn.lastMessageReceived
+          : null,
+      retries: typeof conn.unsuccessfulReconnects === "number" ? conn.unsuccessfulReconnects : 0,
+    });
+
+    const updateSignalingState = (provider: WebrtcProvider | null) => {
+      if (!provider) {
+        setSignalingDiagnostics([]);
+        return;
+      }
+
+      const diagnostics = provider.signalingConns.map((conn) => createDiagnostic(conn));
+      setSignalingDiagnostics(diagnostics);
+    };
+
+    const attachSignalingListeners = (provider: WebrtcProvider | null) => {
+      signalingTeardownRef.current.forEach((dispose) => dispose());
+      signalingTeardownRef.current = [];
+
+      if (!provider) {
+        setSignalingDiagnostics([]);
+        return;
+      }
+
+      const disposers = provider.signalingConns.map((conn) => {
+        const handler = () => updateSignalingState(provider);
+        conn.on("connect", handler);
+        conn.on("disconnect", handler);
+        conn.on("message", handler);
+        return () => {
+          conn.off("connect", handler);
+          conn.off("disconnect", handler);
+          conn.off("message", handler);
+        };
+      });
+
+      signalingTeardownRef.current = disposers;
+      updateSignalingState(provider);
+    };
+
     let webrtcProvider: WebrtcProvider | null = null;
     const setupWebrtcProvider = () => {
       if (transport !== "webrtc") {
@@ -161,31 +400,37 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
         return;
       }
 
-      const signalingEnv = process.env.NEXT_PUBLIC_WEBRTC_SIGNALING_URLS ?? "";
-      const signaling = signalingEnv
-        .split(",")
-        .map((url) => url.trim())
-        .filter((url) => url.length > 0);
       const password = process.env.NEXT_PUBLIC_WEBRTC_ROOM_KEY?.trim();
 
-      webrtcProvider = new WebrtcProvider(roomId, ydoc, {
+      const webrtcOptions: Parameters<typeof WebrtcProvider>[2] = {
         awareness,
-        signaling: signaling.length > 0 ? signaling : undefined,
+        signaling: signalingUrls,
         password: password && password.length > 0 ? password : undefined,
-      });
+      };
+
+      if (iceServers.length > 0) {
+        webrtcOptions.peerOpts = { config: { iceServers } };
+      }
+
+      webrtcProvider = new WebrtcProvider(sanitizedRoomId, ydoc, webrtcOptions);
 
       webrtcProviderRef.current = webrtcProvider;
       setLocalState();
+      attachSignalingListeners(webrtcProvider);
 
       if (IS_DEV) {
         console.info("[CollaborationProvider] WebRTC provider initialized", {
-          roomId,
-          signaling: signaling.length > 0 ? signaling : "default",
+          roomId: sanitizedRoomId,
+          signaling: signalingUrls,
+          iceServersConfigured: iceServers.length,
+          usingFallbackSignalers: isUsingFallbackSignalers,
         });
       }
 
       const statusHandler = (event: { status: "connected" | "disconnected" }) => {
         setConnectionStatus(event.status === "connected" ? "connected" : "disconnected");
+        setLastStatusChangeAt(Date.now());
+        updateSignalingState(webrtcProvider);
         if (IS_DEV) {
           console.info(`[CollaborationProvider] transport status: ${event.status}`);
         }
@@ -207,6 +452,8 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
 
       return () => {
         setConnectionStatus("disconnected");
+        setLastStatusChangeAt(Date.now());
+        attachSignalingListeners(null);
         if (webrtcProvider) {
           webrtcProvider.off("status", statusHandler);
           webrtcProvider.off("peers", peersHandler);
@@ -221,7 +468,7 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
 
     if (typeof indexedDB !== "undefined") {
       try {
-        persistence = new IndexeddbPersistence(`realitea-canvas-${roomId}`, ydoc);
+        persistence = new IndexeddbPersistence(`realitea-canvas-${sanitizedRoomId}`, ydoc);
         persistenceRef.current = persistence;
       } catch (error) {
         persistenceError = error;
@@ -441,6 +688,10 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
         cursorTimeoutRef.current = null;
       }
 
+      signalingTeardownRef.current.forEach((dispose) => dispose());
+      signalingTeardownRef.current = [];
+      setSignalingDiagnostics([]);
+
       awarenessInstance.off("change", awarenessChangeHandler);
       yElements.unobserve(syncElements);
       yFiles.unobserve(syncFiles);
@@ -476,13 +727,16 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       }
     };
   }, [
-    roomId,
+    sanitizedRoomId,
     setCollaboration,
     setElementsFromDoc,
     setUploadedFilesFromDoc,
     setHistoryFromDoc,
     setUsers,
     setCurrentUser,
+    signalingUrls,
+    iceServers,
+    isUsingFallbackSignalers,
     transport,
   ]);
 
@@ -519,7 +773,7 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
           <dl className="mt-2 space-y-1">
             <div className="flex justify-between gap-2">
               <dt className="text-muted-foreground">Room</dt>
-              <dd className="font-mono">{roomId}</dd>
+              <dd className="font-mono">{sanitizedRoomId ?? roomId}</dd>
             </div>
             <div className="flex justify-between gap-2">
               <dt className="text-muted-foreground">Transport</dt>
@@ -528,6 +782,10 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
             <div className="flex justify-between gap-2">
               <dt className="text-muted-foreground">Status</dt>
               <dd className="font-medium capitalize">{connectionStatus}</dd>
+            </div>
+            <div className="flex justify-between gap-2">
+              <dt className="text-muted-foreground">Last change</dt>
+              <dd className="font-mono">{formatRelativeTime(lastStatusChangeAt)}</dd>
             </div>
             <div className="flex justify-between gap-2">
               <dt className="text-muted-foreground">Peers</dt>
@@ -541,7 +799,37 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
               <dt className="text-muted-foreground">Awareness</dt>
               <dd className="font-mono">{debugStats.awarenessChanges}</dd>
             </div>
+            <div className="flex justify-between gap-2">
+              <dt className="text-muted-foreground">ICE</dt>
+              <dd className="font-medium">{iceServers.length > 0 ? `${iceServers.length} servers` : "none"}</dd>
+            </div>
           </dl>
+          <div className="mt-3 border-t border-border/50 pt-2">
+            <p className="font-semibold">Signaling</p>
+            <p className="text-[11px] text-muted-foreground">
+              {signalingUrls.length} endpoint{signalingUrls.length === 1 ? "" : "s"}
+              {isUsingFallbackSignalers ? " (public fallback)" : ""}
+            </p>
+            <ul className="mt-2 space-y-2">
+              {combinedSignalingRows.length > 0 ? (
+                combinedSignalingRows.map((row) => (
+                  <li key={row.url} className="rounded-md border border-border/40 p-2">
+                    <p className="truncate font-mono text-[11px]">{row.url}</p>
+                    <div className="mt-1 flex flex-wrap justify-between gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+                      <span className="capitalize">{row.status}</span>
+                      <span>last {formatRelativeTime(row.lastMessage)}</span>
+                      <span>retries {row.retries}</span>
+                    </div>
+                  </li>
+                ))
+              ) : (
+                <li className="rounded-md border border-dashed border-border/40 p-2 text-[11px] text-muted-foreground">
+                  Awaiting signaling activity
+                </li>
+              )}
+            </ul>
+            <p className="mt-2 text-[11px] text-muted-foreground">Debug logs: localStorage.log = 'y-webrtc'</p>
+          </div>
         </div>
       ) : null}
     </>

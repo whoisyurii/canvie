@@ -105,19 +105,39 @@ Collaboration is powered by [Y.js](https://github.com/yjs/yjs) with the [`y-webr
 | Variable | Default | Description |
 | --- | --- | --- |
 | `NEXT_PUBLIC_COLLAB_TRANSPORT` | `webrtc` | Transport selection. Currently only `webrtc` is supported. |
-| `NEXT_PUBLIC_WEBRTC_SIGNALING_URLS` | *(Y.js defaults)* | Optional comma-separated list of signaling server URLs. Leave empty to use the public Y.js servers. |
+| `NEXT_PUBLIC_WEBRTC_SIGNALING_URLS` | *(required)* | Comma-separated list of `wss://` signaling server URLs. Provide at least three endpoints for redundancy. Falls back to the public Y.js server only when unset in development. |
 | `NEXT_PUBLIC_WEBRTC_ROOM_KEY` | *(unset)* | Optional shared secret that acts as a passphrase for the room. When set, all peers must provide the same value. |
+| `NEXT_PUBLIC_ICE_SERVERS` | `[]` | Optional JSON array of TURN/STUN servers passed to the WebRTC peer connection (e.g. `[{"urls":"turn:turn.example.com","username":"user","credential":"pass"}]`). |
 
 Additional notes:
 
 - Rooms accept IDs containing letters, numbers, underscores, and hyphens (up to 64 characters).
 - WebRTC meshes work best with up to ~6 participants. Larger rooms may see degraded performance on slower networks.
-- In development mode a “Collaboration Debug” panel appears in the bottom-left corner showing transport status, peer counts, and message activity.
+- In development mode a “Collaboration Debug” panel appears in the bottom-left corner showing transport status, peer counts, signaling endpoints (with last message timestamps and retry counters), and awareness/update statistics. Logging is automatically enabled via `localStorage.log = "y-webrtc"` for verbose transport traces.
+
+### Dedicated signaling servers
+
+The repository ships with a [`signaling/`](./signaling/README.md) folder containing a Dockerized `y-webrtc` server ready for Fly.io, Railway, or any Docker host. Deploy three or more instances (e.g. `wss://realitea-signal-{1,2,3}.fly.dev`) and list all URLs in `NEXT_PUBLIC_WEBRTC_SIGNALING_URLS`. The client automatically rotates across the list and will fall back when an endpoint is unavailable.
+
+### TURN / ICE configuration
+
+When peer-to-peer WebRTC traffic is blocked (corporate firewalls, CGNAT), provide `NEXT_PUBLIC_ICE_SERVERS` with a JSON array of TURN/STUN entries:
+
+```bash
+NEXT_PUBLIC_ICE_SERVERS='[{"urls":"turn:turn.example.com","username":"user","credential":"pass"}]'
+```
+
+The value is forwarded to the underlying `RTCPeerConnection` (`simple-peer` `config.iceServers`). Leave it empty for direct peer connections.
+
+### Diagnostics & logging
+
+- Open DevTools → Application → Local Storage to confirm `log = "y-webrtc"` is set. This enables verbose transport logs from the `lib0` stack.
+- The in-app debug widget surfaces peer counts, awareness stats, signaling status, last message timing, and retry counters for each signaling endpoint.
 
 ### Deploying to Vercel
 
 1. Create a new Vercel project and connect this repository.
-2. Set any optional environment variables (see table above). No Redis, WebSocket server, or additional infrastructure is required.
+2. Configure `NEXT_PUBLIC_WEBRTC_SIGNALING_URLS` with the `wss://` URLs of your deployed signaling servers (add 3–5 comma-separated endpoints). Optionally set `NEXT_PUBLIC_ICE_SERVERS` if you operate TURN infrastructure. No Redis or additional stateful services are required.
 3. Deploy — Vercel’s standard build (`npm run build`) and start (`npm start`) commands work out of the box.
 4. Share room links (`/r/<roomId>`) with collaborators. Presence and drawings will sync across all regions.
 
@@ -187,7 +207,7 @@ The thin `before` gradient creates the glossy top edge, while the deep shadow an
 ## Known Limitations
 
 - **No Persistence**: Rooms are ephemeral (not saved to a database)
-- **WebRTC Signaling**: Uses public Y.js signaling server (may have latency)
+- **WebRTC Signaling**: Requires deploying and maintaining at least one signaling endpoint (see [`signaling/`](./signaling/README.md)); plan for redundancy.
 - **File Storage**: Files are stored as object URLs (not persisted)
 
 ## Future Enhancements
