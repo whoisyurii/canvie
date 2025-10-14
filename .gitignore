@@ -14,7 +14,8 @@ dist-ssr
 out
 *.local
 .wrangler
-.vercel/output
+.vercel
+tsconfig.tsbuildinfo
 
 # Editor directories and files
 .vscode/*

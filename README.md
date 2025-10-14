@@ -128,7 +128,7 @@ Cloudflare Pages hosts the static Next.js build, while a Workers script plus Dur
   ```bash
   npm install --save-dev wrangler @cloudflare/workers-types npm-run-all
   ```
-  The Next.js build step relies on `npx @cloudflare/next-on-pages@1.13.16 build`, so no extra dependency is needed.
+  The Next.js build step relies on `npx --yes @cloudflare/next-on-pages@1.13.16`, so no extra dependency is needed.
 - Authenticate once: `npx wrangler login`
 - Ensure your Cloudflare account has a Workers and Pages project available.
 
@@ -154,10 +154,10 @@ The combined `npm run dev` script runs both processes via `run-p` if you prefer 
 ### Build & deploy pipeline
 
 1. **Build Next.js for Cloudflare Pages**
-   ```bash
-   npm run build:next
-   ```
-   This produces the `.vercel/output` directory expected by Pages.
+  ```bash
+  npm run build:cf
+  ```
+  This produces the `.vercel/output` directory expected by Pages.
 2. **Deploy/upgrade the signaling Worker**
    ```bash
    npm run deploy:worker
