@@ -40,11 +40,17 @@ cd realitea-canvas
 # Install dependencies
 npm install
 
-# Start the development server
+# Boot the Worker (Durable Object signaling) alongside Next.js
 npm run dev
 ```
 
-The app will be available at `http://localhost:3000`.
+The Next.js frontend runs at `http://localhost:3000` and the local signaling Worker listens on `http://127.0.0.1:8787`.
+
+Create a `.env.local` file before launching the app so browsers discover the Worker during development:
+
+```
+NEXT_PUBLIC_WEBRTC_SIGNALING_URLS=ws://127.0.0.1:8787/signaling
+```
 
 ### Building for Production
 
@@ -128,7 +134,7 @@ Cloudflare Pages hosts the static Next.js build, while a Workers script plus Dur
   ```bash
   npm install --save-dev wrangler @cloudflare/workers-types npm-run-all
   ```
-  The Next.js build step relies on `npx --yes @cloudflare/next-on-pages@1.13.16`, so no extra dependency is needed.
+  The Next.js build step relies on `npx @cloudflare/next-on-pages`, so no extra dependency is needed.
 - Authenticate once: `npx wrangler login`
 - Ensure your Cloudflare account has a Workers and Pages project available.
 
@@ -138,36 +144,44 @@ Cloudflare Pages hosts the static Next.js build, while a Workers script plus Dur
    ```bash
    npm run dev:cf
    ```
-   This boots Wrangler on `http://127.0.0.1:8787` with persisted Durable Object state under `.wrangler/state`.
-2. In another terminal start the Next.js dev server:
+   Wrangler serves the Worker on `http://127.0.0.1:8787` and persists Durable Object state inside `.wrangler/state` for quick reloads.
+2. In another terminal, start the Next.js dev server:
    ```bash
    npm run dev:frontend
    ```
-3. Point the whiteboard at the local signaling endpoint by adding to `.env.local`:
-   ```
-   NEXT_PUBLIC_WEBRTC_SIGNALING_URLS=ws://127.0.0.1:8787/signaling
-   ```
-4. Visit the same `/r/<roomId>` in a normal and incognito window. Cursors and strokes should sync in under 200 ms. Reload one tab to confirm reconnect behaviour.
+3. Visit the same `/r/<roomId>` in a normal and incognito browser window. Presence indicators and drawing updates should appear in well under 200 ms. Reload one tab to confirm reconnection behaviour remains smooth.
 
-The combined `npm run dev` script runs both processes via `run-p` if you prefer a single command.
+Prefer a single command? `npm run dev` uses `npm-run-all` to execute both `dev:cf` and `dev:frontend` in parallel.
 
 ### Build & deploy pipeline
 
 1. **Build Next.js for Cloudflare Pages**
-  ```bash
-  npm run build:cf
-  ```
-  This produces the `.vercel/output` directory expected by Pages.
-2. **Deploy/upgrade the signaling Worker**
+   ```bash
+   npm run build:next
+   ```
+   The command shells out to `@cloudflare/next-on-pages` and emits the `.vercel/output` directory consumed by Pages.
+2. **Deploy or update the signaling Worker**
    ```bash
    npm run deploy:worker
    ```
-   The Worker is defined in `cloudflare/signaling.ts` and binds the `SignalingRoom` Durable Object declared in `wrangler.toml`.
-3. **Deploy the static bundle to Pages**
+   The Worker (`cloudflare/signaling.ts`) binds the `SignalingRoom` Durable Object described in `wrangler.toml`.
+3. **Publish the static bundle to Pages**
    ```bash
    npm run deploy:pages
    ```
-   Configure the Pages project to read environment variables from `wrangler.toml` (or the dashboard) so the client defaults to the Worker signaling URL.
+   Ensure the Pages project inherits the same environment variables defined in `wrangler.toml` so the browser loads the private signaling host by default.
+
+### Production environment variables
+
+Configure the following variables for your Cloudflare Pages project:
+
+```
+NEXT_PUBLIC_COLLAB_TRANSPORT=webrtc
+NEXT_PUBLIC_WEBRTC_SIGNALING_URLS=wss://<your-subdomain>.workers.dev/signaling
+NEXT_PUBLIC_WEBRTC_ROOM_KEY=
+```
+
+Additional fallback signaling relays can be appended by comma-separating extra URLs. Browsers always connect to the Worker first and only touch secondary relays if needed.
 
 ### Configuration blueprint
 
@@ -177,16 +191,15 @@ The combined `npm run dev` script runs both processes via `run-p` if you prefer 
 
 ### Rollback plan
 
-- **Worker** – Use `wrangler deploy --dry-run` to validate, and `wrangler deploy --env production --rollback` (or promote a previous upload in the dashboard) to revert.
-- **Pages** – Trigger a redeploy with a previous build artifact via `wrangler pages deploy <path> --commit <previous_sha>` or the UI. Updating the env var to point at the old signaling host instantly restores the previous behaviour.
-- **Client fallback** – If the Worker is unavailable, remove `NEXT_PUBLIC_WEBRTC_SIGNALING_URLS` so the app falls back to the public Y.js servers without any code changes.
+If you need to revert quickly, point `NEXT_PUBLIC_WEBRTC_SIGNALING_URLS` back to the public Yjs signaling relays (or a previous Worker deployment) — no code changes are required. The UI automatically reconnects using whatever list of comma-separated endpoints the environment variable exposes.
 
 ### Troubleshooting tips
 
-- Check `https://<worker-domain>/health` to verify the Worker is reachable.
-- Run `wrangler tail` to stream Worker/DO logs during debugging.
-- Ensure browsers load the app over HTTPS so the `wss://` signaling endpoint is not blocked by mixed content rules.
-- If clients fail to see each other, inspect the browser console for WebRTC negotiation errors and confirm both tabs share the same `/r/<roomId>` path.
+- Hit `https://<worker-domain>/health` to confirm the Worker is reachable before debugging peer connections.
+- Use `wrangler tail` to stream Worker and Durable Object logs during development.
+- Browsers require the production endpoint to be `wss://` because the Pages frontend is served over HTTPS — mixed content will otherwise block the socket.
+- If peers fail to discover each other, verify both tabs share the identical `/r/<roomId>` URL and check the console for WebRTC negotiation errors.
+- A `/stats?roomId=<roomId>` request against the Worker returns live peer counts and last-activity timestamps to help track active rooms.
 
 ### Manual acceptance checklist
 

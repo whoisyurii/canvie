@@ -6,14 +6,14 @@
   "scripts": {
     "dev:frontend": "next dev",
     "dev:cf": "wrangler dev --local --persist-to=./.wrangler/state",
-    "dev": "run-p dev:frontend dev:cf",
-    "build:cf": "npx --yes @cloudflare/next-on-pages@1.13.16",
+    "dev": "npm-run-all -p dev:cf dev:frontend",
+    "build:next": "npx @cloudflare/next-on-pages",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "deploy:worker": "wrangler deploy",
     "deploy:pages": "wrangler pages deploy .vercel/output/static",
-    "deploy": "npm run build:cf && npm run deploy:worker && npm run deploy:pages"
+    "deploy": "npm run build:next && npm run deploy:worker && npm run deploy:pages"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
