@@ -105,7 +105,7 @@ Collaboration is powered by [Y.js](https://github.com/yjs/yjs) with the [`y-webr
 | Variable | Default | Description |
 | --- | --- | --- |
 | `NEXT_PUBLIC_COLLAB_TRANSPORT` | `webrtc` | Transport selection. Currently only `webrtc` is supported. |
-| `NEXT_PUBLIC_WEBRTC_SIGNALING_URLS` | *(Y.js defaults)* | Optional comma-separated list of signaling server URLs. Leave empty to use the public Y.js servers. |
+| `NEXT_PUBLIC_WEBRTC_SIGNALING_URLS` | `wss://<your-workers-subdomain>.workers.dev/signaling` | Optional comma-separated list of signaling server URLs. Leave empty to fall back to the public Y.js servers. |
 | `NEXT_PUBLIC_WEBRTC_ROOM_KEY` | *(unset)* | Optional shared secret that acts as a passphrase for the room. When set, all peers must provide the same value. |
 
 Additional notes:
@@ -116,10 +116,86 @@ Additional notes:
 
 ### Deploying to Vercel
 
-1. Create a new Vercel project and connect this repository.
-2. Set any optional environment variables (see table above). No Redis, WebSocket server, or additional infrastructure is required.
-3. Deploy — Vercel’s standard build (`npm run build`) and start (`npm start`) commands work out of the box.
-4. Share room links (`/r/<roomId>`) with collaborators. Presence and drawings will sync across all regions.
+Vercel remains a simple way to host the static build if you do not need private signaling. Follow the existing steps above to deploy the UI while continuing to rely on public signaling servers.
+
+## Cloudflare Pages + Durable Objects Deployment
+
+Cloudflare Pages hosts the static Next.js build, while a Workers script plus Durable Object powers the WebRTC signaling layer. The Worker exposes `/health` for quick checks and `/signaling` for WebSocket upgrades. Peers are routed to room-specific Durable Object instances based on the room id embedded in the request.
+
+### Prerequisites
+
+- Install dev tooling:
+  ```bash
+  npm install --save-dev wrangler @cloudflare/workers-types npm-run-all
+  ```
+  The Next.js build step relies on `npx @cloudflare/next-on-pages@1.13.16 build`, so no extra dependency is needed.
+- Authenticate once: `npx wrangler login`
+- Ensure your Cloudflare account has a Workers and Pages project available.
+
+### Local development workflow
+
+1. Start the Worker + Durable Object locally:
+   ```bash
+   npm run dev:cf
+   ```
+   This boots Wrangler on `http://127.0.0.1:8787` with persisted Durable Object state under `.wrangler/state`.
+2. In another terminal start the Next.js dev server:
+   ```bash
+   npm run dev:frontend
+   ```
+3. Point the whiteboard at the local signaling endpoint by adding to `.env.local`:
+   ```
+   NEXT_PUBLIC_WEBRTC_SIGNALING_URLS=ws://127.0.0.1:8787/signaling
+   ```
+4. Visit the same `/r/<roomId>` in a normal and incognito window. Cursors and strokes should sync in under 200 ms. Reload one tab to confirm reconnect behaviour.
+
+The combined `npm run dev` script runs both processes via `run-p` if you prefer a single command.
+
+### Build & deploy pipeline
+
+1. **Build Next.js for Cloudflare Pages**
+   ```bash
+   npm run build:next
+   ```
+   This produces the `.vercel/output` directory expected by Pages.
+2. **Deploy/upgrade the signaling Worker**
+   ```bash
+   npm run deploy:worker
+   ```
+   The Worker is defined in `cloudflare/signaling.ts` and binds the `SignalingRoom` Durable Object declared in `wrangler.toml`.
+3. **Deploy the static bundle to Pages**
+   ```bash
+   npm run deploy:pages
+   ```
+   Configure the Pages project to read environment variables from `wrangler.toml` (or the dashboard) so the client defaults to the Worker signaling URL.
+
+### Configuration blueprint
+
+1. **Create bindings** – The provided `wrangler.toml` already binds the `ROOMS` Durable Object and includes an initial migration tag `v1`.
+2. **Environment variables** – `NEXT_PUBLIC_WEBRTC_SIGNALING_URLS` defaults to the Worker’s `/signaling` endpoint. Override per environment when needed; the UI still accepts comma-separated fallbacks.
+3. **Route wiring** – Publish the Worker to a custom domain or use the default `<account>.workers.dev`. Pages simply consumes the prebuilt assets; no server-side rendering is required.
+
+### Rollback plan
+
+- **Worker** – Use `wrangler deploy --dry-run` to validate, and `wrangler deploy --env production --rollback` (or promote a previous upload in the dashboard) to revert.
+- **Pages** – Trigger a redeploy with a previous build artifact via `wrangler pages deploy <path> --commit <previous_sha>` or the UI. Updating the env var to point at the old signaling host instantly restores the previous behaviour.
+- **Client fallback** – If the Worker is unavailable, remove `NEXT_PUBLIC_WEBRTC_SIGNALING_URLS` so the app falls back to the public Y.js servers without any code changes.
+
+### Troubleshooting tips
+
+- Check `https://<worker-domain>/health` to verify the Worker is reachable.
+- Run `wrangler tail` to stream Worker/DO logs during debugging.
+- Ensure browsers load the app over HTTPS so the `wss://` signaling endpoint is not blocked by mixed content rules.
+- If clients fail to see each other, inspect the browser console for WebRTC negotiation errors and confirm both tabs share the same `/r/<roomId>` path.
+
+### Manual acceptance checklist
+
+- Two browsers (normal + incognito) in the same room show each other’s cursors in under 200 ms and drawing order is preserved.
+- Reloading or toggling airplane mode forces a reconnect but peers rejoin automatically.
+- Long-distance peers (e.g., via VPN) still discover each other because signaling remains centralized while media stays peer-to-peer.
+- Incognito windows participate fully; BroadcastChannel is not the only discovery path.
+
+> **Note:** The legacy Vercel deployment guide above is still accurate, but the Cloudflare workflow is now the recommended production path.
 
 ## Project Structure
 
