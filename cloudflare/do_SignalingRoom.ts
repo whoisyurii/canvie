@@ -166,7 +166,9 @@ export class SignalingRoom {
     }
     if (ArrayBuffer.isView(payload)) {
       const view = payload as ArrayBufferView;
-      return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
+      const copy = new Uint8Array(view.byteLength);
+      copy.set(new Uint8Array(view.buffer, view.byteOffset, view.byteLength));
+      return copy.buffer;
     }
     return null;
   }
