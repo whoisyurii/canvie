@@ -70,10 +70,10 @@ const renderParticipant = (
   return (
     <div
       key={user.id}
-      className="group flex items-center gap-3 rounded-xl border border-transparent px-2 py-2 transition-colors hover:border-sidebar-border hover:bg-sidebar-accent/60"
+      className="group flex items-center gap-2.5 rounded-xl border border-transparent px-2 py-1.5 transition-colors hover:border-sidebar-border hover:bg-sidebar-accent/60"
     >
       <div
-        className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white shadow-sm"
+        className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white shadow-sm"
         style={{ backgroundColor: user.color }}
         title={user.name}
       >
@@ -125,9 +125,9 @@ const renderFileRow = (
           params.onFocus();
         }
       }}
-      className="group flex cursor-pointer items-center gap-3 rounded-xl border border-transparent px-2 py-2 transition-colors hover:border-sidebar-border hover:bg-sidebar-accent/60 focus:outline-none"
+      className="group flex cursor-pointer items-center gap-2.5 rounded-xl border border-transparent px-2 py-1.5 transition-colors hover:border-sidebar-border hover:bg-sidebar-accent/60 focus:outline-none"
     >
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-sidebar-accent/50">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-sidebar-accent/50">
         {file.thumbnailUrl ? (
           <Image
             src={file.thumbnailUrl}
@@ -138,7 +138,7 @@ const renderFileRow = (
             unoptimized
           />
         ) : (
-          <FileText className="h-5 w-5 text-muted-foreground" />
+          <FileText className="h-4 w-4 text-muted-foreground" />
         )}
       </div>
       <div className="min-w-0 flex-1">
@@ -153,7 +153,7 @@ const renderFileRow = (
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 shrink-0 text-muted-foreground"
+              className="h-7 w-7 shrink-0 text-muted-foreground"
               onClick={(event) => event.stopPropagation()}
             >
               <MoreVertical className="h-4 w-4" />
@@ -337,7 +337,7 @@ export const CollaborationControls = () => {
         ? "Try again"
         : "Copy code";
 
-  const copyButtonClassName = "shrink-0 min-w-[120px] justify-center text-sm font-medium";
+  const copyButtonClassName = "shrink-0 min-w-[108px] justify-center text-sm font-medium";
 
   return (
     <div className="toolbar-section">
@@ -359,7 +359,7 @@ export const CollaborationControls = () => {
                 className={cn("tool-button", inviteOpen && "tool-button-active")}
                 aria-label="Invite collaborators"
               >
-                <Share2 className="h-5 w-5" />
+                <Share2 className="h-4 w-4" />
               </Button>
             </PopoverTrigger>
           </TooltipTrigger>
@@ -367,19 +367,19 @@ export const CollaborationControls = () => {
             <p>Invite collaborators</p>
           </TooltipContent>
         </Tooltip>
-        <PopoverContent align="center" className="floating-panel w-[360px] p-0">
+        <PopoverContent align="center" className="floating-panel w-[320px] p-0">
           <div className="flex flex-col">
-            <div className="border-b border-sidebar-border px-4 py-3">
+            <div className="border-b border-sidebar-border px-3.5 py-2.5">
               <h3 className="text-sm font-semibold text-sidebar-foreground">Invite collaborators</h3>
               <p className="text-xs text-muted-foreground">
                 Share this board and work together in real time.
               </p>
             </div>
-            <div className="space-y-4 px-4 py-3">
-              <div className="space-y-2">
+            <div className="space-y-3.5 px-3.5 py-2.5">
+              <div className="space-y-1.5">
                 <p className="text-xs text-muted-foreground">Send this invite link to teammates.</p>
-                <div className="flex items-center gap-2">
-                  <code className="flex h-9 min-w-0 flex-1 items-center truncate rounded-md border border-sidebar-border bg-sidebar-accent/40 px-3 text-xs font-mono text-sidebar-foreground">
+                <div className="flex items-center gap-1.5">
+                  <code className="flex h-8 min-w-0 flex-1 items-center truncate rounded-md border border-sidebar-border bg-sidebar-accent/40 px-2.5 text-xs font-mono text-sidebar-foreground">
                     {inviteUrl || "Generating invite link..."}
                   </code>
                   <Button
@@ -394,10 +394,10 @@ export const CollaborationControls = () => {
                 </div>
               </div>
               {roomId ? (
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <p className="text-xs text-muted-foreground">Prefer to share a room code instead?</p>
-                  <div className="flex items-center gap-2">
-                    <code className="flex h-9 min-w-0 flex-1 items-center truncate rounded-md border border-sidebar-border bg-sidebar-accent/40 px-3 text-xs font-mono text-sidebar-foreground">
+                  <div className="flex items-center gap-1.5">
+                    <code className="flex h-8 min-w-0 flex-1 items-center truncate rounded-md border border-sidebar-border bg-sidebar-accent/40 px-2.5 text-xs font-mono text-sidebar-foreground">
                       {roomId}
                     </code>
                     <Button
@@ -411,12 +411,12 @@ export const CollaborationControls = () => {
                   </div>
                 </div>
               ) : null}
-              <div className="space-y-2">
-                <div className="border-t border-sidebar-border pt-4">
+              <div className="space-y-1.5">
+                <div className="border-t border-sidebar-border pt-3">
                   <h4 className="text-sm font-semibold text-sidebar-foreground">Participants</h4>
                 </div>
                 <ScrollArea className="h-auto max-h-[240px]">
-                  <div className="space-y-3 py-2">
+                  <div className="space-y-2.5 py-1.5">
                     {participantCards.map(({ user, isLocal }) => renderParticipant(user, { isLocal }))}
                   </div>
                 </ScrollArea>
@@ -436,7 +436,7 @@ export const CollaborationControls = () => {
                 className={cn("tool-button", filesOpen && "tool-button-active")}
                 aria-label="View shared files"
               >
-                <FileText className="h-5 w-5" />
+                <FileText className="h-4 w-4" />
               </Button>
             </PopoverTrigger>
           </TooltipTrigger>
@@ -444,9 +444,9 @@ export const CollaborationControls = () => {
             <p>Shared files</p>
           </TooltipContent>
         </Tooltip>
-        <PopoverContent align="center" className="floating-panel w-[360px] p-0">
+        <PopoverContent align="center" className="floating-panel w-[320px] p-0">
           <div className="flex flex-col">
-            <div className="space-y-3 border-b border-sidebar-border px-4 py-3">
+            <div className="space-y-2.5 border-b border-sidebar-border px-3.5 py-2.5">
               <h3 className="text-sm font-semibold text-sidebar-foreground">Shared files</h3>
               <p className="text-xs text-muted-foreground">Access uploads dropped onto the canvas.</p>
               <Button
@@ -459,7 +459,7 @@ export const CollaborationControls = () => {
               </Button>
             </div>
             {uploadedFiles.length === 0 ? (
-              <div className="flex h-[240px] flex-col items-center justify-center gap-2 px-4 py-4 text-center">
+              <div className="flex h-[220px] flex-col items-center justify-center gap-2 px-3.5 py-3.5 text-center">
                 <FileText className="h-8 w-8 text-muted-foreground" />
                 <div>
                   <p className="text-sm font-medium text-sidebar-foreground">No files yet</p>
@@ -469,8 +469,8 @@ export const CollaborationControls = () => {
                 </div>
               </div>
             ) : (
-              <ScrollArea className="h-[280px]">
-                <div className="space-y-3 px-4 py-3">
+              <ScrollArea className="h-[260px]">
+                <div className="space-y-2.5 px-3.5 py-2.5">
                   {uploadedFiles.map((file) => {
                     const canManage = currentUser?.id
                       ? file.ownerId === currentUser.id

@@ -13,7 +13,7 @@ interface SidebarSectionProps {
 export const SidebarSection = ({ title, disabled, children }: SidebarSectionProps) => {
   return (
     <div
-      className={cn("space-y-2", disabled && "opacity-40 pointer-events-none")}
+      className={cn("space-y-1.5", disabled && "opacity-40 pointer-events-none")}
       aria-disabled={disabled}
     >
       <Label className="text-xs font-medium uppercase tracking-wide text-sidebar-foreground/80">

@@ -18,13 +18,13 @@ export const FillPalette = ({ colors, value, onChange, disabled }: FillPalettePr
 
   return (
     <SidebarSection title="Fill" disabled={disabled}>
-      <div className="grid grid-cols-6 gap-2">
+      <div className="grid grid-cols-6 gap-1.5">
         <button
           type="button"
           aria-pressed={isTransparent}
           disabled={disabled}
           className={cn(
-            "h-8 w-8 rounded-full border transition-transform bg-[length:10px_10px]",
+            "h-7 w-7 rounded-full border transition-transform bg-[length:10px_10px]",
             isTransparent
               ? "border-accent ring-2 ring-accent/60"
               : "border-sidebar-border hover:scale-105",
@@ -46,7 +46,7 @@ export const FillPalette = ({ colors, value, onChange, disabled }: FillPalettePr
               aria-pressed={isActive}
               disabled={disabled}
               className={cn(
-                "h-8 w-8 rounded-full border transition-transform",
+                "h-7 w-7 rounded-full border transition-transform",
                 isActive
                   ? "border-accent ring-2 ring-accent/60"
                   : "border-sidebar-border hover:scale-105",

@@ -38,15 +38,15 @@ export default function RoomPage() {
       <div className="relative h-screen w-full overflow-hidden bg-[hsl(var(--bg-board))]">
         <WhiteboardCanvas />
 
-        <div className="absolute left-1/2 top-4 z-50 -translate-x-1/2">
+        <div className="absolute left-1/2 top-3 z-50 -translate-x-1/2">
           <TopToolbar />
         </div>
 
-        <div className="absolute left-4 top-1/2 z-40 -translate-y-1/2">
+        <div className="absolute left-3 top-1/2 z-40 -translate-y-1/2">
           <LeftSidebar />
         </div>
 
-        <div className="absolute left-1/2 bottom-4 z-40 -translate-x-1/2">
+        <div className="absolute left-1/2 bottom-3 z-40 -translate-x-1/2">
           <BottomBar />
         </div>
       </div>

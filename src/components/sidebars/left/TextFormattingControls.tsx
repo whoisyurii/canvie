@@ -48,7 +48,7 @@ export const TextFormattingControls = ({
 }: TextFormattingControlsProps) => {
   return (
     <SidebarSection title="Text" disabled={disabled}>
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div className="space-y-1">
           <span className="text-xs font-semibold uppercase tracking-wide text-sidebar-foreground/80">Font</span>
           <Select
@@ -56,7 +56,7 @@ export const TextFormattingControls = ({
             onValueChange={(value) => onFontFamilyChange(value)}
             disabled={disabled}
           >
-            <SelectTrigger className="h-9">
+            <SelectTrigger className="h-8">
               <SelectValue placeholder="Choose a font" />
             </SelectTrigger>
             <SelectContent>
@@ -69,7 +69,7 @@ export const TextFormattingControls = ({
           </Select>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           <div className="flex items-center justify-between text-xs font-medium text-sidebar-foreground/80">
             <span>Size</span>
             <span>{Math.round(fontSize)}</span>
@@ -90,14 +90,14 @@ export const TextFormattingControls = ({
             type="single"
             value={alignment}
             onValueChange={(next) => next && onAlignmentChange(next as TextAlignment)}
-            className="grid grid-cols-3 gap-2"
+            className="grid grid-cols-3 gap-1.5"
           >
             {ALIGN_OPTIONS.map((option) => (
               <ToggleGroupItem
                 key={option.value}
                 value={option.value}
                 className={cn(
-                  "group h-10 rounded-md border border-sidebar-border bg-sidebar/60 text-sidebar-foreground/80 transition",
+                  "group h-9 rounded-md border border-sidebar-border bg-sidebar/60 text-sidebar-foreground/80 transition",
                   "data-[state=on]:border-accent data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm",
                   disabled && "cursor-not-allowed opacity-70"
                 )}
