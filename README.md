@@ -185,7 +185,7 @@ Additional fallback signaling relays can be appended by comma-separating extra U
 
 ### Configuration blueprint
 
-1. **Create bindings** – The provided `wrangler.toml` already binds the `ROOMS` Durable Object and includes an initial migration tag `v1`.
+1. **Create bindings** – The provided `wrangler.toml` already binds the `ROOMS` Durable Object and includes an initial `new_sqlite_classes` migration tag `v1` so the namespace is compatible with the Cloudflare free plan.
 2. **Environment variables** – `NEXT_PUBLIC_WEBRTC_SIGNALING_URLS` defaults to the Worker’s `/signaling` endpoint. Override per environment when needed; the UI still accepts comma-separated fallbacks.
 3. **Route wiring** – Publish the Worker to a custom domain or use the default `<account>.workers.dev`. Pages simply consumes the prebuilt assets; no server-side rendering is required.
 
@@ -199,6 +199,7 @@ If you need to revert quickly, point `NEXT_PUBLIC_WEBRTC_SIGNALING_URLS` back to
 - Use `wrangler tail` to stream Worker and Durable Object logs during development.
 - Browsers require the production endpoint to be `wss://` because the Pages frontend is served over HTTPS — mixed content will otherwise block the socket.
 - If peers fail to discover each other, verify both tabs share the identical `/r/<roomId>` URL and check the console for WebRTC negotiation errors.
+- Deployments on the free plan must use `new_sqlite_classes` migrations. If Wrangler returns `code: 10097`, confirm your `wrangler.toml` migration block matches the template above, then re-run `npx wrangler deploy` to provision the namespace.
 - A `/stats?roomId=<roomId>` request against the Worker returns live peer counts and last-activity timestamps to help track active rooms.
 
 ### Manual acceptance checklist
