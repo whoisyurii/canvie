@@ -1,15 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import {
-  Users,
-  FileText,
-  MoreVertical,
-  Pencil,
-  Trash2,
-  Share2,
-  Upload,
-} from "lucide-react";
+import { FileText, MoreVertical, Pencil, Trash2, Share2, Upload } from "lucide-react";
 
 import {
   useWhiteboardStore,
@@ -193,7 +185,6 @@ const renderFileRow = (
 };
 
 export const CollaborationControls = () => {
-  const [participantsOpen, setParticipantsOpen] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [renamingFile, setRenamingFile] = useState<SharedFile | null>(null);
@@ -265,18 +256,9 @@ export const CollaborationControls = () => {
     }
   };
 
-  const handleParticipantsOpenChange = (open: boolean) => {
-    setParticipantsOpen(open);
-    if (open) {
-      setFilesOpen(false);
-      setInviteOpen(false);
-    }
-  };
-
   const handleFilesOpenChange = (open: boolean) => {
     setFilesOpen(open);
     if (open) {
-      setParticipantsOpen(false);
       setInviteOpen(false);
     }
   };
@@ -292,7 +274,6 @@ export const CollaborationControls = () => {
   const handleInviteOpenChange = (open: boolean) => {
     setInviteOpen(open);
     if (open) {
-      setParticipantsOpen(false);
       setFilesOpen(false);
     } else {
       setCopyInviteStatus("idle");
@@ -366,44 +347,6 @@ export const CollaborationControls = () => {
         className="hidden"
         onChange={handleFilePickerChange}
       />
-      <Popover open={participantsOpen} onOpenChange={handleParticipantsOpenChange}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn("tool-button", participantsOpen && "tool-button-active")}
-                aria-label="View participants"
-              >
-                <Users className="h-5 w-5" />
-              </Button>
-            </PopoverTrigger>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Participants</p>
-          </TooltipContent>
-        </Tooltip>
-        <PopoverContent align="center" className="floating-panel w-[320px] p-0">
-          <div className="flex flex-col">
-            <div className="border-b border-sidebar-border px-4 py-3">
-              <h3 className="text-sm font-semibold text-sidebar-foreground">Participants</h3>
-              <p className="text-xs text-muted-foreground">See who&apos;s collaborating right now.</p>
-            </div>
-            <ScrollArea className="h-[280px]">
-              <div className="space-y-3 px-4 py-3">
-                {participantCards.map(({ user, isLocal }) => renderParticipant(user, { isLocal }))}
-                {!users.length ? (
-                  <p className="rounded-xl border border-dashed border-sidebar-border/60 px-3 py-4 text-center text-xs text-muted-foreground">
-                    Use the invite button to share this board and collaborate in real time.
-                  </p>
-                ) : null}
-              </div>
-            </ScrollArea>
-          </div>
-        </PopoverContent>
-      </Popover>
-
       <Popover open={inviteOpen} onOpenChange={handleInviteOpenChange}>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -466,6 +409,16 @@ export const CollaborationControls = () => {
                   </div>
                 </div>
               ) : null}
+              <div className="space-y-2">
+                <div className="border-t border-sidebar-border pt-4">
+                  <h4 className="text-sm font-semibold text-sidebar-foreground">Participants</h4>
+                </div>
+                <ScrollArea className="h-auto max-h-[240px]">
+                  <div className="space-y-3 py-2">
+                    {participantCards.map(({ user, isLocal }) => renderParticipant(user, { isLocal }))}
+                  </div>
+                </ScrollArea>
+              </div>
             </div>
           </div>
         </PopoverContent>
