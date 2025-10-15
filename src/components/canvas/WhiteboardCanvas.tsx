@@ -213,6 +213,9 @@ const RESIZABLE_ELEMENT_TYPES = new Set<CanvasElement["type"]>([
   "image",
   "file",
   "text",
+  "arrow",
+  "line",
+  "pen",
 ]);
 
 type EditingTextState = {
@@ -922,20 +925,28 @@ export const WhiteboardCanvas = () => {
 
     if (activeTool !== "select" || selectedIds.length === 0) {
       transformer.nodes([]);
+      transformer.resizeEnabled(true);
       transformer.getLayer()?.batchDraw();
       return;
     }
 
     const nodes = selectedIds
-      .map((id) => {
-        const element = visibleElements.find((item) => item.id === id);
-        if (!element || !RESIZABLE_ELEMENT_TYPES.has(element.type)) {
-          return null;
-        }
-        return stage.findOne(`#${id}`) as Konva.Node | null;
-      })
+      .map((id) => stage.findOne(`#${id}`) as Konva.Node | null)
       .filter((node): node is Konva.Node => Boolean(node));
 
+    if (nodes.length === 0) {
+      transformer.nodes([]);
+      transformer.resizeEnabled(true);
+      transformer.getLayer()?.batchDraw();
+      return;
+    }
+
+    const containsNonResizable = selectedIds.some((id) => {
+      const element = visibleElements.find((item) => item.id === id);
+      return element ? !RESIZABLE_ELEMENT_TYPES.has(element.type) : false;
+    });
+
+    transformer.resizeEnabled(!containsNonResizable);
     transformer.nodes(nodes);
     transformer.getLayer()?.batchDraw();
   }, [activeTool, selectedIds, visibleElements]);
@@ -1423,6 +1434,24 @@ export const WhiteboardCanvas = () => {
         updates.y = nextY - height / 2;
         updates.width = width;
         updates.height = height;
+      } else if (
+        element.type === "line" ||
+        element.type === "arrow" ||
+        element.type === "pen"
+      ) {
+        const konvaLine = node as Konva.Line;
+        const currentPoints = konvaLine.points();
+        const scaledPoints: number[] = [];
+        for (let index = 0; index < currentPoints.length; index += 2) {
+          const pointX = currentPoints[index] ?? 0;
+          const pointY = currentPoints[index + 1] ?? 0;
+          scaledPoints.push(pointX * scaleX, pointY * scaleY);
+        }
+        node.scaleX(1);
+        node.scaleY(1);
+        updates.x = nextX;
+        updates.y = nextY;
+        updates.points = scaledPoints;
       } else if (element.type === "text") {
         const width = Math.max(TEXT_MIN_WIDTH, node.width() * scaleX);
         node.scaleX(1);
