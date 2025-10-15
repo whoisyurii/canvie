@@ -56,12 +56,21 @@ export const TextFormattingControls = ({
             onValueChange={(value) => onFontFamilyChange(value)}
             disabled={disabled}
           >
-            <SelectTrigger className="h-8">
+            <SelectTrigger
+              className={cn(
+                "h-8 border-sidebar-border bg-sidebar/70 text-sidebar-foreground shadow-inner focus:ring-sidebar-ring focus:ring-offset-0",
+                disabled && "opacity-70"
+              )}
+            >
               <SelectValue placeholder="Choose a font" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="border-sidebar-border bg-sidebar text-sidebar-foreground">
               {FONT_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
+                <SelectItem
+                  key={option.value}
+                  value={option.value}
+                  className="data-[state=checked]:bg-sidebar-accent data-[state=checked]:text-sidebar-accent-foreground focus:bg-sidebar-accent focus:text-sidebar-accent-foreground"
+                >
                   <span style={{ fontFamily: option.preview }}>{option.label}</span>
                 </SelectItem>
               ))}
