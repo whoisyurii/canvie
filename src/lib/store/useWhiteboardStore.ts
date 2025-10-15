@@ -381,11 +381,65 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   penBackground: "transparent",
   setPenBackground: (color) => set({ penBackground: color }),
   textFontFamily: "Inter",
-  setTextFontFamily: (font) => set({ textFontFamily: font }),
+  setTextFontFamily: (font) => {
+    set({ textFontFamily: font });
+    const state = get();
+    if (state.activeTool !== "select") {
+      return;
+    }
+
+    const textIds = state.selectedIds.filter((id) => {
+      const element = state.elements.find((el) => el.id === id);
+      return element?.type === "text";
+    });
+
+    if (textIds.length === 0) {
+      return;
+    }
+
+    textIds.forEach((id) => state.updateElement(id, { fontFamily: font }));
+    state.pushHistory();
+  },
   textFontSize: 20,
-  setTextFontSize: (size) => set({ textFontSize: size }),
+  setTextFontSize: (size) => {
+    set({ textFontSize: size });
+    const state = get();
+    if (state.activeTool !== "select") {
+      return;
+    }
+
+    const textIds = state.selectedIds.filter((id) => {
+      const element = state.elements.find((el) => el.id === id);
+      return element?.type === "text";
+    });
+
+    if (textIds.length === 0) {
+      return;
+    }
+
+    textIds.forEach((id) => state.updateElement(id, { fontSize: size }));
+    state.pushHistory();
+  },
   textAlign: "left",
-  setTextAlign: (alignment) => set({ textAlign: alignment }),
+  setTextAlign: (alignment) => {
+    set({ textAlign: alignment });
+    const state = get();
+    if (state.activeTool !== "select") {
+      return;
+    }
+
+    const textIds = state.selectedIds.filter((id) => {
+      const element = state.elements.find((el) => el.id === id);
+      return element?.type === "text";
+    });
+
+    if (textIds.length === 0) {
+      return;
+    }
+
+    textIds.forEach((id) => state.updateElement(id, { textAlign: alignment }));
+    state.pushHistory();
+  },
 
   // Canvas
   elements: [],

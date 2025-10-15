@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import {
@@ -18,7 +18,7 @@ import {
 } from "./left";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
+import { TextAlignment, useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
 import { cn } from "@/lib/utils";
 
 const STROKE_COLORS = [
@@ -61,6 +61,7 @@ export const LeftSidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const {
     activeTool,
+    elements,
     strokeColor,
     setStrokeColor,
     fillColor,
@@ -93,9 +94,71 @@ export const LeftSidebar = () => {
   } = useWhiteboardStore();
 
   const hasSelection = selectedIds.length > 0;
+  const selectedElements = useMemo(
+    () => elements.filter((element) => selectedIds.includes(element.id)),
+    [elements, selectedIds],
+  );
+  const selectedTextElements = useMemo(
+    () => selectedElements.filter((element) => element.type === "text"),
+    [selectedElements],
+  );
+  const hasTextSelection = selectedTextElements.length > 0;
+  const firstTextElement = selectedTextElements[0];
+  const resolvedFontFamily = hasTextSelection && firstTextElement
+    ? selectedTextElements.every((element) => element.fontFamily === firstTextElement.fontFamily)
+      ? firstTextElement.fontFamily ?? textFontFamily
+      : textFontFamily
+    : textFontFamily;
+  const firstFontSize = firstTextElement?.fontSize ?? textFontSize;
+  const resolvedFontSize = hasTextSelection
+    ? selectedTextElements.every(
+        (element) => (element.fontSize ?? textFontSize) === firstFontSize,
+      )
+        ? firstFontSize
+        : textFontSize
+    : textFontSize;
+  const firstAlignment: TextAlignment =
+    (firstTextElement?.textAlign as TextAlignment | undefined) ?? textAlign;
+  const resolvedAlignment = hasTextSelection
+    ? selectedTextElements.every(
+        (element) =>
+          ((element.textAlign as TextAlignment | undefined) ?? textAlign) === firstAlignment,
+      )
+        ? firstAlignment
+        : textAlign
+    : textAlign;
 
   const renderSections = () => {
     switch (activeTool) {
+      case "select": {
+        if (!hasSelection) {
+          const message = TOOL_EMPTY_STATE.select;
+          return message ? (
+            <p className="rounded-md border border-dashed border-sidebar-border bg-sidebar/50 p-4 text-sm text-muted-foreground">
+              {message}
+            </p>
+          ) : null;
+        }
+
+        if (!hasTextSelection) {
+          return (
+            <p className="rounded-md border border-dashed border-sidebar-border bg-sidebar/50 p-4 text-sm text-muted-foreground">
+              Select a text element to adjust its formatting.
+            </p>
+          );
+        }
+
+        return (
+          <TextFormattingControls
+            fontFamily={resolvedFontFamily}
+            onFontFamilyChange={setTextFontFamily}
+            fontSize={resolvedFontSize}
+            onFontSizeChange={setTextFontSize}
+            alignment={resolvedAlignment}
+            onAlignmentChange={setTextAlign}
+          />
+        );
+      }
       case "rectangle":
         return (
           <>
