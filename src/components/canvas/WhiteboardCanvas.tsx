@@ -954,6 +954,18 @@ export const WhiteboardCanvas = () => {
     return bounds;
   }, [elements, selectedIds]);
 
+  const selectionOverlayBounds = useMemo(() => {
+    if (
+      !selectionBounds ||
+      activeTool !== "select" ||
+      selectedIds.length <= 1
+    ) {
+      return null;
+    }
+
+    return selectionBounds;
+  }, [activeTool, selectedIds.length, selectionBounds]);
+
   useEffect(() => {
     const transformer = transformerRef.current;
     const stage = stageRef.current;
@@ -2370,20 +2382,20 @@ export const WhiteboardCanvas = () => {
             );
           })()}
 
-          {selectionBounds &&
-            activeTool === "select" &&
-            selectedIds.length > 1 &&
+          {selectionOverlayBounds &&
             (() => {
-              const width = selectionBounds.maxX - selectionBounds.minX;
-              const height = selectionBounds.maxY - selectionBounds.minY;
+              const width =
+                selectionOverlayBounds.maxX - selectionOverlayBounds.minX;
+              const height =
+                selectionOverlayBounds.maxY - selectionOverlayBounds.minY;
               if (width === 0 && height === 0) {
                 return null;
               }
               return (
                 <Rect
                   id={SELECTION_GROUP_ID}
-                  x={selectionBounds.minX}
-                  y={selectionBounds.minY}
+                  x={selectionOverlayBounds.minX}
+                  y={selectionOverlayBounds.minY}
                   width={Math.max(width, 1)}
                   height={Math.max(height, 1)}
                   fill="rgba(14, 165, 233, 0.0001)"
