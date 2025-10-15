@@ -48,6 +48,21 @@ type Bounds = {
   maxY: number;
 };
 
+type SelectionRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+type MarqueeSelectionState = {
+  originX: number;
+  originY: number;
+  additive: boolean;
+  initialSelection: string[];
+  moved: boolean;
+};
+
 const normalizeRectBounds = (
   x: number,
   y: number,
@@ -149,6 +164,47 @@ const duplicateElement = (element: CanvasElement): CanvasElement => ({
   points: element.points ? [...element.points] : undefined,
   selected: false,
 });
+
+const isElementWithinSelection = (element: CanvasElement, selection: Bounds) => {
+  const bounds = getElementBounds(element);
+  return (
+    bounds.maxX >= selection.minX &&
+    bounds.minX <= selection.maxX &&
+    bounds.maxY >= selection.minY &&
+    bounds.minY <= selection.maxY
+  );
+};
+
+const resolveElementId = (node: Konva.Node | null): string | null => {
+  if (!node) {
+    return null;
+  }
+
+  const nodeId = node.id();
+  if (nodeId) {
+    return nodeId;
+  }
+
+  const elementIdAttr = node.getAttr("elementId");
+  if (typeof elementIdAttr === "string" && elementIdAttr.length > 0) {
+    return elementIdAttr;
+  }
+
+  const ancestorWithElementId = node.findAncestor((ancestor) => {
+    const attr = ancestor.getAttr("elementId");
+    return typeof attr === "string" && attr.length > 0;
+  }, true);
+
+  if (ancestorWithElementId) {
+    const attr = ancestorWithElementId.getAttr("elementId");
+    if (typeof attr === "string" && attr.length > 0) {
+      return attr;
+    }
+  }
+
+  const ancestorWithId = node.findAncestor((ancestor) => Boolean(ancestor.id()), true);
+  return ancestorWithId?.id() ?? null;
+};
 
 const RESIZABLE_ELEMENT_TYPES = new Set<CanvasElement["type"]>([
   "rectangle",
@@ -366,6 +422,7 @@ export const WhiteboardCanvas = () => {
   const editingTextRef = useRef<EditingTextState | null>(null);
   const miniMapDragRef = useRef(false);
   const skipNextPointerRef = useRef(false);
+  const marqueeSelectionRef = useRef<MarqueeSelectionState | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentShape, setCurrentShape] = useState<any>(null);
   const [isPanning, setIsPanning] = useState(false);
@@ -377,6 +434,7 @@ export const WhiteboardCanvas = () => {
   const [editingText, setEditingText] = useState<EditingTextState | null>(null);
   const [isMiniMapInteracting, setIsMiniMapInteracting] = useState(false);
   const [miniMapContainer, setMiniMapContainer] = useState<HTMLElement | null>(null);
+  const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(null);
   const { handleDrop, handleDragOver } = useDragDrop();
 
   useEffect(() => {
@@ -444,6 +502,13 @@ export const WhiteboardCanvas = () => {
   const panX = pan.x;
   const panY = pan.y;
   const safeZoom = zoom || 1;
+
+  useEffect(() => {
+    if (activeTool !== "select") {
+      marqueeSelectionRef.current = null;
+      setSelectionRect(null);
+    }
+  }, [activeTool]);
 
   useEffect(() => {
     const stage = stageRef.current;
@@ -1010,50 +1075,50 @@ export const WhiteboardCanvas = () => {
     }
 
     if (e.evt.altKey && activeTool === "select") {
-      const target = e.target;
-      if (target && target !== stage) {
-        const targetId = target.id();
-        if (targetId) {
-          const element = elements.find((item) => item.id === targetId);
-            if (element) {
-              const clone = duplicateElement(element);
-              clone.x += 24;
-              clone.y += 24;
-              addElement(clone);
-              setSelectedIds([clone.id]);
-              e.evt.preventDefault();
-              return;
-            }
-          }
+      const targetId = resolveElementId(e.target as Konva.Node);
+      if (targetId) {
+        const element = elements.find((item) => item.id === targetId);
+        if (element) {
+          const clone = duplicateElement(element);
+          clone.x += 24;
+          clone.y += 24;
+          addElement(clone);
+          setSelectedIds([clone.id]);
+          e.evt.preventDefault();
+          return;
         }
+      }
     }
 
     if (activeTool === "select") {
-      const target = e.target;
+      const target = e.target as Konva.Node;
       if (!target) {
-        clearSelection();
         return;
       }
 
       const isTransformerHandle = target.getParent()?.className === "Transformer";
-      if (target === stage) {
-        clearSelection();
-        return;
-      }
-
       if (isTransformerHandle) {
         return;
       }
 
-      const targetId = target.id();
+      const targetId = resolveElementId(target);
       if (!targetId) {
-        clearSelection();
+        const pointer = getCanvasPointerPosition();
+        if (!pointer) return;
+        const additive = e.evt.shiftKey || e.evt.metaKey || e.evt.ctrlKey;
+        marqueeSelectionRef.current = {
+          originX: pointer.x,
+          originY: pointer.y,
+          additive,
+          initialSelection: selectedIds,
+          moved: false,
+        };
+        setSelectionRect({ x: pointer.x, y: pointer.y, width: 0, height: 0 });
         return;
       }
 
       const element = elements.find((item) => item.id === targetId);
       if (!element) {
-        clearSelection();
         return;
       }
 
@@ -1068,6 +1133,8 @@ export const WhiteboardCanvas = () => {
         setSelectedIds([targetId]);
       }
 
+      setSelectionRect(null);
+      marqueeSelectionRef.current = null;
       return;
     }
 
@@ -1169,6 +1236,29 @@ export const WhiteboardCanvas = () => {
   };
 
   const handleMouseMove = (e: KonvaEventObject<MouseEvent>) => {
+    const marqueeState = marqueeSelectionRef.current;
+    if (marqueeState) {
+      const pointer = getCanvasPointerPosition();
+      if (!pointer) return;
+
+      const width = pointer.x - marqueeState.originX;
+      const height = pointer.y - marqueeState.originY;
+      if (!marqueeState.moved) {
+        const threshold = 3;
+        if (Math.abs(width) > threshold || Math.abs(height) > threshold) {
+          marqueeState.moved = true;
+        }
+      }
+
+      setSelectionRect({
+        x: marqueeState.originX,
+        y: marqueeState.originY,
+        width,
+        height,
+      });
+      return;
+    }
+
     if (!isDrawing || !currentShape) return;
 
     const stage = stageRef.current;
@@ -1243,6 +1333,34 @@ export const WhiteboardCanvas = () => {
       setCurrentShape(null);
     }
     setIsDrawing(false);
+
+    const marqueeState = marqueeSelectionRef.current;
+    if (marqueeState) {
+      const rect = selectionRect;
+      marqueeSelectionRef.current = null;
+      setSelectionRect(null);
+
+      if (!marqueeState.moved || !rect) {
+        if (!marqueeState.additive) {
+          clearSelection();
+        } else {
+          setSelectedIds(marqueeState.initialSelection);
+        }
+        return;
+      }
+
+      const bounds = normalizeRectBounds(rect.x, rect.y, rect.width, rect.height);
+      const selectedWithinBounds = elements
+        .filter((element) => isElementWithinSelection(element, bounds))
+        .map((element) => element.id);
+
+      if (marqueeState.additive) {
+        const combined = new Set([...marqueeState.initialSelection, ...selectedWithinBounds]);
+        setSelectedIds(Array.from(combined));
+      } else {
+        setSelectedIds(selectedWithinBounds);
+      }
+    }
   };
 
   const handleElementDragMove = useCallback(
@@ -1681,11 +1799,28 @@ export const WhiteboardCanvas = () => {
                 strokeWidth: element.strokeWidth,
                 seed: `${element.id}:line`,
               });
+              const interactionOpacity = element.sloppiness === "smooth" ? element.opacity : 0.001;
               return (
                 <>
                   <Line
-                    key={element.id}
+                    key={`${element.id}-interaction`}
                     id={element.id}
+                    elementId={element.id}
+                    x={element.x}
+                    y={element.y}
+                    points={element.points}
+                    stroke={element.strokeColor}
+                    strokeWidth={element.strokeWidth}
+                    dash={getStrokeDash(element.strokeStyle)}
+                    opacity={interactionOpacity}
+                    lineCap="round"
+                    lineJoin="round"
+                    hitStrokeWidth={Math.max(12, element.strokeWidth)}
+                    {...interactionProps}
+                  />
+                  <Line
+                    key={`${element.id}-visible`}
+                    elementId={element.id}
                     x={element.x}
                     y={element.y}
                     points={element.points}
@@ -1696,13 +1831,13 @@ export const WhiteboardCanvas = () => {
                     lineCap="round"
                     lineJoin="round"
                     strokeEnabled={element.sloppiness === "smooth"}
-                    hitStrokeWidth={Math.max(12, element.strokeWidth)}
+                    listening={false}
                     {...highlightProps}
-                    {...interactionProps}
                   />
                   {lineSloppyLayers.map((layer, index) => (
                     <Line
                       key={`${element.id}-sloppy-line-${index}`}
+                      elementId={element.id}
                       x={element.x}
                       y={element.y}
                       points={layer.points}
@@ -1729,11 +1864,32 @@ export const WhiteboardCanvas = () => {
                 seed: `${element.id}:arrow`,
               });
               const [primaryArrowLayer, ...extraArrowLayers] = arrowSloppyLayers;
+              const interactionOpacity = element.sloppiness === "smooth" ? element.opacity : 0.001;
               return (
                 <>
                   <Arrow
-                    key={element.id}
+                    key={`${element.id}-interaction`}
                     id={element.id}
+                    elementId={element.id}
+                    x={element.x}
+                    y={element.y}
+                    points={arrowPoints}
+                    stroke={element.strokeColor}
+                    strokeWidth={element.strokeWidth}
+                    dash={getStrokeDash(element.strokeStyle)}
+                    opacity={interactionOpacity}
+                    pointerLength={12}
+                    pointerWidth={12}
+                    pointerAtBeginning={pointerAtBeginning}
+                    pointerAtEnding={pointerAtEnding}
+                    bezier={bezier}
+                    tension={bezier ? 0.4 : 0}
+                    hitStrokeWidth={Math.max(12, element.strokeWidth)}
+                    {...interactionProps}
+                  />
+                  <Arrow
+                    key={element.id}
+                    elementId={element.id}
                     x={element.x}
                     y={element.y}
                     points={arrowPoints}
@@ -1748,13 +1904,13 @@ export const WhiteboardCanvas = () => {
                     bezier={bezier}
                     tension={bezier ? 0.4 : 0}
                     strokeEnabled={element.sloppiness === "smooth"}
-                    hitStrokeWidth={Math.max(12, element.strokeWidth)}
+                    listening={false}
                     {...highlightProps}
-                    {...interactionProps}
                   />
                   {primaryArrowLayer && (
                     <Arrow
                       key={`${element.id}-sloppy-arrow-primary`}
+                      elementId={element.id}
                       x={element.x}
                       y={element.y}
                       points={primaryArrowLayer.points}
@@ -1775,6 +1931,7 @@ export const WhiteboardCanvas = () => {
                   {extraArrowLayers.map((layer, index) => (
                     <Line
                       key={`${element.id}-sloppy-arrow-extra-${index}`}
+                      elementId={element.id}
                       x={element.x}
                       y={element.y}
                       points={layer.points}
@@ -1798,12 +1955,36 @@ export const WhiteboardCanvas = () => {
                 strokeWidth: element.strokeWidth,
                 seed: `${element.id}:pen`,
               });
+              const interactionOpacity = element.sloppiness === "smooth" ? element.opacity : 0.001;
               return (
                 <>
+                  <Line
+                    key={`${element.id}-interaction`}
+                    id={element.id}
+                    elementId={element.id}
+                    x={element.x}
+                    y={element.y}
+                    points={element.points}
+                    stroke={element.strokeColor}
+                    strokeWidth={element.strokeWidth}
+                    opacity={interactionOpacity}
+                    lineCap="round"
+                    lineJoin="round"
+                    tension={
+                      element.sloppiness === "smooth"
+                        ? 0.75
+                        : element.sloppiness === "rough"
+                          ? 0.2
+                          : 0.5
+                    }
+                    hitStrokeWidth={Math.max(12, element.strokeWidth)}
+                    {...interactionProps}
+                  />
                   {hasBackground && (
                     <Line
                       key={`${element.id}-background`}
                       id={`${element.id}-background`}
+                      elementId={element.id}
                       x={element.x}
                       y={element.y}
                       points={element.points}
@@ -1819,8 +2000,8 @@ export const WhiteboardCanvas = () => {
                     />
                   )}
                   <Line
-                    key={element.id}
-                    id={element.id}
+                    key={`${element.id}-visible`}
+                    elementId={element.id}
                     x={element.x}
                     y={element.y}
                     points={element.points}
@@ -1831,14 +2012,14 @@ export const WhiteboardCanvas = () => {
                     lineJoin="round"
                     tension={element.sloppiness === "smooth" ? 0.75 : element.sloppiness === "rough" ? 0.2 : 0.5}
                     strokeEnabled={element.sloppiness === "smooth"}
-                    hitStrokeWidth={Math.max(12, element.strokeWidth)}
+                    listening={false}
                     {...highlightProps}
-                    {...interactionProps}
                   />
                   {hasBackground &&
                     penSloppyLayers.map((layer, index) => (
                       <Line
                         key={`${element.id}-sloppy-pen-background-${index}`}
+                        elementId={element.id}
                         x={element.x}
                         y={element.y}
                         points={layer.points}
@@ -1854,6 +2035,7 @@ export const WhiteboardCanvas = () => {
                   {penSloppyLayers.map((layer, index) => (
                     <Line
                       key={`${element.id}-sloppy-pen-${index}`}
+                      elementId={element.id}
                       x={element.x}
                       y={element.y}
                       points={layer.points}
@@ -1915,6 +2097,34 @@ export const WhiteboardCanvas = () => {
             }
             return null;
           })}
+
+          {selectionRect && (() => {
+            const bounds = normalizeRectBounds(
+              selectionRect.x,
+              selectionRect.y,
+              selectionRect.width,
+              selectionRect.height,
+            );
+            const width = bounds.maxX - bounds.minX;
+            const height = bounds.maxY - bounds.minY;
+            if (width === 0 && height === 0) {
+              return null;
+            }
+            const strokeWidth = Math.max(1 / safeZoom, 0.5);
+            return (
+              <Rect
+                x={bounds.minX}
+                y={bounds.minY}
+                width={width}
+                height={height}
+                stroke="#0ea5e9"
+                strokeWidth={strokeWidth}
+                dash={[4 / safeZoom, 4 / safeZoom]}
+                fill="rgba(14, 165, 233, 0.12)"
+                listening={false}
+              />
+            );
+          })()}
 
           <Transformer
             ref={transformerRef}
