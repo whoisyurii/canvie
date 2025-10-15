@@ -52,14 +52,22 @@ export const useKeyboardShortcuts = () => {
       }
 
       // Undo/Redo
-      if ((e.ctrlKey || e.metaKey) && key === "z") {
-        e.preventDefault();
-        if (e.shiftKey) {
-          redo();
-        } else {
-          undo();
+      if (e.ctrlKey || e.metaKey) {
+        if (key === "z") {
+          e.preventDefault();
+          if (e.shiftKey) {
+            redo();
+          } else {
+            undo();
+          }
+          return;
         }
-        return;
+
+        if (key === "y") {
+          e.preventDefault();
+          redo();
+          return;
+        }
       }
     };
 
