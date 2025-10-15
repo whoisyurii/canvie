@@ -63,6 +63,11 @@ type MarqueeSelectionState = {
   moved: boolean;
 };
 
+type SelectionDragState = {
+  startNodes: Record<string, { x: number; y: number }>;
+  elements: Record<string, CanvasElement>;
+};
+
 const normalizeRectBounds = (
   x: number,
   y: number,
@@ -426,6 +431,7 @@ export const WhiteboardCanvas = () => {
   const miniMapDragRef = useRef(false);
   const skipNextPointerRef = useRef(false);
   const marqueeSelectionRef = useRef<MarqueeSelectionState | null>(null);
+  const selectionDragStateRef = useRef<SelectionDragState | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentShape, setCurrentShape] = useState<any>(null);
   const [isPanning, setIsPanning] = useState(false);
@@ -1374,6 +1380,40 @@ export const WhiteboardCanvas = () => {
     }
   };
 
+  const handleElementDragStart = useCallback(
+    (event: KonvaEventObject<DragEvent>, element: CanvasElement) => {
+      if (activeTool !== "select") {
+        return;
+      }
+
+      const stage = stageRef.current;
+      if (!stage) {
+        return;
+      }
+
+      const affectedIds = selectedIds.includes(element.id) ? selectedIds : [element.id];
+      const startNodes: Record<string, { x: number; y: number }> = {};
+      const elementSnapshots: Record<string, CanvasElement> = {};
+
+      affectedIds.forEach((id) => {
+        const node = stage.findOne(`#${id}`) as Konva.Node | null;
+        const elementSnapshot = elements.find((item) => item.id === id) ?? null;
+        if (node) {
+          startNodes[id] = { x: node.x(), y: node.y() };
+        }
+        if (elementSnapshot) {
+          elementSnapshots[id] = elementSnapshot;
+        }
+      });
+
+      selectionDragStateRef.current = {
+        startNodes,
+        elements: elementSnapshots,
+      };
+    },
+    [activeTool, elements, selectedIds],
+  );
+
   const handleElementDragMove = useCallback(
     (event: KonvaEventObject<DragEvent>, element: CanvasElement) => {
       if (activeTool !== "select") {
@@ -1381,22 +1421,61 @@ export const WhiteboardCanvas = () => {
       }
 
       const node = event.target;
-      const x = node.x();
-      const y = node.y();
+      const dragState = selectionDragStateRef.current;
+      const affectedIds = selectedIds.includes(element.id) ? selectedIds : [element.id];
 
-      if (element.type === "ellipse") {
-        const width = Math.max(1, node.width());
-        const height = Math.max(1, node.height());
-        updateElement(element.id, {
-          x: x - width / 2,
-          y: y - height / 2,
-        });
+      if (!dragState || !dragState.startNodes[element.id]) {
+        const fallbackX = node.x();
+        const fallbackY = node.y();
+        if (element.type === "ellipse") {
+          const width = Math.max(1, node.width());
+          const height = Math.max(1, node.height());
+          updateElement(element.id, {
+            x: fallbackX - width / 2,
+            y: fallbackY - height / 2,
+          });
+        } else {
+          updateElement(element.id, { x: fallbackX, y: fallbackY });
+        }
         return;
       }
 
-      updateElement(element.id, { x, y });
+      const origin = dragState.startNodes[element.id];
+      const deltaX = node.x() - origin.x;
+      const deltaY = node.y() - origin.y;
+      const stage = node.getStage();
+
+      affectedIds.forEach((id) => {
+        const baseNode = dragState.startNodes[id];
+        const baseElement = dragState.elements[id] ?? elements.find((item) => item.id === id);
+        if (!baseNode || !baseElement) {
+          return;
+        }
+
+        const nextNodeX = baseNode.x + deltaX;
+        const nextNodeY = baseNode.y + deltaY;
+
+        if (baseElement.type === "ellipse") {
+          const referenceNode =
+            id === element.id ? (node as Konva.Shape) : (stage?.findOne(`#${id}`) as Konva.Shape | null);
+          const width = Math.max(
+            1,
+            baseElement.width ?? (typeof referenceNode?.width === "function" ? referenceNode.width() : 0),
+          );
+          const height = Math.max(
+            1,
+            baseElement.height ?? (typeof referenceNode?.height === "function" ? referenceNode.height() : 0),
+          );
+          updateElement(id, {
+            x: nextNodeX - width / 2,
+            y: nextNodeY - height / 2,
+          });
+        } else {
+          updateElement(id, { x: nextNodeX, y: nextNodeY });
+        }
+      });
     },
-    [activeTool, updateElement],
+    [activeTool, elements, selectedIds, updateElement],
   );
 
   const handleElementDragEnd = useCallback(
@@ -1406,6 +1485,7 @@ export const WhiteboardCanvas = () => {
       }
 
       handleElementDragMove(event, element);
+      selectionDragStateRef.current = null;
       pushHistory();
     },
     [activeTool, handleElementDragMove, pushHistory],
@@ -1549,6 +1629,8 @@ export const WhiteboardCanvas = () => {
       };
 
       if (isSelected) {
+        interaction.onDragStart = (event: KonvaEventObject<DragEvent>) =>
+          handleElementDragStart(event, element);
         interaction.onDragMove = (event: KonvaEventObject<DragEvent>) =>
           handleElementDragMove(event, element);
         interaction.onDragEnd = (event: KonvaEventObject<DragEvent>) =>
@@ -1566,6 +1648,7 @@ export const WhiteboardCanvas = () => {
       activeTool,
       handleElementDragEnd,
       handleElementDragMove,
+      handleElementDragStart,
       handleElementTransformEnd,
       selectedIds,
     ],
