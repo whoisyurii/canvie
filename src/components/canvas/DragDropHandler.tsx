@@ -22,7 +22,7 @@ const toCanvasCoordinates = (
   };
 };
 
-type UploadPosition = {
+export type UploadPosition = {
   x: number;
   y: number;
 };
@@ -228,5 +228,12 @@ export const useDragDrop = () => {
     [processFiles],
   );
 
-  return { handleDrop, handleDragOver, handleFileInput };
+  const addFilesToCanvas = useCallback(
+    async (files: File[], position?: UploadPosition) => {
+      await processFiles(files, position ? { position } : undefined);
+    },
+    [processFiles],
+  );
+
+  return { handleDrop, handleDragOver, handleFileInput, addFilesToCanvas };
 };
