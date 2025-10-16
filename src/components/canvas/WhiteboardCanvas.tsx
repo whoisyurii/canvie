@@ -436,7 +436,9 @@ export const WhiteboardCanvas = () => {
   const skipNextPointerRef = useRef(false);
   const marqueeSelectionRef = useRef<MarqueeSelectionState | null>(null);
   const selectionDragStateRef = useRef<SelectionDragState | null>(null);
+  const lastErasedIdRef = useRef<string | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [isErasing, setIsErasing] = useState(false);
   const [currentShape, setCurrentShape] = useState<any>(null);
   const [isPanning, setIsPanning] = useState(false);
   const [isMiddleMousePanning, setIsMiddleMousePanning] = useState(false);
@@ -524,6 +526,15 @@ export const WhiteboardCanvas = () => {
   }, [activeTool]);
 
   useEffect(() => {
+    if (activeTool !== "eraser") {
+      if (isErasing) {
+        setIsErasing(false);
+      }
+      lastErasedIdRef.current = null;
+    }
+  }, [activeTool, isErasing]);
+
+  useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
 
@@ -554,6 +565,55 @@ export const WhiteboardCanvas = () => {
       y: (pos.y - panY) / safeZoom,
     };
   }, [panX, safeZoom, panY]);
+
+  const eraseNode = useCallback(
+    (node: Konva.Node | null) => {
+      if (!node) {
+        lastErasedIdRef.current = null;
+        return;
+      }
+
+      const elementId = resolveElementId(node);
+      if (!elementId || elementId === SELECTION_GROUP_ID) {
+        if (!elementId) {
+          lastErasedIdRef.current = null;
+        }
+        return;
+      }
+
+      if (lastErasedIdRef.current === elementId) {
+        return;
+      }
+
+      const elementExists = elements.some((element) => element.id === elementId);
+      if (!elementExists) {
+        lastErasedIdRef.current = null;
+        return;
+      }
+
+      deleteElement(elementId);
+      lastErasedIdRef.current = elementId;
+
+      if (selectedIds.includes(elementId)) {
+        setSelectedIds(selectedIds.filter((id) => id !== elementId));
+      }
+    },
+    [deleteElement, elements, selectedIds, setSelectedIds],
+  );
+
+  const eraseElementAtPointer = useCallback(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    const pointer = stage.getPointerPosition();
+    if (!pointer) {
+      lastErasedIdRef.current = null;
+      return;
+    }
+
+    const intersection = stage.getIntersection(pointer);
+    eraseNode(intersection ?? null);
+  }, [eraseNode]);
 
   const beginTextEditing = useCallback(
     (element: CanvasElement, options?: { value?: string; width?: number }) => {
@@ -1139,6 +1199,17 @@ export const WhiteboardCanvas = () => {
       }
     }
 
+    if (activeTool === "eraser") {
+      setIsErasing(true);
+      eraseNode(e.target as Konva.Node | null);
+      if (stage) {
+        requestAnimationFrame(() => {
+          eraseElementAtPointer();
+        });
+      }
+      return;
+    }
+
     if (activeTool === "select") {
       const target = e.target as Konva.Node;
       if (!target) {
@@ -1310,6 +1381,11 @@ export const WhiteboardCanvas = () => {
       return;
     }
 
+    if (isErasing && activeTool === "eraser") {
+      eraseElementAtPointer();
+      return;
+    }
+
     if (!isDrawing || !currentShape) return;
 
     const stage = stageRef.current;
@@ -1377,6 +1453,11 @@ export const WhiteboardCanvas = () => {
     if (e.evt.button === 1 && isMiddleMousePanning) {
       setIsMiddleMousePanning(false);
       return;
+    }
+
+    if (isErasing) {
+      setIsErasing(false);
+      lastErasedIdRef.current = null;
     }
 
     if (isDrawing && currentShape) {
@@ -1851,6 +1932,12 @@ export const WhiteboardCanvas = () => {
           setIsPanning(false);
           setIsMiddleMousePanning(false);
           syncPanFromStage(event);
+        }}
+        onMouseLeave={() => {
+          if (isErasing) {
+            setIsErasing(false);
+          }
+          lastErasedIdRef.current = null;
         }}
       >
         <Layer>
