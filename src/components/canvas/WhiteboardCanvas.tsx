@@ -36,6 +36,15 @@ import {
   getRectangleOutlinePoints,
   sampleCurvePoints,
 } from "@/lib/canvas/sloppiness";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuShortcut,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { useToast } from "@/hooks/use-toast";
 
 const MINIMAP_ENABLED = false;
 
@@ -450,7 +459,9 @@ export const WhiteboardCanvas = () => {
   const [isMiniMapInteracting, setIsMiniMapInteracting] = useState(false);
   const [miniMapContainer, setMiniMapContainer] = useState<HTMLElement | null>(null);
   const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(null);
-  const { handleDrop, handleDragOver } = useDragDrop();
+  const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
+  const { handleDrop, handleDragOver, addFilesToCanvas } = useDragDrop();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!MINIMAP_ENABLED) {
@@ -517,6 +528,12 @@ export const WhiteboardCanvas = () => {
   const panX = pan.x;
   const panY = pan.y;
   const safeZoom = zoom || 1;
+  const clipboard = typeof navigator === "undefined" ? null : navigator.clipboard;
+  const clipboardReadSupported =
+    !!clipboard &&
+    (typeof clipboard.read === "function" || typeof clipboard.readText === "function");
+  const clipboardWriteSupported =
+    !!clipboard && typeof clipboard.write === "function" && typeof ClipboardItem !== "undefined";
 
   useEffect(() => {
     if (activeTool !== "select") {
@@ -565,6 +582,285 @@ export const WhiteboardCanvas = () => {
       y: (pos.y - panY) / safeZoom,
     };
   }, [panX, safeZoom, panY]);
+
+  const recordContextMenuPosition = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (!containerRef.current) {
+        return;
+      }
+
+      const rect = containerRef.current.getBoundingClientRect();
+      const localX = event.clientX - rect.left;
+      const localY = event.clientY - rect.top;
+      const canvasX = (localX - panX) / safeZoom;
+      const canvasY = (localY - panY) / safeZoom;
+      setContextMenuPosition({ x: canvasX, y: canvasY });
+    },
+    [panX, panY, safeZoom],
+  );
+
+  const getPastePosition = useCallback(() => {
+    if (contextMenuPosition) {
+      return contextMenuPosition;
+    }
+
+    if (typeof window !== "undefined") {
+      const centerX = (window.innerWidth / 2 - panX) / safeZoom;
+      const centerY = (window.innerHeight / 2 - panY) / safeZoom;
+      return { x: centerX, y: centerY };
+    }
+
+    return { x: 0, y: 0 };
+  }, [contextMenuPosition, panX, panY, safeZoom]);
+
+  const createTextElementFromClipboard = useCallback(
+    (content: string, position: { x: number; y: number }) => {
+      const trimmed = content.trim();
+      if (!trimmed) {
+        return;
+      }
+
+      const width = estimateTextBoxWidth(trimmed, textFontSize);
+      const height = estimateTextBoxHeight(trimmed, textFontSize);
+      const textElement: CanvasElement = {
+        id: nanoid(),
+        type: "text",
+        x: position.x,
+        y: position.y,
+        text: trimmed,
+        strokeColor,
+        fillColor,
+        strokeWidth,
+        strokeStyle,
+        opacity,
+        sloppiness,
+        fontFamily: textFontFamily,
+        fontSize: textFontSize,
+        textAlign,
+        width,
+        height,
+      };
+
+      addElement(textElement);
+      setSelectedIds([textElement.id]);
+    },
+    [
+      addElement,
+      fillColor,
+      opacity,
+      setSelectedIds,
+      sloppiness,
+      strokeColor,
+      strokeStyle,
+      strokeWidth,
+      textAlign,
+      textFontFamily,
+      textFontSize,
+    ],
+  );
+
+  const handlePasteAction = useCallback(async () => {
+    if (typeof navigator === "undefined") {
+      toast({
+        variant: "destructive",
+        title: "Clipboard unavailable",
+        description: "Clipboard is not accessible in this environment.",
+      });
+      return;
+    }
+
+    const clipboardApi = navigator.clipboard;
+    if (!clipboardApi || (!clipboardApi.read && !clipboardApi.readText)) {
+      toast({
+        variant: "destructive",
+        title: "Clipboard unavailable",
+        description: "Your browser does not support clipboard access.",
+      });
+      return;
+    }
+
+    const position = getPastePosition();
+
+    try {
+      if (clipboardApi.read) {
+        const items = await clipboardApi.read();
+        const files: File[] = [];
+        let textContent: string | null = null;
+        const timestamp = Date.now();
+
+        for (const item of items) {
+          for (const type of item.types) {
+            if (type.startsWith("image/") || type === "application/pdf") {
+              const blob = await item.getType(type);
+              const extension = type.split("/")[1] ?? "bin";
+              const fileName = `pasted-${timestamp}-${files.length}.${extension}`;
+              files.push(new File([blob], fileName, { type }));
+            } else if (type === "text/plain" && textContent === null) {
+              const blob = await item.getType(type);
+              textContent = await blob.text();
+            }
+          }
+        }
+
+        if (files.length > 0) {
+          await addFilesToCanvas(files, position);
+          toast({
+            title: "Pasted from clipboard",
+            description:
+              files.length > 1
+                ? `${files.length} items were added to the canvas.`
+                : "Clipboard item was added to the canvas.",
+          });
+          return;
+        }
+
+        if (textContent && textContent.trim()) {
+          createTextElementFromClipboard(textContent, position);
+          toast({
+            title: "Text pasted",
+            description: "Clipboard text was added to the canvas.",
+          });
+          return;
+        }
+      }
+
+      if (clipboardApi.readText) {
+        const text = await clipboardApi.readText();
+        if (text && text.trim()) {
+          createTextElementFromClipboard(text, position);
+          toast({
+            title: "Text pasted",
+            description: "Clipboard text was added to the canvas.",
+          });
+          return;
+        }
+      }
+
+      toast({
+        variant: "destructive",
+        title: "Nothing to paste",
+        description: "Clipboard does not contain supported content.",
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Paste failed",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Unable to paste clipboard content.",
+      });
+    }
+  }, [addFilesToCanvas, createTextElementFromClipboard, getPastePosition, toast]);
+
+  const handleCopyAsPng = useCallback(async () => {
+    const stage = stageRef.current;
+    if (!stage) {
+      toast({
+        variant: "destructive",
+        title: "Unable to copy",
+        description: "Canvas is not ready yet.",
+      });
+      return;
+    }
+
+    if (typeof navigator === "undefined" || !navigator.clipboard?.write) {
+      toast({
+        variant: "destructive",
+        title: "Clipboard unavailable",
+        description: "Your browser cannot copy images to the clipboard.",
+      });
+      return;
+    }
+
+    if (typeof ClipboardItem === "undefined") {
+      toast({
+        variant: "destructive",
+        title: "Clipboard unavailable",
+        description: "Clipboard images are not supported in this browser.",
+      });
+      return;
+    }
+
+    try {
+      const dataUrl = stage.toDataURL({ pixelRatio: 2 });
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+      const clipboardItem = new ClipboardItem({ [blob.type || "image/png"]: blob });
+      await navigator.clipboard.write([clipboardItem]);
+      toast({
+        title: "Copied canvas",
+        description: "Canvas copied to clipboard as PNG.",
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Failed to copy PNG",
+        description:
+          error instanceof Error ? error.message : "Unable to copy as PNG.",
+      });
+    }
+  }, [toast]);
+
+  const handleCopyAsSvg = useCallback(async () => {
+    const stage = stageRef.current;
+    if (!stage) {
+      toast({
+        variant: "destructive",
+        title: "Unable to copy",
+        description: "Canvas is not ready yet.",
+      });
+      return;
+    }
+
+    if (typeof navigator === "undefined" || !navigator.clipboard?.write) {
+      toast({
+        variant: "destructive",
+        title: "Clipboard unavailable",
+        description: "Your browser cannot copy SVG content to the clipboard.",
+      });
+      return;
+    }
+
+    if (typeof ClipboardItem === "undefined") {
+      toast({
+        variant: "destructive",
+        title: "Clipboard unavailable",
+        description: "Clipboard SVGs are not supported in this browser.",
+      });
+      return;
+    }
+
+    try {
+      const svg = stage.toSVG();
+      const blob = new Blob([svg], { type: "image/svg+xml" });
+      const clipboardItem = new ClipboardItem({ "image/svg+xml": blob });
+      await navigator.clipboard.write([clipboardItem]);
+      toast({
+        title: "Copied canvas",
+        description: "Canvas copied to clipboard as SVG.",
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Failed to copy SVG",
+        description:
+          error instanceof Error ? error.message : "Unable to copy as SVG.",
+      });
+    }
+  }, [toast]);
+
+  const handleSelectAll = useCallback(() => {
+    if (!elements.length) {
+      return;
+    }
+
+    const ids = elements.map((element) => element.id);
+    setSelectedIds(ids);
+  }, [elements, setSelectedIds]);
 
   const eraseNode = useCallback(
     (node: Konva.Node | null) => {
@@ -1868,13 +2164,16 @@ export const WhiteboardCanvas = () => {
   );
 
   return (
-    <div
-      ref={containerRef}
-      className="absolute inset-0 dotted-grid"
-      style={{ backgroundSize, backgroundPosition }}
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-    >
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div
+          ref={containerRef}
+          className="absolute inset-0 dotted-grid"
+          style={{ backgroundSize, backgroundPosition }}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onContextMenu={recordContextMenuPosition}
+        >
       {editingText && editorStyle && (
         <textarea
           ref={textEditorRef}
@@ -2860,6 +3159,37 @@ export const WhiteboardCanvas = () => {
                 {miniMapContent}
               </div>
             ))}
-    </div>
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem disabled={!clipboardReadSupported} onSelect={() => { void handlePasteAction(); }}>
+          Paste
+          <ContextMenuShortcut>Ctrl+V</ContextMenuShortcut>
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          disabled={!clipboardWriteSupported}
+          onSelect={() => {
+            void handleCopyAsPng();
+          }}
+        >
+          Copy to clipboard as PNG
+          <ContextMenuShortcut>Shift+Alt+C</ContextMenuShortcut>
+        </ContextMenuItem>
+        <ContextMenuItem
+          disabled={!clipboardWriteSupported}
+          onSelect={() => {
+            void handleCopyAsSvg();
+          }}
+        >
+          Copy to clipboard as SVG
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onSelect={handleSelectAll}>
+          Select all
+          <ContextMenuShortcut>Ctrl+A</ContextMenuShortcut>
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 };
