@@ -46,13 +46,11 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
-  ContextMenuLabel,
-  ContextMenuRadioGroup,
-  ContextMenuRadioItem,
   ContextMenuSeparator,
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { CheckIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const MINIMAP_ENABLED = false;
@@ -1401,8 +1399,8 @@ export const WhiteboardCanvas = () => {
   }, [canvasBackground, panX, panY, safeZoom]);
   const { className: backgroundClassName, style: backgroundStyle } = backgroundConfig;
   const handleCanvasBackgroundChange = useCallback(
-    (value: string) => {
-      setCanvasBackground(value as CanvasBackground);
+    (value: CanvasBackground) => {
+      setCanvasBackground(value);
     },
     [setCanvasBackground],
   );
@@ -3214,12 +3212,36 @@ export const WhiteboardCanvas = () => {
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
-        <ContextMenuLabel inset>Canvas background</ContextMenuLabel>
-        <ContextMenuRadioGroup value={canvasBackground} onValueChange={handleCanvasBackgroundChange}>
-          <ContextMenuRadioItem value="none">No grid</ContextMenuRadioItem>
-          <ContextMenuRadioItem value="simple">Simple grid</ContextMenuRadioItem>
-          <ContextMenuRadioItem value="technical">Technical grid</ContextMenuRadioItem>
-        </ContextMenuRadioGroup>
+        <ContextMenuItem
+          onSelect={() => {
+            handleCanvasBackgroundChange("none");
+          }}
+        >
+          No grid
+          {canvasBackground === "none" ? (
+            <CheckIcon aria-hidden className="ml-auto size-4" />
+          ) : null}
+        </ContextMenuItem>
+        <ContextMenuItem
+          onSelect={() => {
+            handleCanvasBackgroundChange("simple");
+          }}
+        >
+          Simple grid
+          {canvasBackground === "simple" ? (
+            <CheckIcon aria-hidden className="ml-auto size-4" />
+          ) : null}
+        </ContextMenuItem>
+        <ContextMenuItem
+          onSelect={() => {
+            handleCanvasBackgroundChange("technical");
+          }}
+        >
+          Technical grid
+          {canvasBackground === "technical" ? (
+            <CheckIcon aria-hidden className="ml-auto size-4" />
+          ) : null}
+        </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem disabled={!clipboardReadSupported} onSelect={() => { void handlePasteAction(); }}>
           Paste
