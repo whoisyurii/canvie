@@ -456,6 +456,8 @@ export const WhiteboardCanvas = () => {
   const [isDrawing, setIsDrawing] = useState(false);
   const [isErasing, setIsErasing] = useState(false);
   const [currentShape, setCurrentShape] = useState<any>(null);
+  const currentShapeRef = useRef<any>(null);
+  const isDrawingRef = useRef(false);
   const [isPanning, setIsPanning] = useState(false);
   const [isMiddleMousePanning, setIsMiddleMousePanning] = useState(false);
   const [stageSize, setStageSize] = useState(() => ({
@@ -1654,6 +1656,7 @@ export const WhiteboardCanvas = () => {
     const { x, y } = pointer;
 
     setIsDrawing(true);
+    isDrawingRef.current = true;
 
     const newElement: any = {
       id: nanoid(),
@@ -1701,6 +1704,7 @@ export const WhiteboardCanvas = () => {
     }
 
     setCurrentShape(newElement);
+    currentShapeRef.current = newElement;
   };
 
   const handleMouseMove = (e: KonvaEventObject<MouseEvent>) => {
@@ -1762,11 +1766,13 @@ export const WhiteboardCanvas = () => {
         height = size * heightSign;
       }
 
-      setCurrentShape({
+      const updatedShape = {
         ...currentShape,
         width,
         height,
-      });
+      };
+      setCurrentShape(updatedShape);
+      currentShapeRef.current = updatedShape;
     } else if (currentShape.type === "line" || currentShape.type === "arrow") {
       let endX = x - currentShape.x;
       let endY = y - currentShape.y;
@@ -1782,18 +1788,33 @@ export const WhiteboardCanvas = () => {
         }
       }
 
-      setCurrentShape({
+      const updatedShape = {
         ...currentShape,
         points: [0, 0, endX, endY],
-      });
+      };
+      setCurrentShape(updatedShape);
+      currentShapeRef.current = updatedShape;
     } else if (currentShape.type === "pen") {
       const newPoints = [...currentShape.points, x - currentShape.x, y - currentShape.y];
-      setCurrentShape({
+      const updatedShape = {
         ...currentShape,
         points: newPoints,
-      });
+      };
+      setCurrentShape(updatedShape);
+      currentShapeRef.current = updatedShape;
     }
   };
+
+  const finalizeDrawing = useCallback(() => {
+    const shape = currentShapeRef.current;
+    if (shape) {
+      addElement(shape);
+      currentShapeRef.current = null;
+      setCurrentShape(null);
+    }
+    setIsDrawing(false);
+    isDrawingRef.current = false;
+  }, [addElement]);
 
   const handleMouseUp = (e: KonvaEventObject<MouseEvent>) => {
     if (e.evt.button === 1 && isMiddleMousePanning) {
@@ -1806,11 +1827,9 @@ export const WhiteboardCanvas = () => {
       lastErasedIdRef.current = null;
     }
 
-    if (isDrawing && currentShape) {
-      addElement(currentShape);
-      setCurrentShape(null);
+    if (isDrawingRef.current) {
+      finalizeDrawing();
     }
-    setIsDrawing(false);
 
     const marqueeState = marqueeSelectionRef.current;
     if (marqueeState) {
@@ -1840,6 +1859,34 @@ export const WhiteboardCanvas = () => {
       }
     }
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handlePointerUp = (event: MouseEvent | TouchEvent) => {
+      if (!isDrawingRef.current) {
+        return;
+      }
+
+      if (event instanceof MouseEvent && event.button !== 0) {
+        return;
+      }
+
+      finalizeDrawing();
+    };
+
+    window.addEventListener("mouseup", handlePointerUp);
+    window.addEventListener("touchend", handlePointerUp);
+    window.addEventListener("touchcancel", handlePointerUp);
+
+    return () => {
+      window.removeEventListener("mouseup", handlePointerUp);
+      window.removeEventListener("touchend", handlePointerUp);
+      window.removeEventListener("touchcancel", handlePointerUp);
+    };
+  }, [finalizeDrawing]);
 
   const applySelectionDrag = useCallback(
     (deltaX: number, deltaY: number, dragState: SelectionDragState, stage: Konva.Stage | null) => {
