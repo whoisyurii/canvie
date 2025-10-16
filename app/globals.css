@@ -149,6 +149,16 @@
     background-size: 20px 20px;
   }
 
+  .technical-grid {
+    background-color: hsl(var(--background));
+    background-image:
+      linear-gradient(to right, hsl(var(--foreground) / 0.08) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--foreground) / 0.08) 1px, transparent 1px),
+      linear-gradient(to right, hsl(var(--foreground) / 0.18) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--foreground) / 0.18) 1px, transparent 1px);
+    background-size: 20px 20px, 20px 20px, 100px 100px, 100px 100px;
+  }
+
   .landing-radial-dots {
     position: relative;
     isolation: isolate;
