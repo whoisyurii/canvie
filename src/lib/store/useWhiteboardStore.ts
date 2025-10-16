@@ -19,6 +19,7 @@ export type ArrowType = "line" | "arrow-start" | "arrow-end" | "arrow-both";
 export type ArrowStyle = "straight" | "curve";
 export type CornerStyle = "sharp" | "rounded";
 export type TextAlignment = "left" | "center" | "right";
+export type CanvasBackground = "none" | "simple" | "technical";
 
 export interface CanvasElement {
   id: string;
@@ -293,6 +294,8 @@ interface WhiteboardState {
   setTextAlign: (alignment: TextAlignment) => void;
 
   // Canvas
+  canvasBackground: CanvasBackground;
+  setCanvasBackground: (background: CanvasBackground) => void;
   elements: CanvasElement[];
   addElement: (element: CanvasElement) => void;
   updateElement: (id: string, updates: Partial<CanvasElement>) => void;
@@ -442,6 +445,8 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   },
 
   // Canvas
+  canvasBackground: "simple",
+  setCanvasBackground: (background) => set({ canvasBackground: background }),
   elements: [],
   addElement: (element) => {
     const collaboration = get().collaboration;

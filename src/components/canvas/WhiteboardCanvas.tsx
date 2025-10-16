@@ -8,6 +8,7 @@ import {
   useCallback,
   type MouseEvent as ReactMouseEvent,
   type TouchEvent as ReactTouchEvent,
+  type CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -23,7 +24,12 @@ import {
   Ellipse,
 } from "react-konva";
 import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
-import type { CanvasElement, ArrowStyle, TextAlignment } from "@/lib/store/useWhiteboardStore";
+import type {
+  CanvasElement,
+  ArrowStyle,
+  TextAlignment,
+  CanvasBackground,
+} from "@/lib/store/useWhiteboardStore";
 import { nanoid } from "nanoid";
 import Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
@@ -44,6 +50,7 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { CheckIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const MINIMAP_ENABLED = false;
@@ -514,6 +521,8 @@ export const WhiteboardCanvas = () => {
     textFontFamily,
     textFontSize,
     textAlign,
+    canvasBackground,
+    setCanvasBackground,
     pan,
     zoom,
     setPan,
@@ -1352,8 +1361,49 @@ export const WhiteboardCanvas = () => {
     setPan({ x: position.x, y: position.y });
   };
 
-  const backgroundSize = `${Math.max(4, 20 * safeZoom)}px ${Math.max(4, 20 * safeZoom)}px`;
-  const backgroundPosition = `${panX}px ${panY}px`;
+  const backgroundConfig = useMemo(() => {
+    const baseSize = Math.max(4, 20 * safeZoom);
+    const basePosition = `${panX}px ${panY}px`;
+
+    if (canvasBackground === "none") {
+      return {
+        className: "",
+        style: {
+          backgroundImage: "none",
+          backgroundSize: undefined,
+          backgroundPosition: undefined,
+        } as CSSProperties,
+      };
+    }
+
+    if (canvasBackground === "technical") {
+      const majorSize = baseSize * 5;
+      const repeatedPosition = Array(4).fill(basePosition).join(", ");
+
+      return {
+        className: "technical-grid",
+        style: {
+          backgroundSize: `${baseSize}px ${baseSize}px, ${baseSize}px ${baseSize}px, ${majorSize}px ${majorSize}px, ${majorSize}px ${majorSize}px`,
+          backgroundPosition: repeatedPosition,
+        } as CSSProperties,
+      };
+    }
+
+    return {
+      className: "dotted-grid",
+      style: {
+        backgroundSize: `${baseSize}px ${baseSize}px`,
+        backgroundPosition: basePosition,
+      } as CSSProperties,
+    };
+  }, [canvasBackground, panX, panY, safeZoom]);
+  const { className: backgroundClassName, style: backgroundStyle } = backgroundConfig;
+  const handleCanvasBackgroundChange = useCallback(
+    (value: CanvasBackground) => {
+      setCanvasBackground(value);
+    },
+    [setCanvasBackground],
+  );
   const isPanMode = activeTool === "pan" || isMiddleMousePanning;
 
   const stageCursorClass =
@@ -2168,8 +2218,8 @@ export const WhiteboardCanvas = () => {
       <ContextMenuTrigger asChild>
         <div
           ref={containerRef}
-          className="absolute inset-0 dotted-grid"
-          style={{ backgroundSize, backgroundPosition }}
+          className={cn("absolute inset-0", backgroundClassName)}
+          style={backgroundStyle}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onContextMenu={recordContextMenuPosition}
@@ -3162,6 +3212,37 @@ export const WhiteboardCanvas = () => {
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
+        <ContextMenuItem
+          onSelect={() => {
+            handleCanvasBackgroundChange("none");
+          }}
+        >
+          No grid
+          {canvasBackground === "none" ? (
+            <CheckIcon aria-hidden className="ml-auto size-4" />
+          ) : null}
+        </ContextMenuItem>
+        <ContextMenuItem
+          onSelect={() => {
+            handleCanvasBackgroundChange("simple");
+          }}
+        >
+          Simple grid
+          {canvasBackground === "simple" ? (
+            <CheckIcon aria-hidden className="ml-auto size-4" />
+          ) : null}
+        </ContextMenuItem>
+        <ContextMenuItem
+          onSelect={() => {
+            handleCanvasBackgroundChange("technical");
+          }}
+        >
+          Technical grid
+          {canvasBackground === "technical" ? (
+            <CheckIcon aria-hidden className="ml-auto size-4" />
+          ) : null}
+        </ContextMenuItem>
+        <ContextMenuSeparator />
         <ContextMenuItem disabled={!clipboardReadSupported} onSelect={() => { void handlePasteAction(); }}>
           Paste
           <ContextMenuShortcut>Ctrl+V</ContextMenuShortcut>
