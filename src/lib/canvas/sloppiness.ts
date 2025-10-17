@@ -78,12 +78,12 @@ export const createSloppyStrokeLayers = (
     return [];
   }
 
-  // Reduce overall sloppiness intensity by ~30% to tone down the effect across tools.
-  const intensity = 0.45 * 0.7;
+  // Reduce overall sloppiness intensity to make the effect more subtle.
+  const intensity = 0.4;
   const config =
     mode === "rough"
-      ? { layers: 2, amplitude: 2.8 * intensity, spacing: 28 }
-      : { layers: 1, amplitude: 1.35 * intensity, spacing: 32 };
+      ? { layers: 2, amplitude: 1.5 * intensity, spacing: 42 }
+      : { layers: 1, amplitude: 0.8 * intensity, spacing: 48 };
 
   const lengthScale = Math.max(0.65, Math.min(1.55, baseLength / 220 + 0.55));
   const layers: SloppyStrokeLayer[] = [];
@@ -91,10 +91,14 @@ export const createSloppyStrokeLayers = (
   for (let layerIndex = 0; layerIndex < config.layers; layerIndex += 1) {
     const random = createRandom(`${seed}:${layerIndex}`);
     const layerAmplitude =
-      (config.amplitude + strokeWidth * (mode === "rough" ? 0.55 : 0.35)) *
+      (config.amplitude + strokeWidth * (mode === "rough" ? 0.35 : 0.25)) *
       lengthScale *
-      (1 + layerIndex * 0.35);
+      (1 + layerIndex * 0.25);
     const spacing = config.spacing / lengthScale;
+
+    // Wave parameters
+    const waveFrequency = (0.03 + random() * 0.015) / lengthScale;
+    const wavePhase = random() * Math.PI * 2;
 
     const jittered: number[] = [];
     const pointCount = Math.floor(points.length / 2);
@@ -104,8 +108,7 @@ export const createSloppyStrokeLayers = (
       continue;
     }
 
-    const baseOffsetX = (random() - 0.5) * layerAmplitude * 0.4;
-    const baseOffsetY = (random() - 0.5) * layerAmplitude * 0.4;
+    let distance = 0;
 
     for (let segment = 0; segment < segmentCount; segment += 1) {
       const startIndex = segment * 2;
@@ -121,8 +124,6 @@ export const createSloppyStrokeLayers = (
       const segmentLength = Math.hypot(dx, dy) || 1;
       const normalX = -dy / segmentLength;
       const normalY = dx / segmentLength;
-      const tangentX = dx / segmentLength;
-      const tangentY = dy / segmentLength;
 
       const steps = Math.max(1, Math.round(segmentLength / spacing));
 
@@ -145,23 +146,35 @@ export const createSloppyStrokeLayers = (
         const baseX = startX + dx * t;
         const baseY = startY + dy * t;
 
-        const offsetMagnitude = (random() - 0.5) * 1.6 * layerAmplitude;
-        const tangentOffset = (random() - 0.5) * 1.6 * layerAmplitude * 0.2;
+        const currentSegmentDistance = t * segmentLength;
+        const totalDistance = distance + currentSegmentDistance;
 
-        const offsetX = normalX * offsetMagnitude + tangentX * tangentOffset + baseOffsetX;
-        const offsetY = normalY * offsetMagnitude + tangentY * tangentOffset + baseOffsetY;
+        // Wavy effect
+        const wave = Math.sin(totalDistance * waveFrequency + wavePhase);
+        const offsetMagnitude = wave * layerAmplitude * 0.7; // Main wave
+        const randomJitter = (random() - 0.5) * layerAmplitude * 0.2; // Small random jitter
+
+        const offsetX = normalX * (offsetMagnitude + randomJitter);
+        const offsetY = normalY * (offsetMagnitude + randomJitter);
 
         const jitteredX = baseX + offsetX;
         const jitteredY = baseY + offsetY;
         jittered.push(jitteredX, jitteredY);
       }
+      distance += segmentLength;
     }
 
     const widthVariance =
-      strokeWidth * (mode === "rough" ? 0.18 : 0.1) * intensity;
+      strokeWidth * (mode === "rough" ? 0.12 : 0.08) * intensity;
     const strokeFactor = 0.9 + random() * 0.2;
-    const stroke = Math.max(0.4, strokeWidth * strokeFactor + (random() - 0.5) * widthVariance);
-    const opacity = Math.max(0.6, Math.min(0.9, 0.86 - layerIndex * 0.1 + (random() - 0.5) * 0.08));
+    const stroke = Math.max(
+      0.4,
+      strokeWidth * strokeFactor + (random() - 0.5) * widthVariance,
+    );
+    const opacity = Math.max(
+      0.6,
+      Math.min(0.9, 0.86 - layerIndex * 0.1 + (random() - 0.5) * 0.08),
+    );
 
     layers.push({ points: jittered, strokeWidth: stroke, opacity });
   }
