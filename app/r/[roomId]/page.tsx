@@ -35,7 +35,7 @@ export default function RoomPage() {
 
   return (
     <CollaborationProvider roomId={roomId}>
-      <div className="relative h-screen w-full overflow-hidden bg-[hsl(var(--bg-board))]">
+      <div className="relative h-screen w-full overflow-x-hidden overflow-y-auto bg-[hsl(var(--bg-board))]">
         <WhiteboardCanvas />
 
         <div className="absolute left-1/2 top-3 z-50 -translate-x-1/2">
