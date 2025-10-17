@@ -2163,35 +2163,38 @@ export const WhiteboardCanvas = () => {
   );
 
   const handleWheel = (e: KonvaEventObject<WheelEvent>) => {
+    const shouldZoom = activeTool === "pan" || e.evt.ctrlKey;
+    if (!shouldZoom) {
+      return;
+    }
+
     e.evt.preventDefault();
 
-    if (activeTool === "pan" || e.evt.ctrlKey) {
-      const stage = stageRef.current;
-      if (!stage) return;
+    const stage = stageRef.current;
+    if (!stage) return;
 
-      const currentScale = Number.isFinite(zoom) ? zoom : 1;
-      const pointer = stage.getPointerPosition();
-      if (!pointer) return;
+    const currentScale = Number.isFinite(zoom) ? zoom : 1;
+    const pointer = stage.getPointerPosition();
+    if (!pointer) return;
 
-      const mousePointTo = {
-        x: (pointer.x - panX) / currentScale,
-        y: (pointer.y - panY) / currentScale,
-      };
+    const mousePointTo = {
+      x: (pointer.x - panX) / currentScale,
+      y: (pointer.y - panY) / currentScale,
+    };
 
-      const rawScale = e.evt.deltaY > 0 ? currentScale * 0.95 : currentScale * 1.05;
-      const nextScale = Math.max(0.1, Math.min(5, Number.isFinite(rawScale) ? rawScale : 1));
-      if (!Number.isFinite(nextScale)) {
-        return;
-      }
-
-      useWhiteboardStore.setState({
-        zoom: nextScale,
-        pan: {
-          x: pointer.x - mousePointTo.x * nextScale,
-          y: pointer.y - mousePointTo.y * nextScale,
-        },
-      });
+    const rawScale = e.evt.deltaY > 0 ? currentScale * 0.95 : currentScale * 1.05;
+    const nextScale = Math.max(0.1, Math.min(5, Number.isFinite(rawScale) ? rawScale : 1));
+    if (!Number.isFinite(nextScale)) {
+      return;
     }
+
+    useWhiteboardStore.setState({
+      zoom: nextScale,
+      pan: {
+        x: pointer.x - mousePointTo.x * nextScale,
+        y: pointer.y - mousePointTo.y * nextScale,
+      },
+    });
   };
 
   const getStrokeDash = (style: string) => {
