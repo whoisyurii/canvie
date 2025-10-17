@@ -14,11 +14,25 @@ export const LayerActions = ({ disabled, onBringToFront, onSendToBack }: LayerAc
   return (
     <SidebarSection title="Layers" disabled={disabled}>
       <div className="grid grid-cols-2 gap-0.5">
-        <Button type="button" variant="outline" size="sm" className="h-8" disabled={disabled} onClick={onBringToFront}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 text-foreground hover:text-foreground"
+          disabled={disabled}
+          onClick={onBringToFront}
+        >
           <ChevronsUpDown className="mr-2 h-4 w-4" />
           Front
         </Button>
-        <Button type="button" variant="outline" size="sm" className="h-8" disabled={disabled} onClick={onSendToBack}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 text-foreground hover:text-foreground"
+          disabled={disabled}
+          onClick={onSendToBack}
+        >
           <ChevronsDownUp className="mr-2 h-4 w-4" />
           Back
         </Button>
