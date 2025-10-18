@@ -32,14 +32,52 @@ export class SignalingRoom {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
 
-    switch (url.pathname) {
-      case "/attach":
-        return this.handleAttach(request, url);
-      case "/stats":
-        return this.handleStats();
-      default:
-        return new Response("Not found", { status: 404 });
+    if (url.pathname === "/signaling" && request.headers.get("Upgrade") === "websocket") {
+      return this.handleWebSocket(request, url);
     }
+
+    if (url.pathname === "/stats") {
+      return this.handleStats();
+    }
+
+    return new Response("Not found", { status: 404 });
+  }
+
+  private handleWebSocket(request: Request, url: URL): Response {
+    if (request.headers.get("Upgrade") !== "websocket") {
+      return new Response("Expected WebSocket upgrade", { status: 426 });
+    }
+
+    const pair = new WebSocketPair();
+    const client = pair[0];
+    const server = pair[1];
+
+    server.accept();
+
+    const clientId = crypto.randomUUID();
+    const now = Date.now();
+
+    const session: PeerSession = {
+      id: clientId,
+      socket: server,
+      lastSeen: now,
+      rateWindowStart: now,
+      messagesInWindow: 0,
+    };
+
+    this.peers.set(clientId, session);
+    this.lastActivity = now;
+    this.ensureCleanupTimer();
+
+    server.addEventListener("message", (event: MessageEvent) => {
+      this.handleMessage(session, event.data);
+    });
+
+    const handleTermination = () => this.dropPeer(clientId, true);
+    server.addEventListener("close", handleTermination);
+    server.addEventListener("error", handleTermination);
+
+    return new Response(null, { status: 101, webSocket: client });
   }
 
   private handleStats(): Response {

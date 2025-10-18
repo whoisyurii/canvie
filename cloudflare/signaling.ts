@@ -48,21 +48,9 @@ function resolveRoomId(request: Request, url: URL): string {
   return DEFAULT_ROOM_ID;
 }
 
-async function attachToRoom(env: Env, roomId: string, durableSocket: WebSocket, clientId: string) {
+async function attachToRoom(env: Env, roomId: string, request: Request) {
   const stub = env.ROOMS.get(env.ROOMS.idFromName(roomId));
-  const attachUrl = new URL("https://do/attach");
-  attachUrl.searchParams.set("clientId", clientId);
-
-  const init = {
-    method: "POST",
-    headers: { Upgrade: "websocket" },
-    webSocket: durableSocket,
-  } as unknown as RequestInit;
-
-  const response = await stub.fetch(attachUrl.toString(), init);
-  if (response.status !== 101) {
-    throw new Error(`unexpected response from room (${response.status})`);
-  }
+  return await stub.fetch(request);
 }
 
 async function roomStats(env: Env, roomId: string) {
@@ -104,31 +92,13 @@ export default {
 
     if (url.pathname === "/signaling" && request.headers.get("Upgrade") === "websocket") {
       const roomId = resolveRoomId(request, url);
-      const clientId = crypto.randomUUID();
-      const pair = new WebSocketPair();
-      const client = pair[0];
-      const durable = pair[1];
-
-      if (!client || !durable) {
-        return new Response("failed to create WebSocket pair", { status: 500 });
-      }
-
-      // Accept the server-side WebSocket in the Worker
-      durable.accept();
 
       try {
-        await attachToRoom(env, roomId, durable, clientId);
+        return await attachToRoom(env, roomId, request);
       } catch (error) {
-        try {
-          durable.close(1011, "signaling unavailable");
-        } catch {
-          // ignore close failures
-        }
         const message = error instanceof Error ? error.message : "failed to connect";
         return new Response(message, { status: 502 });
       }
-
-      return new Response(null, { status: 101, webSocket: client });
     }
 
     return new Response("Not found", { status: 404 });
