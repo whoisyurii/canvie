@@ -71,7 +71,6 @@ export class SignalingRoom {
     const now = Date.now();
 
     this.state.acceptWebSocket(webSocket, [clientId]);
-    webSocket.accept();
 
     const session: PeerSession = {
       id: clientId,
