@@ -2043,8 +2043,6 @@ export const WhiteboardCanvas = () => {
         width: editingText.width * safeZoom,
         height: editorHeight * safeZoom,
         fontSize: editingText.fontSize * safeZoom,
-        padding: `${12 * safeZoom}px`,
-        borderRadius: `${12 * safeZoom}px`,
         fontFamily: getFontFamilyCss(editingText.fontFamily),
         textAlign: editingText.alignment,
       }
@@ -2101,20 +2099,29 @@ export const WhiteboardCanvas = () => {
           {editingText && editorStyle && (
             <textarea
               ref={textEditorRef}
-              className="pointer-events-auto absolute z-40 resize-none border-2 border-sky-400 bg-white/95 text-slate-800 shadow-lg outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200/80"
+              className="pointer-events-auto absolute z-40 resize-none border-none bg-transparent text-slate-800 outline-none caret-slate-800 overflow-hidden"
               style={{
                 ...editorStyle,
                 lineHeight: `${editorLineHeight * safeZoom}px`,
+                padding: `${12 * safeZoom}px`,
+                whiteSpace: 'pre',
+                overflowWrap: 'normal',
+                wordBreak: 'keep-all',
+                minWidth: `${TEXT_MIN_WIDTH * safeZoom}px`,
+                width: 'auto',
+                maxWidth: 'none',
               }}
               value={editingText.value}
               onChange={(event) => {
                 const { value } = event.target;
                 setEditingText((current) => {
                   if (!current) return current;
+                  const newWidth = estimateTextBoxWidth(value, current.fontSize);
+                  const newHeight = estimateTextBoxHeight(value, current.fontSize);
                   return {
                     ...current,
                     value,
-                    width: estimateTextBoxWidth(value, current.fontSize),
+                    width: newWidth,
                   };
                 });
               }}
@@ -2124,13 +2131,16 @@ export const WhiteboardCanvas = () => {
                   event.preventDefault();
                   finishEditingText({ cancel: true });
                 }
-                if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                  event.preventDefault();
-                  finishEditingText();
+                if (event.key === "Enter") {
+                  if (event.metaKey || event.ctrlKey) {
+                    event.preventDefault();
+                    finishEditingText();
+                  }
+                  // Allow normal Enter to create new lines
                 }
               }}
               spellCheck
-              placeholder="Type something"
+              placeholder="Type"
             />
           )}
           <Stage

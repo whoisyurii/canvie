@@ -1,5 +1,5 @@
 export const TEXT_MIN_WIDTH = 160;
-export const TEXT_MAX_WIDTH = 460;
+export const TEXT_MAX_WIDTH = 2000; // Increased to allow very long single lines
 export const TEXT_BASE_PADDING = 24;
 
 export const FONT_FALLBACKS: Record<string, string> = {
@@ -26,7 +26,8 @@ export const estimateTextBoxWidth = (text: string, fontSize: number) => {
     TEXT_MIN_WIDTH,
     longestLineLength * approxCharWidth + TEXT_BASE_PADDING
   );
-  return Math.min(TEXT_MAX_WIDTH, widthFromContent || TEXT_MIN_WIDTH);
+  // No max width limit - allow infinite horizontal expansion
+  return widthFromContent || TEXT_MIN_WIDTH;
 };
 
 export const estimateTextBoxHeight = (text: string, fontSize: number) => {
