@@ -67,11 +67,9 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
   const webrtcProviderRef = useRef<WebrtcProvider | null>(null);
   const awarenessRef = useRef<Awareness | null>(null);
   const persistenceRef = useRef<IndexeddbPersistence | null>(null);
-  const userIdRef = useRef(nanoid());
-  const userColorRef = useRef(generateRandomColor());
-  const userNameRef = useRef(
-    `Guest ${Math.floor(Math.random() * 99) + 1}`.padStart(8, "0"),
-  );
+  const userIdRef = useRef<string | null>(null);
+  const userColorRef = useRef<string | null>(null);
+  const userNameRef = useRef<string | null>(null);
   const lastCursorUpdateRef = useRef(0);
   const cursorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingCursorRef = useRef<{ x: number; y: number } | null>(null);
@@ -81,6 +79,19 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
   const [debugStats, setDebugStats] = useState<DebugStats>(INITIAL_DEBUG_STATS);
   const transport = resolveCollaborationTransport();
+
+  // Initialize user data only on client to prevent hydration mismatch
+  if (typeof window !== "undefined") {
+    if (userIdRef.current === null) {
+      userIdRef.current = nanoid();
+    }
+    if (userColorRef.current === null) {
+      userColorRef.current = generateRandomColor();
+    }
+    if (userNameRef.current === null) {
+      userNameRef.current = `Guest ${Math.floor(Math.random() * 99) + 1}`.padStart(8, "0");
+    }
+  }
 
   const setUsers = useWhiteboardStore((state) => state.setUsers);
   const setCollaboration = useWhiteboardStore((state) => state.setCollaboration);
@@ -139,9 +150,9 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       const { activeTool: currentTool, strokeColor: currentStrokeColor } = useWhiteboardStore.getState();
       const next = {
         user: {
-          id: userIdRef.current,
-          name: userNameRef.current,
-          color: userColorRef.current,
+          id: userIdRef.current ?? "",
+          name: userNameRef.current ?? "Guest",
+          color: userColorRef.current ?? "#888888",
           cursorX: 0,
           cursorY: 0,
           cursor: { x: 0, y: 0 },
@@ -317,9 +328,9 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
     setLocalState();
     setCurrentUser(
       buildRemoteUser({
-        id: userIdRef.current,
-        name: userNameRef.current,
-        color: userColorRef.current,
+        id: userIdRef.current ?? "",
+        name: userNameRef.current ?? "Guest",
+        color: userColorRef.current ?? "#888888",
         cursorX: 0,
         cursorY: 0,
       }),
@@ -554,15 +565,15 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
             </div>
             <div className="flex justify-between gap-2">
               <dt className="text-muted-foreground">Peers</dt>
-              <dd className="font-mono">{debugStats.peers}</dd>
+              <dd className="font-mono">{Number.isFinite(debugStats.peers) ? debugStats.peers : 0}</dd>
             </div>
             <div className="flex justify-between gap-2">
               <dt className="text-muted-foreground">Updates</dt>
-              <dd className="font-mono">{debugStats.updates}</dd>
+              <dd className="font-mono">{Number.isFinite(debugStats.updates) ? debugStats.updates : 0}</dd>
             </div>
             <div className="flex justify-between gap-2">
               <dt className="text-muted-foreground">Awareness</dt>
-              <dd className="font-mono">{debugStats.awarenessChanges}</dd>
+              <dd className="font-mono">{Number.isFinite(debugStats.awarenessChanges) ? debugStats.awarenessChanges : 0}</dd>
             </div>
           </dl>
         </div>

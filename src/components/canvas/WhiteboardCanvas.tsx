@@ -6,6 +6,7 @@ import {
   useEffect,
   useMemo,
   useCallback,
+  Fragment,
   type MouseEvent as ReactMouseEvent,
   type TouchEvent as ReactTouchEvent,
   type CSSProperties,
@@ -18,15 +19,12 @@ import {
   Line,
   Text as KonvaText,
   Arrow,
-  Image as KonvaImage,
-  Group,
   Transformer,
   Ellipse,
 } from "react-konva";
 import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
 import type {
   CanvasElement,
-  ArrowStyle,
   TextAlignment,
   CanvasBackground,
 } from "@/lib/store/useWhiteboardStore";
@@ -35,6 +33,7 @@ import Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { useDragDrop } from "./DragDropHandler";
 import { UserCursor } from "./UserCursor";
+import { ImageElement, FileElement } from "./elements";
 import { cn } from "@/lib/utils";
 import {
   createSloppyStrokeLayers,
@@ -42,6 +41,23 @@ import {
   getRectangleOutlinePoints,
   sampleCurvePoints,
 } from "@/lib/canvas/sloppiness";
+import {
+  type Bounds,
+  normalizeRectBounds,
+  getElementBounds,
+  isElementWithinSelection,
+  getDiamondShape,
+  getArrowRenderConfig,
+  getLineHeight,
+  estimateTextBoxWidth,
+  estimateTextBoxHeight,
+  getFontFamilyCss,
+  TEXT_MIN_WIDTH,
+  getStrokeDash,
+  resolveElementId,
+  duplicateElement,
+  RESIZABLE_ELEMENT_TYPES,
+} from "@/lib/canvas";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -54,15 +70,6 @@ import { CheckIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const MINIMAP_ENABLED = false;
-
-type HighlightProps = Record<string, unknown> | undefined;
-
-type Bounds = {
-  minX: number;
-  minY: number;
-  maxX: number;
-  maxY: number;
-};
 
 type SelectionRect = {
   x: number;
@@ -88,161 +95,6 @@ type SelectionDragState = {
 
 const SELECTION_GROUP_ID = "__selection_group__";
 
-const normalizeRectBounds = (
-  x: number,
-  y: number,
-  width = 0,
-  height = 0,
-): Bounds => {
-  const minX = width >= 0 ? x : x + width;
-  const minY = height >= 0 ? y : y + height;
-  const maxX = width >= 0 ? x + width : x;
-  const maxY = height >= 0 ? y + height : y;
-  return { minX, minY, maxX, maxY };
-};
-
-const getDiamondShape = (
-  x: number,
-  y: number,
-  width = 0,
-  height = 0,
-) => {
-  const bounds = normalizeRectBounds(x, y, width, height);
-  const drawWidth = bounds.maxX - bounds.minX;
-  const drawHeight = bounds.maxY - bounds.minY;
-
-  return {
-    x: bounds.minX,
-    y: bounds.minY,
-    points: [
-      drawWidth / 2,
-      0,
-      drawWidth,
-      drawHeight / 2,
-      drawWidth / 2,
-      drawHeight,
-      0,
-      drawHeight / 2,
-    ],
-  };
-};
-
-const getElementBounds = (element: CanvasElement): Bounds => {
-  switch (element.type) {
-    case "rectangle":
-    case "diamond":
-    case "ellipse":
-    case "image":
-    case "file": {
-      return normalizeRectBounds(element.x, element.y, element.width ?? 0, element.height ?? 0);
-    }
-    case "line":
-    case "arrow": {
-      if (element.points && element.points.length >= 2) {
-        let minX = element.x;
-        let minY = element.y;
-        let maxX = element.x;
-        let maxY = element.y;
-        for (let index = 0; index < element.points.length; index += 2) {
-          const px = element.x + (element.points[index] ?? 0);
-          const py = element.y + (element.points[index + 1] ?? 0);
-          minX = Math.min(minX, px);
-          minY = Math.min(minY, py);
-          maxX = Math.max(maxX, px);
-          maxY = Math.max(maxY, py);
-        }
-        return { minX, minY, maxX, maxY };
-      }
-      return { minX: element.x, minY: element.y, maxX: element.x, maxY: element.y };
-    }
-    case "pen": {
-      if (element.points && element.points.length >= 2) {
-        let minX = element.x;
-        let minY = element.y;
-        let maxX = element.x;
-        let maxY = element.y;
-        for (let index = 0; index < element.points.length; index += 2) {
-          const px = element.x + (element.points[index] ?? 0);
-          const py = element.y + (element.points[index + 1] ?? 0);
-          minX = Math.min(minX, px);
-          minY = Math.min(minY, py);
-          maxX = Math.max(maxX, px);
-          maxY = Math.max(maxY, py);
-        }
-        return { minX, minY, maxX, maxY };
-      }
-      return { minX: element.x, minY: element.y, maxX: element.x, maxY: element.y };
-    }
-    case "text": {
-      const approxWidth = Math.max(120, Math.min((element.text?.length ?? 0) * 10, 320));
-      const approxHeight = 32;
-      return normalizeRectBounds(element.x, element.y, approxWidth, approxHeight);
-    }
-    default:
-      return { minX: element.x, minY: element.y, maxX: element.x, maxY: element.y };
-  }
-};
-
-const duplicateElement = (element: CanvasElement): CanvasElement => ({
-  ...element,
-  id: nanoid(),
-  points: element.points ? [...element.points] : undefined,
-  selected: false,
-});
-
-const isElementWithinSelection = (element: CanvasElement, selection: Bounds) => {
-  const bounds = getElementBounds(element);
-  return (
-    bounds.maxX >= selection.minX &&
-    bounds.minX <= selection.maxX &&
-    bounds.maxY >= selection.minY &&
-    bounds.minY <= selection.maxY
-  );
-};
-
-const resolveElementId = (node: Konva.Node | null): string | null => {
-  if (!node) {
-    return null;
-  }
-
-  const nodeId = node.id();
-  if (nodeId) {
-    return nodeId;
-  }
-
-  const elementIdAttr = node.getAttr("elementId");
-  if (typeof elementIdAttr === "string" && elementIdAttr.length > 0) {
-    return elementIdAttr;
-  }
-
-  const ancestorWithElementId = node.findAncestor((ancestor) => {
-    const attr = ancestor.getAttr("elementId");
-    return typeof attr === "string" && attr.length > 0;
-  }, true);
-
-  if (ancestorWithElementId) {
-    const attr = ancestorWithElementId.getAttr("elementId");
-    if (typeof attr === "string" && attr.length > 0) {
-      return attr;
-    }
-  }
-
-  const ancestorWithId = node.findAncestor((ancestor) => Boolean(ancestor.id()), true);
-  return ancestorWithId?.id() ?? null;
-};
-
-const RESIZABLE_ELEMENT_TYPES = new Set<CanvasElement["type"]>([
-  "rectangle",
-  "diamond",
-  "ellipse",
-  "image",
-  "file",
-  "text",
-  "arrow",
-  "line",
-  "pen",
-]);
-
 type EditingTextState = {
   id: string;
   x: number;
@@ -253,193 +105,6 @@ type EditingTextState = {
   fontSize: number;
   fontFamily: string;
   alignment: TextAlignment;
-};
-
-const TEXT_MIN_WIDTH = 160;
-const TEXT_MAX_WIDTH = 460;
-const TEXT_BASE_PADDING = 24;
-
-const FONT_FALLBACKS: Record<string, string> = {
-  Inter: "Inter, sans-serif",
-  "DM Sans": '"DM Sans", sans-serif',
-  "Roboto Mono": '"Roboto Mono", monospace',
-};
-
-const getFontFamilyCss = (fontFamily?: string) => {
-  if (!fontFamily) return FONT_FALLBACKS.Inter;
-  return FONT_FALLBACKS[fontFamily] ?? fontFamily;
-};
-
-const getLineHeight = (fontSize: number) => Math.round(fontSize * 1.4);
-
-const estimateTextBoxWidth = (text: string, fontSize: number) => {
-  const lines = (text ?? "").split(/\r?\n/);
-  const longestLineLength = lines.reduce((max, line) => Math.max(max, line.length), 0);
-  const approxCharWidth = fontSize * 0.6;
-  const widthFromContent = Math.max(TEXT_MIN_WIDTH, longestLineLength * approxCharWidth + TEXT_BASE_PADDING);
-  return Math.min(TEXT_MAX_WIDTH, widthFromContent || TEXT_MIN_WIDTH);
-};
-
-const estimateTextBoxHeight = (text: string, fontSize: number) => {
-  const lineCount = Math.max(1, (text ?? "").split(/\r?\n/).length);
-  const lineHeight = getLineHeight(fontSize);
-  return Math.max(lineCount * lineHeight + TEXT_BASE_PADDING / 2, lineHeight + TEXT_BASE_PADDING / 2);
-};
-
-const getArrowRenderConfig = (points: number[] | undefined, style: ArrowStyle | undefined) => {
-  if (!points || points.length < 4) {
-    return { points: points ?? [], bezier: false };
-  }
-
-  if (style !== "curve") {
-    return { points, bezier: false };
-  }
-
-  const [startX, startY, endX, endY] = points;
-  const dx = endX - startX;
-  const dy = endY - startY;
-  const length = Math.sqrt(dx * dx + dy * dy) || 1;
-  const normalX = -dy / length;
-  const normalY = dx / length;
-  const midX = (startX + endX) / 2;
-  const midY = (startY + endY) / 2;
-  const offset = Math.min(120, length * 0.3);
-  const controlX = midX + normalX * offset;
-  const controlY = midY + normalY * offset;
-
-  return {
-    bezier: true,
-    points: [startX, startY, controlX, controlY, controlX, controlY, endX, endY],
-  };
-};
-
-const ImageElement = ({
-  element,
-  highlight,
-  interaction,
-}: {
-  element: CanvasElement;
-  highlight?: HighlightProps;
-  interaction?: Record<string, any>;
-}) => {
-  const [image, setImage] = useState<HTMLImageElement | null>(null);
-
-  useEffect(() => {
-    if (!element.fileUrl) return;
-
-    const img = new window.Image();
-    img.src = element.fileUrl;
-    img.onload = () => setImage(img);
-
-    return () => {
-      img.onload = null;
-    };
-  }, [element.fileUrl]);
-
-  return image ? (
-    <KonvaImage
-      id={element.id}
-      image={image}
-      x={element.x}
-      y={element.y}
-      width={element.width}
-      height={element.height}
-      opacity={element.opacity}
-      rotation={element.rotation}
-      {...highlight}
-      {...interaction}
-    />
-  ) : null;
-};
-
-const FileElement = ({
-  element,
-  highlight,
-  interaction,
-}: {
-  element: CanvasElement;
-  highlight?: HighlightProps;
-  interaction?: Record<string, any>;
-}) => {
-  const [thumbnail, setThumbnail] = useState<HTMLImageElement | null>(null);
-
-  useEffect(() => {
-    if (!element.thumbnailUrl) {
-      setThumbnail(null);
-      return;
-    }
-
-    const img = new window.Image();
-    img.src = element.thumbnailUrl;
-    img.onload = () => setThumbnail(img);
-
-    return () => {
-      img.onload = null;
-    };
-  }, [element.thumbnailUrl]);
-
-  const width = element.width ?? 200;
-  const height = element.height ?? 240;
-  const padding = 12;
-  const previewHeight = Math.max(0, height - padding * 2 - 32);
-
-  return (
-    <Group
-      id={element.id}
-      x={element.x}
-      y={element.y}
-      width={width}
-      height={height}
-      {...highlight}
-      {...interaction}
-    >
-      <Rect
-        x={0}
-        y={0}
-        width={width}
-        height={height}
-        stroke={element.strokeColor}
-        strokeWidth={element.strokeWidth}
-        fill="white"
-        opacity={element.opacity}
-        cornerRadius={8}
-        listening={false}
-      />
-      {thumbnail ? (
-        <KonvaImage
-          image={thumbnail}
-          x={padding}
-          y={padding}
-          width={Math.max(0, width - padding * 2)}
-          height={previewHeight}
-          listening={false}
-        />
-      ) : (
-        <KonvaText
-          x={padding}
-          y={padding}
-          width={Math.max(0, width - padding * 2)}
-          height={previewHeight}
-          text={(element.fileType ?? "FILE").slice(0, 8).toUpperCase()}
-          fontSize={24}
-          align="center"
-          fill="#64748b"
-          listening={false}
-        />
-      )}
-      <KonvaText
-        x={padding}
-        y={height - 24 - padding / 2}
-        width={Math.max(0, width - padding * 2)}
-        height={24}
-        text={element.fileName ?? element.fileType ?? "Document"}
-        fontSize={14}
-        fill="#1f2937"
-        ellipsis
-        listening={false}
-      />
-    </Group>
-  );
 };
 
 export const WhiteboardCanvas = () => {
@@ -466,9 +131,16 @@ export const WhiteboardCanvas = () => {
   }));
   const [editingText, setEditingText] = useState<EditingTextState | null>(null);
   const [isMiniMapInteracting, setIsMiniMapInteracting] = useState(false);
-  const [miniMapContainer, setMiniMapContainer] = useState<HTMLElement | null>(null);
-  const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(null);
-  const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
+  const [miniMapContainer, setMiniMapContainer] = useState<HTMLElement | null>(
+    null
+  );
+  const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(
+    null
+  );
+  const [contextMenuPosition, setContextMenuPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const { handleDrop, handleDragOver, addFilesToCanvas } = useDragDrop();
   const { toast } = useToast();
 
@@ -539,12 +211,16 @@ export const WhiteboardCanvas = () => {
   const panX = pan.x;
   const panY = pan.y;
   const safeZoom = zoom || 1;
-  const clipboard = typeof navigator === "undefined" ? null : navigator.clipboard;
+  const clipboard =
+    typeof navigator === "undefined" ? null : navigator.clipboard;
   const clipboardReadSupported =
     !!clipboard &&
-    (typeof clipboard.read === "function" || typeof clipboard.readText === "function");
+    (typeof clipboard.read === "function" ||
+      typeof clipboard.readText === "function");
   const clipboardWriteSupported =
-    !!clipboard && typeof clipboard.write === "function" && typeof ClipboardItem !== "undefined";
+    !!clipboard &&
+    typeof clipboard.write === "function" &&
+    typeof ClipboardItem !== "undefined";
 
   useEffect(() => {
     if (activeTool !== "select") {
@@ -607,7 +283,7 @@ export const WhiteboardCanvas = () => {
       const canvasY = (localY - panY) / safeZoom;
       setContextMenuPosition({ x: canvasX, y: canvasY });
     },
-    [panX, panY, safeZoom],
+    [panX, panY, safeZoom]
   );
 
   const getPastePosition = useCallback(() => {
@@ -667,7 +343,7 @@ export const WhiteboardCanvas = () => {
       textAlign,
       textFontFamily,
       textFontSize,
-    ],
+    ]
   );
 
   const handlePasteAction = useCallback(async () => {
@@ -763,7 +439,12 @@ export const WhiteboardCanvas = () => {
             : "Unable to paste clipboard content.",
       });
     }
-  }, [addFilesToCanvas, createTextElementFromClipboard, getPastePosition, toast]);
+  }, [
+    addFilesToCanvas,
+    createTextElementFromClipboard,
+    getPastePosition,
+    toast,
+  ]);
 
   const handleCopyAsPng = useCallback(async () => {
     const stage = stageRef.current;
@@ -798,7 +479,9 @@ export const WhiteboardCanvas = () => {
       const dataUrl = stage.toDataURL({ pixelRatio: 2 });
       const response = await fetch(dataUrl);
       const blob = await response.blob();
-      const clipboardItem = new ClipboardItem({ [blob.type || "image/png"]: blob });
+      const clipboardItem = new ClipboardItem({
+        [blob.type || "image/png"]: blob,
+      });
       await navigator.clipboard.write([clipboardItem]);
       toast({
         title: "Copied canvas",
@@ -892,7 +575,9 @@ export const WhiteboardCanvas = () => {
         return;
       }
 
-      const elementExists = elements.some((element) => element.id === elementId);
+      const elementExists = elements.some(
+        (element) => element.id === elementId
+      );
       if (!elementExists) {
         lastErasedIdRef.current = null;
         return;
@@ -905,7 +590,7 @@ export const WhiteboardCanvas = () => {
         setSelectedIds(selectedIds.filter((id) => id !== elementId));
       }
     },
-    [deleteElement, elements, selectedIds, setSelectedIds],
+    [deleteElement, elements, selectedIds, setSelectedIds]
   );
 
   const eraseElementAtPointer = useCallback(() => {
@@ -929,7 +614,10 @@ export const WhiteboardCanvas = () => {
       const fontSize = element.fontSize ?? textFontSize;
       const fontFamily = element.fontFamily ?? textFontFamily;
       const alignment = element.textAlign ?? textAlign;
-      const width = options?.width ?? element.width ?? estimateTextBoxWidth(value || initialValue, fontSize);
+      const width =
+        options?.width ??
+        element.width ??
+        estimateTextBoxWidth(value || initialValue, fontSize);
       const editingState: EditingTextState = {
         id: element.id,
         x: element.x,
@@ -944,7 +632,7 @@ export const WhiteboardCanvas = () => {
       setSelectedIds([element.id]);
       setEditingText(editingState);
     },
-    [setSelectedIds, textAlign, textFontFamily, textFontSize],
+    [setSelectedIds, textAlign, textFontFamily, textFontSize]
   );
 
   const finishEditingText = useCallback(
@@ -984,7 +672,7 @@ export const WhiteboardCanvas = () => {
         width: current.width,
       });
     },
-    [deleteElement, updateElement],
+    [deleteElement, updateElement]
   );
 
   const cancelIfEditing = useCallback(() => {
@@ -1011,11 +699,13 @@ export const WhiteboardCanvas = () => {
         }
       }
     },
-    [beginTextEditing, elements],
+    [beginTextEditing, elements]
   );
 
   const getMiniMapCoordinates = useCallback(
-    (event: ReactMouseEvent<SVGSVGElement> | ReactTouchEvent<SVGSVGElement>) => {
+    (
+      event: ReactMouseEvent<SVGSVGElement> | ReactTouchEvent<SVGSVGElement>
+    ) => {
       const rect = event.currentTarget.getBoundingClientRect();
       if ("touches" in event) {
         const touch = event.touches[0];
@@ -1030,7 +720,7 @@ export const WhiteboardCanvas = () => {
         y: event.clientY - rect.top,
       };
     },
-    [],
+    []
   );
 
   useEffect(() => {
@@ -1111,7 +801,12 @@ export const WhiteboardCanvas = () => {
       maxY = Math.max(maxY, bounds.maxY);
     });
 
-    if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+    if (
+      !Number.isFinite(minX) ||
+      !Number.isFinite(minY) ||
+      !Number.isFinite(maxX) ||
+      !Number.isFinite(maxY)
+    ) {
       minX = viewportMinX;
       minY = viewportMinY;
       maxX = viewportMinX + viewportWidth;
@@ -1169,36 +864,50 @@ export const WhiteboardCanvas = () => {
         y: Number.isFinite(nextPanY) ? nextPanY : panY,
       });
     },
-    [miniMapData, panX, panY, safeZoom, setPan, stageSize.height, stageSize.width],
+    [
+      miniMapData,
+      panX,
+      panY,
+      safeZoom,
+      setPan,
+      stageSize.height,
+      stageSize.width,
+    ]
   );
 
   const updatePanFromMiniMap = useCallback(
-    (event: ReactMouseEvent<SVGSVGElement> | ReactTouchEvent<SVGSVGElement>) => {
+    (
+      event: ReactMouseEvent<SVGSVGElement> | ReactTouchEvent<SVGSVGElement>
+    ) => {
       const coords = getMiniMapCoordinates(event);
       if (!coords) return;
       panToMiniMapPoint(coords.x, coords.y);
     },
-    [getMiniMapCoordinates, panToMiniMapPoint],
+    [getMiniMapCoordinates, panToMiniMapPoint]
   );
 
   const handleMiniMapPointerDown = useCallback(
-    (event: ReactMouseEvent<SVGSVGElement> | ReactTouchEvent<SVGSVGElement>) => {
+    (
+      event: ReactMouseEvent<SVGSVGElement> | ReactTouchEvent<SVGSVGElement>
+    ) => {
       event.preventDefault();
       event.stopPropagation();
       miniMapDragRef.current = true;
       setIsMiniMapInteracting(true);
       updatePanFromMiniMap(event);
     },
-    [updatePanFromMiniMap],
+    [updatePanFromMiniMap]
   );
 
   const handleMiniMapPointerMove = useCallback(
-    (event: ReactMouseEvent<SVGSVGElement> | ReactTouchEvent<SVGSVGElement>) => {
+    (
+      event: ReactMouseEvent<SVGSVGElement> | ReactTouchEvent<SVGSVGElement>
+    ) => {
       if (!miniMapDragRef.current) return;
       event.preventDefault();
       updatePanFromMiniMap(event);
     },
-    [updatePanFromMiniMap],
+    [updatePanFromMiniMap]
   );
 
   const endMiniMapInteraction = useCallback(() => {
@@ -1399,113 +1108,130 @@ export const WhiteboardCanvas = () => {
       } as CSSProperties,
     };
   }, [canvasBackground, panX, panY, safeZoom]);
-  const { className: backgroundClassName, style: backgroundStyle } = backgroundConfig;
+  const { className: backgroundClassName, style: backgroundStyle } =
+    backgroundConfig;
   const handleCanvasBackgroundChange = useCallback(
     (value: CanvasBackground) => {
       setCanvasBackground(value);
     },
-    [setCanvasBackground],
+    [setCanvasBackground]
   );
   const isPanMode = activeTool === "pan" || isMiddleMousePanning;
 
-  const stageCursorClass =
-    isPanMode
-      ? isPanning
-        ? "cursor-grabbing"
-        : "cursor-grab"
-      : activeTool === "select"
-        ? "cursor-default"
-        : "cursor-crosshair";
+  const stageCursorClass = isPanMode
+    ? isPanning
+      ? "cursor-grabbing"
+      : "cursor-grab"
+    : activeTool === "select"
+    ? "cursor-default"
+    : "cursor-crosshair";
 
-  const miniMapContent = MINIMAP_ENABLED && miniMapData ? (
-    <div
-      className={cn(
-        "pointer-events-auto w-full rounded-xl border border-slate-200/80 bg-white/80 p-3 backdrop-blur transition-shadow",
-        isMiniMapInteracting ? "shadow-xl ring-1 ring-sky-200/70" : "shadow-lg",
-      )}
-    >
-      <svg
-        width={miniMapData.mapWidth}
-        height={miniMapData.mapHeight}
+  const miniMapContent =
+    MINIMAP_ENABLED && miniMapData ? (
+      <div
         className={cn(
-          "block h-auto w-full max-h-[200px] select-none sm:max-h-[240px]",
-          isMiniMapInteracting ? "cursor-grabbing" : "cursor-pointer",
+          "pointer-events-auto w-full rounded-xl border border-slate-200/80 bg-white/80 p-3 backdrop-blur transition-shadow",
+          isMiniMapInteracting
+            ? "shadow-xl ring-1 ring-sky-200/70"
+            : "shadow-lg"
         )}
-        viewBox={`0 0 ${miniMapData.mapWidth} ${miniMapData.mapHeight}`}
-        aria-hidden="true"
-        onMouseDown={handleMiniMapPointerDown}
-        onMouseMove={handleMiniMapPointerMove}
-        onMouseUp={(event) => {
-          event.preventDefault();
-          endMiniMapInteraction();
-        }}
-        onMouseLeave={endMiniMapInteraction}
-        onTouchStart={handleMiniMapPointerDown}
-        onTouchMove={handleMiniMapPointerMove}
-        onTouchEnd={(event) => {
-          event.preventDefault();
-          endMiniMapInteraction();
-        }}
-        onTouchCancel={endMiniMapInteraction}
       >
-        <rect
-          x={0}
-          y={0}
+        <svg
           width={miniMapData.mapWidth}
           height={miniMapData.mapHeight}
-          fill="#f8fafc"
-          stroke="rgba(148, 163, 184, 0.45)"
-          strokeWidth={1}
-          rx={12}
-          ry={12}
-        />
-        {elements.map((element) => {
-          const bounds = getElementBounds(element);
-          const x = (bounds.minX - miniMapData.offsetX) * miniMapData.scale;
-          const y = (bounds.minY - miniMapData.offsetY) * miniMapData.scale;
-          const width = Math.max(2, (bounds.maxX - bounds.minX) * miniMapData.scale);
-          const height = Math.max(2, (bounds.maxY - bounds.minY) * miniMapData.scale);
+          className={cn(
+            "block h-auto w-full max-h-[200px] select-none sm:max-h-[240px]",
+            isMiniMapInteracting ? "cursor-grabbing" : "cursor-pointer"
+          )}
+          viewBox={`0 0 ${miniMapData.mapWidth} ${miniMapData.mapHeight}`}
+          aria-hidden="true"
+          onMouseDown={handleMiniMapPointerDown}
+          onMouseMove={handleMiniMapPointerMove}
+          onMouseUp={(event) => {
+            event.preventDefault();
+            endMiniMapInteraction();
+          }}
+          onMouseLeave={endMiniMapInteraction}
+          onTouchStart={handleMiniMapPointerDown}
+          onTouchMove={handleMiniMapPointerMove}
+          onTouchEnd={(event) => {
+            event.preventDefault();
+            endMiniMapInteraction();
+          }}
+          onTouchCancel={endMiniMapInteraction}
+        >
+          <rect
+            x={0}
+            y={0}
+            width={miniMapData.mapWidth}
+            height={miniMapData.mapHeight}
+            fill="#f8fafc"
+            stroke="rgba(148, 163, 184, 0.45)"
+            strokeWidth={1}
+            rx={12}
+            ry={12}
+          />
+          {elements.map((element) => {
+            const bounds = getElementBounds(element);
+            const x = (bounds.minX - miniMapData.offsetX) * miniMapData.scale;
+            const y = (bounds.minY - miniMapData.offsetY) * miniMapData.scale;
+            const width = Math.max(
+              2,
+              (bounds.maxX - bounds.minX) * miniMapData.scale
+            );
+            const height = Math.max(
+              2,
+              (bounds.maxY - bounds.minY) * miniMapData.scale
+            );
 
-          return (
-            <rect
-              key={`mini-${element.id}`}
-              x={x}
-              y={y}
-              width={width}
-              height={height}
-              fill="rgba(148, 163, 184, 0.35)"
-              stroke="rgba(148, 163, 184, 0.55)"
-              strokeWidth={1}
-              rx={width < 6 ? 1.5 : 3}
-              ry={height < 6 ? 1.5 : 3}
-            />
-          );
-        })}
-        {(() => {
-          const viewportX =
-            (miniMapData.viewport.minX - miniMapData.offsetX) * miniMapData.scale;
-          const viewportY =
-            (miniMapData.viewport.minY - miniMapData.offsetY) * miniMapData.scale;
-          const viewportWidth = Math.max(4, miniMapData.viewport.width * miniMapData.scale);
-          const viewportHeight = Math.max(4, miniMapData.viewport.height * miniMapData.scale);
+            return (
+              <rect
+                key={`mini-${element.id}`}
+                x={x}
+                y={y}
+                width={width}
+                height={height}
+                fill="rgba(148, 163, 184, 0.35)"
+                stroke="rgba(148, 163, 184, 0.55)"
+                strokeWidth={1}
+                rx={width < 6 ? 1.5 : 3}
+                ry={height < 6 ? 1.5 : 3}
+              />
+            );
+          })}
+          {(() => {
+            const viewportX =
+              (miniMapData.viewport.minX - miniMapData.offsetX) *
+              miniMapData.scale;
+            const viewportY =
+              (miniMapData.viewport.minY - miniMapData.offsetY) *
+              miniMapData.scale;
+            const viewportWidth = Math.max(
+              4,
+              miniMapData.viewport.width * miniMapData.scale
+            );
+            const viewportHeight = Math.max(
+              4,
+              miniMapData.viewport.height * miniMapData.scale
+            );
 
-          return (
-            <rect
-              x={viewportX}
-              y={viewportY}
-              width={viewportWidth}
-              height={viewportHeight}
-              fill="rgba(14, 165, 233, 0.1)"
-              stroke="#0284c7"
-              strokeWidth={1.5}
-              rx={6}
-              ry={6}
-            />
-          );
-        })()}
-      </svg>
-    </div>
-  ) : null;
+            return (
+              <rect
+                x={viewportX}
+                y={viewportY}
+                width={viewportWidth}
+                height={viewportHeight}
+                fill="rgba(14, 165, 233, 0.1)"
+                stroke="#0284c7"
+                strokeWidth={1.5}
+                rx={6}
+                ry={6}
+              />
+            );
+          })()}
+        </svg>
+      </div>
+    ) : null;
 
   const handleMouseDown = (e: KonvaEventObject<MouseEvent>) => {
     const stage = stageRef.current;
@@ -1564,7 +1290,8 @@ export const WhiteboardCanvas = () => {
         return;
       }
 
-      const isTransformerHandle = target.getParent()?.className === "Transformer";
+      const isTransformerHandle =
+        target.getParent()?.className === "Transformer";
       if (isTransformerHandle) {
         return;
       }
@@ -1642,7 +1369,9 @@ export const WhiteboardCanvas = () => {
         textAlign,
       };
       addElement(newText);
-      beginTextEditing(newText, { width: estimateTextBoxWidth("", textFontSize) });
+      beginTextEditing(newText, {
+        width: estimateTextBoxWidth("", textFontSize),
+      });
       return;
     }
 
@@ -1795,7 +1524,11 @@ export const WhiteboardCanvas = () => {
       setCurrentShape(updatedShape);
       currentShapeRef.current = updatedShape;
     } else if (currentShape.type === "pen") {
-      const newPoints = [...currentShape.points, x - currentShape.x, y - currentShape.y];
+      const newPoints = [
+        ...currentShape.points,
+        x - currentShape.x,
+        y - currentShape.y,
+      ];
       const updatedShape = {
         ...currentShape,
         points: newPoints,
@@ -1846,13 +1579,21 @@ export const WhiteboardCanvas = () => {
         return;
       }
 
-      const bounds = normalizeRectBounds(rect.x, rect.y, rect.width, rect.height);
+      const bounds = normalizeRectBounds(
+        rect.x,
+        rect.y,
+        rect.width,
+        rect.height
+      );
       const selectedWithinBounds = elements
         .filter((element) => isElementWithinSelection(element, bounds))
         .map((element) => element.id);
 
       if (marqueeState.additive) {
-        const combined = new Set([...marqueeState.initialSelection, ...selectedWithinBounds]);
+        const combined = new Set([
+          ...marqueeState.initialSelection,
+          ...selectedWithinBounds,
+        ]);
         setSelectedIds(Array.from(combined));
       } else {
         setSelectedIds(selectedWithinBounds);
@@ -1889,10 +1630,16 @@ export const WhiteboardCanvas = () => {
   }, [finalizeDrawing]);
 
   const applySelectionDrag = useCallback(
-    (deltaX: number, deltaY: number, dragState: SelectionDragState, stage: Konva.Stage | null) => {
+    (
+      deltaX: number,
+      deltaY: number,
+      dragState: SelectionDragState,
+      stage: Konva.Stage | null
+    ) => {
       dragState.affectedIds.forEach((id) => {
         const baseNode = dragState.startNodes[id];
-        const baseElement = dragState.elements[id] ?? elements.find((item) => item.id === id);
+        const baseElement =
+          dragState.elements[id] ?? elements.find((item) => item.id === id);
         if (!baseNode || !baseElement) {
           return;
         }
@@ -1903,9 +1650,13 @@ export const WhiteboardCanvas = () => {
         if (baseElement.type === "ellipse") {
           const referenceNode = stage?.findOne(`#${id}`) as Konva.Shape | null;
           const nodeWidth =
-            typeof referenceNode?.width === "function" ? referenceNode.width() : baseElement.width ?? 0;
+            typeof referenceNode?.width === "function"
+              ? referenceNode.width()
+              : baseElement.width ?? 0;
           const nodeHeight =
-            typeof referenceNode?.height === "function" ? referenceNode.height() : baseElement.height ?? 0;
+            typeof referenceNode?.height === "function"
+              ? referenceNode.height()
+              : baseElement.height ?? 0;
           const width = Math.max(1, baseElement.width ?? nodeWidth);
           const height = Math.max(1, baseElement.height ?? nodeHeight);
           updateElement(id, {
@@ -1917,7 +1668,7 @@ export const WhiteboardCanvas = () => {
         }
       });
     },
-    [elements, updateElement],
+    [elements, updateElement]
   );
 
   const handleElementDragStart = useCallback(
@@ -1932,7 +1683,9 @@ export const WhiteboardCanvas = () => {
       }
 
       const node = event.target;
-      const affectedIds = selectedIds.includes(element.id) ? selectedIds : [element.id];
+      const affectedIds = selectedIds.includes(element.id)
+        ? selectedIds
+        : [element.id];
       const startNodes: Record<string, { x: number; y: number }> = {
         [element.id]: { x: node.x(), y: node.y() },
       };
@@ -1958,7 +1711,7 @@ export const WhiteboardCanvas = () => {
         referenceId: element.id,
       };
     },
-    [activeTool, elements, selectedIds],
+    [activeTool, elements, selectedIds]
   );
 
   const handleElementDragMove = useCallback(
@@ -1970,7 +1723,11 @@ export const WhiteboardCanvas = () => {
       const node = event.target;
       const dragState = selectionDragStateRef.current;
 
-      if (!dragState || !dragState.referenceId || !dragState.startNodes[dragState.referenceId]) {
+      if (
+        !dragState ||
+        !dragState.referenceId ||
+        !dragState.startNodes[dragState.referenceId]
+      ) {
         const fallbackX = node.x();
         const fallbackY = node.y();
         if (element.type === "ellipse") {
@@ -1994,7 +1751,9 @@ export const WhiteboardCanvas = () => {
       }
 
       const referenceNode =
-        referenceId === node.id() ? node : (stage?.findOne(`#${referenceId}`) as Konva.Node | null);
+        referenceId === node.id()
+          ? node
+          : (stage?.findOne(`#${referenceId}`) as Konva.Node | null);
       if (!referenceNode) {
         return;
       }
@@ -2004,7 +1763,7 @@ export const WhiteboardCanvas = () => {
 
       applySelectionDrag(deltaX, deltaY, dragState, stage ?? null);
     },
-    [activeTool, applySelectionDrag, updateElement],
+    [activeTool, applySelectionDrag, updateElement]
   );
 
   const handleElementDragEnd = useCallback(
@@ -2017,7 +1776,7 @@ export const WhiteboardCanvas = () => {
       selectionDragStateRef.current = null;
       pushHistory();
     },
-    [activeTool, handleElementDragMove, pushHistory],
+    [activeTool, handleElementDragMove, pushHistory]
   );
 
   const handleSelectionGroupDragStart = useCallback(
@@ -2055,7 +1814,7 @@ export const WhiteboardCanvas = () => {
         referenceId: SELECTION_GROUP_ID,
       };
     },
-    [activeTool, elements, selectedIds],
+    [activeTool, elements, selectedIds]
   );
 
   const handleSelectionGroupDragMove = useCallback(
@@ -2081,7 +1840,7 @@ export const WhiteboardCanvas = () => {
 
       applySelectionDrag(deltaX, deltaY, dragState, stage);
     },
-    [activeTool, applySelectionDrag],
+    [activeTool, applySelectionDrag]
   );
 
   const handleSelectionGroupDragEnd = useCallback(
@@ -2094,7 +1853,7 @@ export const WhiteboardCanvas = () => {
       selectionDragStateRef.current = null;
       pushHistory();
     },
-    [activeTool, handleSelectionGroupDragMove, pushHistory],
+    [activeTool, handleSelectionGroupDragMove, pushHistory]
   );
 
   const handleElementTransformEnd = useCallback(
@@ -2159,7 +1918,7 @@ export const WhiteboardCanvas = () => {
       updateElement(element.id, updates);
       pushHistory();
     },
-    [activeTool, pushHistory, updateElement],
+    [activeTool, pushHistory, updateElement]
   );
 
   const handleWheel = (e: KonvaEventObject<WheelEvent>) => {
@@ -2182,8 +1941,12 @@ export const WhiteboardCanvas = () => {
       y: (pointer.y - panY) / currentScale,
     };
 
-    const rawScale = e.evt.deltaY > 0 ? currentScale * 0.95 : currentScale * 1.05;
-    const nextScale = Math.max(0.1, Math.min(5, Number.isFinite(rawScale) ? rawScale : 1));
+    const rawScale =
+      e.evt.deltaY > 0 ? currentScale * 0.95 : currentScale * 1.05;
+    const nextScale = Math.max(
+      0.1,
+      Math.min(5, Number.isFinite(rawScale) ? rawScale : 1)
+    );
     if (!Number.isFinite(nextScale)) {
       return;
     }
@@ -2197,21 +1960,12 @@ export const WhiteboardCanvas = () => {
     });
   };
 
-  const getStrokeDash = (style: string) => {
-    switch (style) {
-      case "dashed":
-        return [10, 5];
-      case "dotted":
-        return [2, 5];
-      default:
-        return [];
-    }
-  };
-
   const editorHeight = editingText
     ? estimateTextBoxHeight(editingText.value, editingText.fontSize)
     : 0;
-  const editorLineHeight = editingText ? getLineHeight(editingText.fontSize) : 0;
+  const editorLineHeight = editingText
+    ? getLineHeight(editingText.fontSize)
+    : 0;
   const editorStyle = editingText
     ? {
         left: panX + editingText.x * safeZoom,
@@ -2260,7 +2014,7 @@ export const WhiteboardCanvas = () => {
       handleElementDragStart,
       handleElementTransformEnd,
       selectedIds,
-    ],
+    ]
   );
 
   return (
@@ -2274,861 +2028,410 @@ export const WhiteboardCanvas = () => {
           onDragOver={handleDragOver}
           onContextMenu={recordContextMenuPosition}
         >
-      {editingText && editorStyle && (
-        <textarea
-          ref={textEditorRef}
-          className="pointer-events-auto absolute z-40 resize-none border-2 border-sky-400 bg-white/95 text-slate-800 shadow-lg outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200/80"
-          style={{
-            ...editorStyle,
-            lineHeight: `${editorLineHeight * safeZoom}px`,
-          }}
-          value={editingText.value}
-          onChange={(event) => {
-            const { value } = event.target;
-            setEditingText((current) => {
-              if (!current) return current;
-              return {
-                ...current,
-                value,
-                width: estimateTextBoxWidth(value, current.fontSize),
-              };
-            });
-          }}
-          onBlur={() => finishEditingText({ skipNextPointer: true })}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.preventDefault();
-              finishEditingText({ cancel: true });
-            }
-            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-              event.preventDefault();
-              finishEditingText();
-            }
-          }}
-          spellCheck
-          placeholder="Type something"
-        />
-      )}
-      <Stage
-        ref={stageRef}
-        width={Math.max(stageSize.width, 1)}
-        height={Math.max(stageSize.height, 1)}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onDblClick={handleStageDoublePointer}
-        onDblTap={handleStageDoublePointer}
-        onWheel={handleWheel}
-        draggable={isPanMode}
-        scaleX={safeZoom}
-        scaleY={safeZoom}
-        x={panX}
-        y={panY}
-        className={cn("h-full w-full", stageCursorClass)}
-        onDragStart={() => setIsPanning(true)}
-        onDragMove={syncPanFromStage}
-        onDragEnd={(event) => {
-          setIsPanning(false);
-          setIsMiddleMousePanning(false);
-          syncPanFromStage(event);
-        }}
-        onMouseLeave={() => {
-          if (isErasing) {
-            setIsErasing(false);
-          }
-          lastErasedIdRef.current = null;
-        }}
-      >
-        <Layer>
-          {/* Render all elements */}
-          {visibleElements.map((element) => {
-            const isSelected = selectedIds.includes(element.id);
-            const focusHighlight =
-              focusedElementId === element.id
-                ? {
-                    shadowColor: "#38bdf8",
-                    shadowBlur: 24,
-                    shadowOpacity: 0.85,
-                    shadowOffsetX: 0,
-                    shadowOffsetY: 0,
-                  }
-                : {};
-            const selectionHighlight = isSelected
-              ? {
-                  shadowColor: "#0ea5e9",
-                  shadowBlur: Math.max(18, 12 / safeZoom),
-                  shadowOpacity: 0.75,
-                  shadowOffsetX: 0,
-                  shadowOffsetY: 0,
+          {editingText && editorStyle && (
+            <textarea
+              ref={textEditorRef}
+              className="pointer-events-auto absolute z-40 resize-none border-2 border-sky-400 bg-white/95 text-slate-800 shadow-lg outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200/80"
+              style={{
+                ...editorStyle,
+                lineHeight: `${editorLineHeight * safeZoom}px`,
+              }}
+              value={editingText.value}
+              onChange={(event) => {
+                const { value } = event.target;
+                setEditingText((current) => {
+                  if (!current) return current;
+                  return {
+                    ...current,
+                    value,
+                    width: estimateTextBoxWidth(value, current.fontSize),
+                  };
+                });
+              }}
+              onBlur={() => finishEditingText({ skipNextPointer: true })}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  finishEditingText({ cancel: true });
                 }
-              : {};
-            const highlightProps = { ...focusHighlight, ...selectionHighlight };
-            const interactionProps = getInteractionProps(element);
-            const isEditingElement = editingText?.id === element.id;
-            if (element.type === "rectangle") {
-              const rectOutlinePoints = getRectangleOutlinePoints(
-                element.width ?? 0,
-                element.height ?? 0,
-                element.cornerRadius ?? 0,
-              );
-              const rectSloppyLayers = createSloppyStrokeLayers(rectOutlinePoints, {
-                sloppiness: element.sloppiness,
-                strokeWidth: element.strokeWidth,
-                seed: `${element.id}:rect`,
-                closed: true,
-              });
-              return (
-                <>
-                  <Rect
-                    key={element.id}
-                    id={element.id}
-                    x={element.x}
-                    y={element.y}
-                    width={element.width}
-                    height={element.height}
-                    stroke={element.strokeColor}
-                    strokeWidth={element.strokeWidth}
-                    dash={getStrokeDash(element.strokeStyle)}
-                    fill={element.fillColor}
-                    opacity={element.opacity}
-                    rotation={element.rotation}
-                    cornerRadius={element.cornerRadius ?? 0}
-                    strokeEnabled={element.sloppiness === "smooth"}
-                    hitStrokeWidth={Math.max(12, element.strokeWidth)}
-                    {...highlightProps}
-                    {...interactionProps}
-                  />
-                  {rectSloppyLayers.map((layer, index) => (
-                    <Line
-                      key={`${element.id}-sloppy-rect-${index}`}
-                      x={element.x}
-                      y={element.y}
-                      points={layer.points}
-                      stroke={element.strokeColor}
-                      strokeWidth={layer.strokeWidth}
-                      dash={getStrokeDash(element.strokeStyle)}
-                      opacity={element.opacity * layer.opacity}
-                      rotation={element.rotation}
-                      lineCap="round"
-                      lineJoin="round"
-                      closed
-                      listening={false}
-                      {...highlightProps}
-                    />
-                  ))}
-                </>
-              );
-            } else if (element.type === "diamond") {
-              const diamond = getDiamondShape(
-                element.x,
-                element.y,
-                element.width ?? 0,
-                element.height ?? 0,
-              );
-              const diamondSloppyLayers = createSloppyStrokeLayers(diamond.points, {
-                sloppiness: element.sloppiness,
-                strokeWidth: element.strokeWidth,
-                seed: `${element.id}:diamond`,
-                closed: true,
-              });
-              return (
-                <>
-                  <Line
-                    key={element.id}
-                    id={element.id}
-                    x={diamond.x}
-                    y={diamond.y}
-                    points={diamond.points}
-                    stroke={element.strokeColor}
-                    strokeWidth={element.strokeWidth}
-                    dash={getStrokeDash(element.strokeStyle)}
-                    fill={element.fillColor}
-                    opacity={element.opacity}
-                    rotation={element.rotation}
-                    closed
-                    lineJoin="round"
-                    strokeEnabled={element.sloppiness === "smooth"}
-                    hitStrokeWidth={Math.max(12, element.strokeWidth)}
-                    {...highlightProps}
-                    {...interactionProps}
-                  />
-                  {diamondSloppyLayers.map((layer, index) => (
-                    <Line
-                      key={`${element.id}-sloppy-diamond-${index}`}
-                      x={diamond.x}
-                      y={diamond.y}
-                      points={layer.points}
-                      stroke={element.strokeColor}
-                      strokeWidth={layer.strokeWidth}
-                      dash={getStrokeDash(element.strokeStyle)}
-                      opacity={element.opacity * layer.opacity}
-                      rotation={element.rotation}
-                      closed
-                      lineJoin="round"
-                      listening={false}
-                      {...highlightProps}
-                    />
-                  ))}
-                </>
-              );
-            } else if (element.type === "ellipse") {
-              const ellipseOutlinePoints = getEllipseOutlinePoints(
-                element.width ?? 0,
-                element.height ?? 0,
-              );
-              const ellipseSloppyLayers = createSloppyStrokeLayers(ellipseOutlinePoints, {
-                sloppiness: element.sloppiness,
-                strokeWidth: element.strokeWidth,
-                seed: `${element.id}:ellipse`,
-                closed: true,
-              });
-              const ellipseCenterX = element.x + (element.width ?? 0) / 2;
-              const ellipseCenterY = element.y + (element.height ?? 0) / 2;
-              return (
-                <>
-                  <Ellipse
-                    key={element.id}
-                    id={element.id}
-                    x={ellipseCenterX}
-                    y={ellipseCenterY}
-                    radiusX={Math.abs((element.width ?? 0) / 2)}
-                    radiusY={Math.abs((element.height ?? 0) / 2)}
-                    stroke={element.strokeColor}
-                    strokeWidth={element.strokeWidth}
-                    dash={getStrokeDash(element.strokeStyle)}
-                    fill={element.fillColor}
-                    opacity={element.opacity}
-                    rotation={element.rotation}
-                    strokeEnabled={element.sloppiness === "smooth"}
-                    hitStrokeWidth={Math.max(12, element.strokeWidth)}
-                    {...highlightProps}
-                    {...interactionProps}
-                  />
-                  {ellipseSloppyLayers.map((layer, index) => (
-                    <Line
-                      key={`${element.id}-sloppy-ellipse-${index}`}
-                      x={ellipseCenterX}
-                      y={ellipseCenterY}
-                      points={layer.points}
-                      stroke={element.strokeColor}
-                      strokeWidth={layer.strokeWidth}
-                      dash={getStrokeDash(element.strokeStyle)}
-                      opacity={element.opacity * layer.opacity}
-                      rotation={element.rotation}
-                      closed
-                      lineJoin="round"
-                      listening={false}
-                      {...highlightProps}
-                    />
-                  ))}
-                </>
-              );
-            } else if (element.type === "line") {
-              const lineSloppyLayers = createSloppyStrokeLayers(element.points, {
-                sloppiness: element.sloppiness,
-                strokeWidth: element.strokeWidth,
-                seed: `${element.id}:line`,
-              });
-              const interactionOpacity = element.sloppiness === "smooth" ? element.opacity : 0.001;
-              return (
-                <>
-                  <Line
-                    key={`${element.id}-interaction`}
-                    id={element.id}
-                    elementId={element.id}
-                    x={element.x}
-                    y={element.y}
-                    points={element.points}
-                    stroke={element.strokeColor}
-                    strokeWidth={element.strokeWidth}
-                    dash={getStrokeDash(element.strokeStyle)}
-                    opacity={interactionOpacity}
-                    lineCap="round"
-                    lineJoin="round"
-                    hitStrokeWidth={Math.max(12, element.strokeWidth)}
-                    {...interactionProps}
-                  />
-                  <Line
-                    key={`${element.id}-visible`}
-                    elementId={element.id}
-                    x={element.x}
-                    y={element.y}
-                    points={element.points}
-                    stroke={element.strokeColor}
-                    strokeWidth={element.strokeWidth}
-                    dash={getStrokeDash(element.strokeStyle)}
-                    opacity={element.opacity}
-                    lineCap="round"
-                    lineJoin="round"
-                    strokeEnabled={element.sloppiness === "smooth"}
-                    listening={false}
-                    {...highlightProps}
-                  />
-                  {lineSloppyLayers.map((layer, index) => (
-                    <Line
-                      key={`${element.id}-sloppy-line-${index}`}
-                      elementId={element.id}
-                      x={element.x}
-                      y={element.y}
-                      points={layer.points}
-                      stroke={element.strokeColor}
-                      strokeWidth={layer.strokeWidth}
-                      dash={getStrokeDash(element.strokeStyle)}
-                      opacity={element.opacity * layer.opacity}
-                      lineCap="round"
-                      lineJoin="round"
-                      listening={false}
-                      {...highlightProps}
-                    />
-                  ))}
-                </>
-              );
-            } else if (element.type === "arrow") {
-              const pointerAtBeginning = element.arrowType === "arrow-start" || element.arrowType === "arrow-both";
-              const pointerAtEnding = element.arrowType === "arrow-end" || element.arrowType === "arrow-both";
-              const { points: arrowPoints, bezier } = getArrowRenderConfig(element.points, element.arrowStyle);
-              const arrowOverlayPoints = bezier ? sampleCurvePoints(arrowPoints) : arrowPoints;
-              const arrowSloppyLayers = createSloppyStrokeLayers(arrowOverlayPoints, {
-                sloppiness: element.sloppiness,
-                strokeWidth: element.strokeWidth,
-                seed: `${element.id}:arrow`,
-              });
-              const [primaryArrowLayer, ...extraArrowLayers] = arrowSloppyLayers;
-              const interactionOpacity = element.sloppiness === "smooth" ? element.opacity : 0.001;
-              return (
-                <>
-                  <Arrow
-                    key={`${element.id}-interaction`}
-                    id={element.id}
-                    elementId={element.id}
-                    x={element.x}
-                    y={element.y}
-                    points={arrowPoints}
-                    stroke={element.strokeColor}
-                    strokeWidth={element.strokeWidth}
-                    dash={getStrokeDash(element.strokeStyle)}
-                    opacity={interactionOpacity}
-                    pointerLength={12}
-                    pointerWidth={12}
-                    pointerAtBeginning={pointerAtBeginning}
-                    pointerAtEnding={pointerAtEnding}
-                    bezier={bezier}
-                    tension={bezier ? 0.4 : 0}
-                    hitStrokeWidth={Math.max(12, element.strokeWidth)}
-                    {...interactionProps}
-                  />
-                  <Arrow
-                    key={element.id}
-                    elementId={element.id}
-                    x={element.x}
-                    y={element.y}
-                    points={arrowPoints}
-                    stroke={element.strokeColor}
-                    strokeWidth={element.strokeWidth}
-                    dash={getStrokeDash(element.strokeStyle)}
-                    opacity={element.opacity}
-                    pointerLength={12}
-                    pointerWidth={12}
-                    pointerAtBeginning={pointerAtBeginning}
-                    pointerAtEnding={pointerAtEnding}
-                    bezier={bezier}
-                    tension={bezier ? 0.4 : 0}
-                    strokeEnabled={element.sloppiness === "smooth"}
-                    listening={false}
-                    {...highlightProps}
-                  />
-                  {primaryArrowLayer && (
-                    <Arrow
-                      key={`${element.id}-sloppy-arrow-primary`}
-                      elementId={element.id}
-                      x={element.x}
-                      y={element.y}
-                      points={primaryArrowLayer.points}
-                      stroke={element.strokeColor}
-                      strokeWidth={primaryArrowLayer.strokeWidth}
-                      dash={getStrokeDash(element.strokeStyle)}
-                      opacity={element.opacity * primaryArrowLayer.opacity}
-                      pointerLength={12}
-                      pointerWidth={12}
-                      pointerAtBeginning={pointerAtBeginning}
-                      pointerAtEnding={pointerAtEnding}
-                      bezier={false}
-                      tension={0}
-                      listening={false}
-                      {...highlightProps}
-                    />
-                  )}
-                  {extraArrowLayers.map((layer, index) => (
-                    <Line
-                      key={`${element.id}-sloppy-arrow-extra-${index}`}
-                      elementId={element.id}
-                      x={element.x}
-                      y={element.y}
-                      points={layer.points}
-                      stroke={element.strokeColor}
-                      strokeWidth={layer.strokeWidth}
-                      dash={getStrokeDash(element.strokeStyle)}
-                      opacity={element.opacity * layer.opacity}
-                      lineCap="round"
-                      lineJoin="round"
-                      listening={false}
-                      {...highlightProps}
-                    />
-                  ))}
-                </>
-              );
-            } else if (element.type === "pen") {
-              const hasBackground = element.penBackground && element.penBackground !== "transparent";
-              const backgroundOpacity = element.opacity * 0.4 + 0.2;
-              const penSloppyLayers = createSloppyStrokeLayers(element.points, {
-                sloppiness: element.sloppiness,
-                strokeWidth: element.strokeWidth,
-                seed: `${element.id}:pen`,
-              });
-              const interactionOpacity = element.sloppiness === "smooth" ? element.opacity : 0.001;
-              return (
-                <>
-                  <Line
-                    key={`${element.id}-interaction`}
-                    id={element.id}
-                    elementId={element.id}
-                    x={element.x}
-                    y={element.y}
-                    points={element.points}
-                    stroke={element.strokeColor}
-                    strokeWidth={element.strokeWidth}
-                    opacity={interactionOpacity}
-                    lineCap="round"
-                    lineJoin="round"
-                    tension={
-                      element.sloppiness === "smooth"
-                        ? 0.75
-                        : element.sloppiness === "rough"
-                          ? 0.2
-                          : 0.5
+                if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                  event.preventDefault();
+                  finishEditingText();
+                }
+              }}
+              spellCheck
+              placeholder="Type something"
+            />
+          )}
+          <Stage
+            ref={stageRef}
+            width={Math.max(stageSize.width, 1)}
+            height={Math.max(stageSize.height, 1)}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onDblClick={handleStageDoublePointer}
+            onDblTap={handleStageDoublePointer}
+            onWheel={handleWheel}
+            draggable={isPanMode}
+            scaleX={safeZoom}
+            scaleY={safeZoom}
+            x={panX}
+            y={panY}
+            className={cn("h-full w-full", stageCursorClass)}
+            onDragStart={() => setIsPanning(true)}
+            onDragMove={syncPanFromStage}
+            onDragEnd={(event) => {
+              setIsPanning(false);
+              setIsMiddleMousePanning(false);
+              syncPanFromStage(event);
+            }}
+            onMouseLeave={() => {
+              if (isErasing) {
+                setIsErasing(false);
+              }
+              lastErasedIdRef.current = null;
+            }}
+          >
+            <Layer>
+              {/* Render all elements */}
+              {visibleElements.map((element) => {
+                const isSelected = selectedIds.includes(element.id);
+                const focusHighlight =
+                  focusedElementId === element.id
+                    ? {
+                        shadowColor: "#38bdf8",
+                        shadowBlur: 24,
+                        shadowOpacity: 0.85,
+                        shadowOffsetX: 0,
+                        shadowOffsetY: 0,
+                      }
+                    : {};
+                const selectionHighlight = isSelected
+                  ? {
+                      shadowColor: "#0ea5e9",
+                      shadowBlur: Math.max(18, 12 / safeZoom),
+                      shadowOpacity: 0.75,
+                      shadowOffsetX: 0,
+                      shadowOffsetY: 0,
                     }
-                    hitStrokeWidth={Math.max(12, element.strokeWidth)}
-                    {...interactionProps}
-                  />
-                  {hasBackground && (
-                    <Line
-                      key={`${element.id}-background`}
-                      id={`${element.id}-background`}
-                      elementId={element.id}
-                      x={element.x}
-                      y={element.y}
-                      points={element.points}
-                      stroke={element.penBackground}
-                      strokeWidth={element.strokeWidth + 12}
-                      opacity={Math.min(1, backgroundOpacity)}
-                      lineCap="round"
-                      lineJoin="round"
-                      tension={element.sloppiness === "smooth" ? 0.75 : element.sloppiness === "rough" ? 0.2 : 0.5}
-                      strokeEnabled={element.sloppiness === "smooth"}
-                      listening={false}
-                      {...highlightProps}
-                    />
-                  )}
-                  <Line
-                    key={`${element.id}-visible`}
-                    elementId={element.id}
-                    x={element.x}
-                    y={element.y}
-                    points={element.points}
-                    stroke={element.strokeColor}
-                    strokeWidth={element.strokeWidth}
-                    opacity={element.opacity}
-                    lineCap="round"
-                    lineJoin="round"
-                    tension={element.sloppiness === "smooth" ? 0.75 : element.sloppiness === "rough" ? 0.2 : 0.5}
-                    strokeEnabled={element.sloppiness === "smooth"}
-                    listening={false}
-                    {...highlightProps}
-                  />
-                  {hasBackground &&
-                    penSloppyLayers.map((layer, index) => (
-                      <Line
-                        key={`${element.id}-sloppy-pen-background-${index}`}
-                        elementId={element.id}
+                  : {};
+                const highlightProps = {
+                  ...focusHighlight,
+                  ...selectionHighlight,
+                };
+                const interactionProps = getInteractionProps(element);
+                const isEditingElement = editingText?.id === element.id;
+                if (element.type === "rectangle") {
+                  const rectOutlinePoints = getRectangleOutlinePoints(
+                    element.width ?? 0,
+                    element.height ?? 0,
+                    element.cornerRadius ?? 0
+                  );
+                  const rectSloppyLayers = createSloppyStrokeLayers(
+                    rectOutlinePoints,
+                    {
+                      sloppiness: element.sloppiness,
+                      strokeWidth: element.strokeWidth,
+                      seed: `${element.id}:rect`,
+                      closed: true,
+                    }
+                  );
+                  return (
+                    <Fragment key={element.id}>
+                      <Rect
+                        key={element.id}
+                        id={element.id}
                         x={element.x}
                         y={element.y}
-                        points={layer.points}
-                        stroke={element.penBackground}
-                        strokeWidth={layer.strokeWidth + 12}
-                        opacity={Math.min(1, backgroundOpacity) * layer.opacity}
-                        lineCap="round"
-                        lineJoin="round"
-                        listening={false}
+                        width={element.width}
+                        height={element.height}
+                        stroke={element.strokeColor}
+                        strokeWidth={element.strokeWidth}
+                        dash={getStrokeDash(element.strokeStyle)}
+                        fill={element.fillColor}
+                        opacity={element.opacity}
+                        rotation={element.rotation}
+                        cornerRadius={element.cornerRadius ?? 0}
+                        strokeEnabled={element.sloppiness === "smooth"}
+                        hitStrokeWidth={Math.max(12, element.strokeWidth)}
                         {...highlightProps}
+                        {...interactionProps}
                       />
-                    ))}
-                  {penSloppyLayers.map((layer, index) => (
-                    <Line
-                      key={`${element.id}-sloppy-pen-${index}`}
-                      elementId={element.id}
-                      x={element.x}
-                      y={element.y}
-                      points={layer.points}
-                      stroke={element.strokeColor}
-                      strokeWidth={layer.strokeWidth}
-                      opacity={element.opacity * layer.opacity}
-                      lineCap="round"
-                      lineJoin="round"
-                      listening={false}
-                      {...highlightProps}
-                    />
-                  ))}
-                </>
-              );
-            } else if (element.type === "text") {
-              if (isEditingElement) {
-                return null;
-              }
-              const elementFontSize = element.fontSize ?? textFontSize;
-              const lineHeightRatio = elementFontSize
-                ? getLineHeight(elementFontSize) / elementFontSize
-                : 1.4;
-              return (
-                <KonvaText
-                  key={element.id}
-                  id={element.id}
-                  x={element.x}
-                  y={element.y}
-                  text={element.text || ""}
-                  fontSize={elementFontSize}
-                  fontFamily={getFontFamilyCss(element.fontFamily)}
-                  lineHeight={lineHeightRatio}
-                  align={(element.textAlign as TextAlignment) ?? "left"}
-                  fill={element.strokeColor}
-                  opacity={element.opacity}
-                  width={element.width}
-                  {...highlightProps}
-                  {...interactionProps}
-                />
-              );
-            } else if (element.type === "image") {
-              return (
-                <ImageElement
-                  key={element.id}
-                  element={element}
-                  highlight={highlightProps}
-                  interaction={interactionProps}
-                />
-              );
-            } else if (element.type === "file") {
-              return (
-                <FileElement
-                  key={element.id}
-                  element={element}
-                  highlight={highlightProps}
-                  interaction={interactionProps}
-                />
-              );
-            }
-            return null;
-          })}
-
-          {selectionRect && (() => {
-            const bounds = normalizeRectBounds(
-              selectionRect.x,
-              selectionRect.y,
-              selectionRect.width,
-              selectionRect.height,
-            );
-            const width = bounds.maxX - bounds.minX;
-            const height = bounds.maxY - bounds.minY;
-            if (width === 0 && height === 0) {
-              return null;
-            }
-            const strokeWidth = Math.max(1 / safeZoom, 0.5);
-            return (
-              <Rect
-                x={bounds.minX}
-                y={bounds.minY}
-                width={width}
-                height={height}
-                stroke="#0ea5e9"
-                strokeWidth={strokeWidth}
-                dash={[4 / safeZoom, 4 / safeZoom]}
-                fill="rgba(14, 165, 233, 0.12)"
-                listening={false}
-              />
-            );
-          })()}
-
-          {activeTool === "select" &&
-            selectedIds.length > 1 &&
-            (() => {
-              if (!selectionBounds) {
-                return null;
-              }
-              const bounds = selectionBounds as Bounds;
-              const width = bounds.maxX - bounds.minX;
-              const height = bounds.maxY - bounds.minY;
-              if (width === 0 && height === 0) {
-                return null;
-              }
-              return (
-                <Rect
-                  id={SELECTION_GROUP_ID}
-                  x={bounds.minX}
-                  y={bounds.minY}
-                  width={Math.max(width, 1)}
-                  height={Math.max(height, 1)}
-                  fill="rgba(14, 165, 233, 0.0001)"
-                  draggable
-                  onDragStart={handleSelectionGroupDragStart}
-                  onDragMove={handleSelectionGroupDragMove}
-                  onDragEnd={handleSelectionGroupDragEnd}
-                />
-              );
-            })()}
-
-          <Transformer
-            ref={transformerRef}
-            rotateEnabled={false}
-            anchorSize={8}
-            anchorFill="#f8fafc"
-            anchorStroke="#0ea5e9"
-            anchorCornerRadius={3}
-            borderStroke="#0ea5e9"
-            borderStrokeWidth={1}
-            ignoreStroke
-          />
-
-          {/* Render current drawing shape */}
-          {currentShape && (
-            <>
-              {currentShape.type === "rectangle" &&
-                (() => {
-                  const outlinePoints = getRectangleOutlinePoints(
-                    currentShape.width ?? 0,
-                    currentShape.height ?? 0,
-                    currentShape.cornerRadius ?? 0,
-                  );
-                  const layers = createSloppyStrokeLayers(outlinePoints, {
-                    sloppiness: currentShape.sloppiness,
-                    strokeWidth: currentShape.strokeWidth,
-                    seed: `${currentShape.id}-preview-rect`,
-                    closed: true,
-                  });
-                  return (
-                    <>
-                      <Rect
-                        x={currentShape.x}
-                        y={currentShape.y}
-                        width={currentShape.width}
-                        height={currentShape.height}
-                        stroke={currentShape.strokeColor}
-                        strokeWidth={currentShape.strokeWidth}
-                        dash={getStrokeDash(currentShape.strokeStyle)}
-                        fill={currentShape.fillColor}
-                        opacity={currentShape.opacity * 0.7}
-                        cornerRadius={currentShape.cornerRadius ?? 0}
-                        strokeEnabled={currentShape.sloppiness === "smooth"}
-                        hitStrokeWidth={Math.max(12, currentShape.strokeWidth)}
-                      />
-                      {layers.map((layer, index) => (
+                      {rectSloppyLayers.map((layer, index) => (
                         <Line
-                          key={`${currentShape.id}-preview-rect-${index}`}
-                          x={currentShape.x}
-                          y={currentShape.y}
+                          key={`${element.id}-sloppy-rect-${index}`}
+                          x={element.x}
+                          y={element.y}
                           points={layer.points}
-                          stroke={currentShape.strokeColor}
+                          stroke={element.strokeColor}
                           strokeWidth={layer.strokeWidth}
-                          dash={getStrokeDash(currentShape.strokeStyle)}
-                          opacity={currentShape.opacity * 0.7 * layer.opacity}
+                          dash={getStrokeDash(element.strokeStyle)}
+                          opacity={element.opacity * layer.opacity}
+                          rotation={element.rotation}
                           lineCap="round"
                           lineJoin="round"
                           closed
                           listening={false}
+                          {...highlightProps}
                         />
                       ))}
-                    </>
+                    </Fragment>
                   );
-                })()}
-              {currentShape.type === "diamond" && (
-                (() => {
+                } else if (element.type === "diamond") {
                   const diamond = getDiamondShape(
-                    currentShape.x,
-                    currentShape.y,
-                    currentShape.width ?? 0,
-                    currentShape.height ?? 0,
+                    element.x,
+                    element.y,
+                    element.width ?? 0,
+                    element.height ?? 0
                   );
-                  const layers = createSloppyStrokeLayers(diamond.points, {
-                    sloppiness: currentShape.sloppiness,
-                    strokeWidth: currentShape.strokeWidth,
-                    seed: `${currentShape.id}-preview-diamond`,
-                    closed: true,
-                  });
+                  const diamondSloppyLayers = createSloppyStrokeLayers(
+                    diamond.points,
+                    {
+                      sloppiness: element.sloppiness,
+                      strokeWidth: element.strokeWidth,
+                      seed: `${element.id}:diamond`,
+                      closed: true,
+                    }
+                  );
                   return (
-                    <>
+                    <Fragment key={element.id}>
                       <Line
+                        key={element.id}
+                        id={element.id}
                         x={diamond.x}
                         y={diamond.y}
                         points={diamond.points}
-                        stroke={currentShape.strokeColor}
-                        strokeWidth={currentShape.strokeWidth}
-                        dash={getStrokeDash(currentShape.strokeStyle)}
-                        fill={currentShape.fillColor}
-                        opacity={currentShape.opacity * 0.7}
+                        stroke={element.strokeColor}
+                        strokeWidth={element.strokeWidth}
+                        dash={getStrokeDash(element.strokeStyle)}
+                        fill={element.fillColor}
+                        opacity={element.opacity}
+                        rotation={element.rotation}
                         closed
                         lineJoin="round"
-                        strokeEnabled={currentShape.sloppiness === "smooth"}
-                        hitStrokeWidth={Math.max(12, currentShape.strokeWidth)}
+                        strokeEnabled={element.sloppiness === "smooth"}
+                        hitStrokeWidth={Math.max(12, element.strokeWidth)}
+                        {...highlightProps}
+                        {...interactionProps}
                       />
-                      {layers.map((layer, index) => (
+                      {diamondSloppyLayers.map((layer, index) => (
                         <Line
-                          key={`${currentShape.id}-preview-diamond-${index}`}
+                          key={`${element.id}-sloppy-diamond-${index}`}
                           x={diamond.x}
                           y={diamond.y}
                           points={layer.points}
-                          stroke={currentShape.strokeColor}
+                          stroke={element.strokeColor}
                           strokeWidth={layer.strokeWidth}
-                          dash={getStrokeDash(currentShape.strokeStyle)}
-                          opacity={currentShape.opacity * 0.7 * layer.opacity}
+                          dash={getStrokeDash(element.strokeStyle)}
+                          opacity={element.opacity * layer.opacity}
+                          rotation={element.rotation}
                           closed
                           lineJoin="round"
                           listening={false}
+                          {...highlightProps}
                         />
                       ))}
-                    </>
+                    </Fragment>
                   );
-                })()
-              )}
-              {currentShape.type === "ellipse" &&
-                (() => {
-                  const outline = getEllipseOutlinePoints(
-                    currentShape.width ?? 0,
-                    currentShape.height ?? 0,
+                } else if (element.type === "ellipse") {
+                  const ellipseOutlinePoints = getEllipseOutlinePoints(
+                    element.width ?? 0,
+                    element.height ?? 0
                   );
-                  const layers = createSloppyStrokeLayers(outline, {
-                    sloppiness: currentShape.sloppiness,
-                    strokeWidth: currentShape.strokeWidth,
-                    seed: `${currentShape.id}-preview-ellipse`,
-                    closed: true,
-                  });
-                  const centerX = currentShape.x + (currentShape.width ?? 0) / 2;
-                  const centerY = currentShape.y + (currentShape.height ?? 0) / 2;
+                  const ellipseSloppyLayers = createSloppyStrokeLayers(
+                    ellipseOutlinePoints,
+                    {
+                      sloppiness: element.sloppiness,
+                      strokeWidth: element.strokeWidth,
+                      seed: `${element.id}:ellipse`,
+                      closed: true,
+                    }
+                  );
+                  const ellipseCenterX = element.x + (element.width ?? 0) / 2;
+                  const ellipseCenterY = element.y + (element.height ?? 0) / 2;
                   return (
-                    <>
+                    <Fragment key={element.id}>
                       <Ellipse
-                        x={centerX}
-                        y={centerY}
-                        radiusX={Math.abs((currentShape.width ?? 0) / 2)}
-                        radiusY={Math.abs((currentShape.height ?? 0) / 2)}
-                        stroke={currentShape.strokeColor}
-                        strokeWidth={currentShape.strokeWidth}
-                        dash={getStrokeDash(currentShape.strokeStyle)}
-                        fill={currentShape.fillColor}
-                        opacity={currentShape.opacity * 0.7}
-                        strokeEnabled={currentShape.sloppiness === "smooth"}
-                        hitStrokeWidth={Math.max(12, currentShape.strokeWidth)}
+                        key={element.id}
+                        id={element.id}
+                        x={ellipseCenterX}
+                        y={ellipseCenterY}
+                        radiusX={Math.abs((element.width ?? 0) / 2)}
+                        radiusY={Math.abs((element.height ?? 0) / 2)}
+                        stroke={element.strokeColor}
+                        strokeWidth={element.strokeWidth}
+                        dash={getStrokeDash(element.strokeStyle)}
+                        fill={element.fillColor}
+                        opacity={element.opacity}
+                        rotation={element.rotation}
+                        strokeEnabled={element.sloppiness === "smooth"}
+                        hitStrokeWidth={Math.max(12, element.strokeWidth)}
+                        {...highlightProps}
+                        {...interactionProps}
                       />
-                      {layers.map((layer, index) => (
+                      {ellipseSloppyLayers.map((layer, index) => (
                         <Line
-                          key={`${currentShape.id}-preview-ellipse-${index}`}
-                          x={centerX}
-                          y={centerY}
+                          key={`${element.id}-sloppy-ellipse-${index}`}
+                          x={ellipseCenterX}
+                          y={ellipseCenterY}
                           points={layer.points}
-                          stroke={currentShape.strokeColor}
+                          stroke={element.strokeColor}
                           strokeWidth={layer.strokeWidth}
-                          dash={getStrokeDash(currentShape.strokeStyle)}
-                          opacity={currentShape.opacity * 0.7 * layer.opacity}
+                          dash={getStrokeDash(element.strokeStyle)}
+                          opacity={element.opacity * layer.opacity}
+                          rotation={element.rotation}
                           closed
                           lineJoin="round"
                           listening={false}
+                          {...highlightProps}
                         />
                       ))}
-                    </>
+                    </Fragment>
                   );
-                })()}
-              {currentShape.type === "line" &&
-                (() => {
-                  const layers = createSloppyStrokeLayers(currentShape.points, {
-                    sloppiness: currentShape.sloppiness,
-                    strokeWidth: currentShape.strokeWidth,
-                    seed: `${currentShape.id}-preview-line`,
-                  });
+                } else if (element.type === "line") {
+                  const lineSloppyLayers = createSloppyStrokeLayers(
+                    element.points,
+                    {
+                      sloppiness: element.sloppiness,
+                      strokeWidth: element.strokeWidth,
+                      seed: `${element.id}:line`,
+                    }
+                  );
+                  const interactionOpacity =
+                    element.sloppiness === "smooth" ? element.opacity : 0.001;
                   return (
-                    <>
+                    <Fragment key={element.id}>
                       <Line
-                        x={currentShape.x}
-                        y={currentShape.y}
-                        points={currentShape.points}
-                        stroke={currentShape.strokeColor}
-                        strokeWidth={currentShape.strokeWidth}
-                        dash={getStrokeDash(currentShape.strokeStyle)}
-                        opacity={currentShape.opacity * 0.7}
+                        key={`${element.id}-interaction`}
+                        id={element.id}
+                        elementId={element.id}
+                        x={element.x}
+                        y={element.y}
+                        points={element.points}
+                        stroke={element.strokeColor}
+                        strokeWidth={element.strokeWidth}
+                        dash={getStrokeDash(element.strokeStyle)}
+                        opacity={interactionOpacity}
                         lineCap="round"
                         lineJoin="round"
-                        strokeEnabled={currentShape.sloppiness === "smooth"}
-                        hitStrokeWidth={Math.max(12, currentShape.strokeWidth)}
+                        hitStrokeWidth={Math.max(12, element.strokeWidth)}
+                        {...interactionProps}
                       />
-                      {layers.map((layer, index) => (
+                      <Line
+                        key={`${element.id}-visible`}
+                        elementId={element.id}
+                        x={element.x}
+                        y={element.y}
+                        points={element.points}
+                        stroke={element.strokeColor}
+                        strokeWidth={element.strokeWidth}
+                        dash={getStrokeDash(element.strokeStyle)}
+                        opacity={element.opacity}
+                        lineCap="round"
+                        lineJoin="round"
+                        strokeEnabled={element.sloppiness === "smooth"}
+                        listening={false}
+                        {...highlightProps}
+                      />
+                      {lineSloppyLayers.map((layer, index) => (
                         <Line
-                          key={`${currentShape.id}-preview-line-${index}`}
-                          x={currentShape.x}
-                          y={currentShape.y}
+                          key={`${element.id}-sloppy-line-${index}`}
+                          elementId={element.id}
+                          x={element.x}
+                          y={element.y}
                           points={layer.points}
-                          stroke={currentShape.strokeColor}
+                          stroke={element.strokeColor}
                           strokeWidth={layer.strokeWidth}
-                          dash={getStrokeDash(currentShape.strokeStyle)}
-                          opacity={currentShape.opacity * 0.7 * layer.opacity}
+                          dash={getStrokeDash(element.strokeStyle)}
+                          opacity={element.opacity * layer.opacity}
                           lineCap="round"
                           lineJoin="round"
                           listening={false}
+                          {...highlightProps}
                         />
                       ))}
-                    </>
+                    </Fragment>
                   );
-                })()}
-              {currentShape.type === "arrow" && (
-                (() => {
-                  const { points: arrowPoints, bezier } = getArrowRenderConfig(
-                    currentShape.points,
-                    currentShape.arrowStyle,
-                  );
+                } else if (element.type === "arrow") {
                   const pointerAtBeginning =
-                    currentShape.arrowType === "arrow-start" || currentShape.arrowType === "arrow-both";
+                    element.arrowType === "arrow-start" ||
+                    element.arrowType === "arrow-both";
                   const pointerAtEnding =
-                    currentShape.arrowType === "arrow-end" || currentShape.arrowType === "arrow-both";
-                  const overlayPoints = bezier ? sampleCurvePoints(arrowPoints) : arrowPoints;
-                  const layers = createSloppyStrokeLayers(overlayPoints, {
-                    sloppiness: currentShape.sloppiness,
-                    strokeWidth: currentShape.strokeWidth,
-                    seed: `${currentShape.id}-preview-arrow`,
-                  });
-                  const [primaryLayer, ...extraLayers] = layers;
+                    element.arrowType === "arrow-end" ||
+                    element.arrowType === "arrow-both";
+                  const { points: arrowPoints, bezier } = getArrowRenderConfig(
+                    element.points,
+                    element.arrowStyle
+                  );
+                  const arrowOverlayPoints = bezier
+                    ? sampleCurvePoints(arrowPoints)
+                    : arrowPoints;
+                  const arrowSloppyLayers = createSloppyStrokeLayers(
+                    arrowOverlayPoints,
+                    {
+                      sloppiness: element.sloppiness,
+                      strokeWidth: element.strokeWidth,
+                      seed: `${element.id}:arrow`,
+                    }
+                  );
+                  const [primaryArrowLayer, ...extraArrowLayers] =
+                    arrowSloppyLayers;
+                  const interactionOpacity =
+                    element.sloppiness === "smooth" ? element.opacity : 0.001;
                   return (
-                    <>
+                    <Fragment key={element.id}>
                       <Arrow
-                        x={currentShape.x}
-                        y={currentShape.y}
+                        key={`${element.id}-interaction`}
+                        id={element.id}
+                        elementId={element.id}
+                        x={element.x}
+                        y={element.y}
                         points={arrowPoints}
-                        stroke={currentShape.strokeColor}
-                        strokeWidth={currentShape.strokeWidth}
-                        dash={getStrokeDash(currentShape.strokeStyle)}
-                        opacity={currentShape.opacity * 0.7}
+                        stroke={element.strokeColor}
+                        strokeWidth={element.strokeWidth}
+                        dash={getStrokeDash(element.strokeStyle)}
+                        opacity={interactionOpacity}
                         pointerLength={12}
                         pointerWidth={12}
                         pointerAtBeginning={pointerAtBeginning}
                         pointerAtEnding={pointerAtEnding}
                         bezier={bezier}
                         tension={bezier ? 0.4 : 0}
-                        strokeEnabled={currentShape.sloppiness === "smooth"}
-                        hitStrokeWidth={Math.max(12, currentShape.strokeWidth)}
+                        hitStrokeWidth={Math.max(12, element.strokeWidth)}
+                        {...interactionProps}
                       />
-                      {primaryLayer && (
+                      <Arrow
+                        key={element.id}
+                        elementId={element.id}
+                        x={element.x}
+                        y={element.y}
+                        points={arrowPoints}
+                        stroke={element.strokeColor}
+                        strokeWidth={element.strokeWidth}
+                        dash={getStrokeDash(element.strokeStyle)}
+                        opacity={element.opacity}
+                        pointerLength={12}
+                        pointerWidth={12}
+                        pointerAtBeginning={pointerAtBeginning}
+                        pointerAtEnding={pointerAtEnding}
+                        bezier={bezier}
+                        tension={bezier ? 0.4 : 0}
+                        strokeEnabled={element.sloppiness === "smooth"}
+                        listening={false}
+                        {...highlightProps}
+                      />
+                      {primaryArrowLayer && (
                         <Arrow
-                          key={`${currentShape.id}-preview-arrow-primary`}
-                          x={currentShape.x}
-                          y={currentShape.y}
-                          points={primaryLayer.points}
-                          stroke={currentShape.strokeColor}
-                          strokeWidth={primaryLayer.strokeWidth}
-                          dash={getStrokeDash(currentShape.strokeStyle)}
-                          opacity={currentShape.opacity * 0.7 * primaryLayer.opacity}
+                          key={`${element.id}-sloppy-arrow-primary`}
+                          elementId={element.id}
+                          x={element.x}
+                          y={element.y}
+                          points={primaryArrowLayer.points}
+                          stroke={element.strokeColor}
+                          strokeWidth={primaryArrowLayer.strokeWidth}
+                          dash={getStrokeDash(element.strokeStyle)}
+                          opacity={element.opacity * primaryArrowLayer.opacity}
                           pointerLength={12}
                           pointerWidth={12}
                           pointerAtBeginning={pointerAtBeginning}
@@ -3136,125 +2439,570 @@ export const WhiteboardCanvas = () => {
                           bezier={false}
                           tension={0}
                           listening={false}
+                          {...highlightProps}
                         />
                       )}
-                      {extraLayers.map((layer, index) => (
+                      {extraArrowLayers.map((layer, index) => (
                         <Line
-                          key={`${currentShape.id}-preview-arrow-${index}`}
-                          x={currentShape.x}
-                          y={currentShape.y}
+                          key={`${element.id}-sloppy-arrow-extra-${index}`}
+                          elementId={element.id}
+                          x={element.x}
+                          y={element.y}
                           points={layer.points}
-                          stroke={currentShape.strokeColor}
+                          stroke={element.strokeColor}
                           strokeWidth={layer.strokeWidth}
-                          dash={getStrokeDash(currentShape.strokeStyle)}
-                          opacity={currentShape.opacity * 0.7 * layer.opacity}
+                          dash={getStrokeDash(element.strokeStyle)}
+                          opacity={element.opacity * layer.opacity}
                           lineCap="round"
                           lineJoin="round"
                           listening={false}
+                          {...highlightProps}
                         />
                       ))}
-                    </>
+                    </Fragment>
                   );
-                })()
-              )}
-              {currentShape.type === "pen" && (
-                (() => {
-                  const hasBackground = currentShape.penBackground && currentShape.penBackground !== "transparent";
-                  const backgroundOpacity = currentShape.opacity * 0.4 + 0.2;
-                  const penSloppyLayers = createSloppyStrokeLayers(currentShape.points, {
-                    sloppiness: currentShape.sloppiness,
-                    strokeWidth: currentShape.strokeWidth,
-                    seed: `${currentShape.id}-preview-pen`,
-                  });
+                } else if (element.type === "pen") {
+                  const hasBackground =
+                    element.penBackground &&
+                    element.penBackground !== "transparent";
+                  const backgroundOpacity = element.opacity * 0.4 + 0.2;
                   return (
-                    <>
+                    <Fragment key={element.id}>
+                      <Line
+                        key={`${element.id}-interaction`}
+                        id={element.id}
+                        elementId={element.id}
+                        x={element.x}
+                        y={element.y}
+                        points={element.points}
+                        stroke={element.strokeColor}
+                        strokeWidth={element.strokeWidth}
+                        opacity={element.opacity}
+                        lineCap="round"
+                        lineJoin="round"
+                        tension={
+                          element.sloppiness === "smooth"
+                            ? 0.75
+                            : element.sloppiness === "rough"
+                            ? 0.2
+                            : 0.5
+                        }
+                        hitStrokeWidth={Math.max(12, element.strokeWidth)}
+                        {...interactionProps}
+                      />
                       {hasBackground && (
                         <Line
-                          x={currentShape.x}
-                          y={currentShape.y}
-                          points={currentShape.points}
-                          stroke={currentShape.penBackground}
-                          strokeWidth={currentShape.strokeWidth + 12}
+                          key={`${element.id}-background`}
+                          id={`${element.id}-background`}
+                          elementId={element.id}
+                          x={element.x}
+                          y={element.y}
+                          points={element.points}
+                          stroke={element.penBackground}
+                          strokeWidth={element.strokeWidth + 12}
                           opacity={Math.min(1, backgroundOpacity)}
                           lineCap="round"
                           lineJoin="round"
                           tension={
-                            currentShape.sloppiness === "smooth"
+                            element.sloppiness === "smooth"
                               ? 0.75
-                              : currentShape.sloppiness === "rough"
+                              : element.sloppiness === "rough"
                               ? 0.2
                               : 0.5
                           }
-                          strokeEnabled={currentShape.sloppiness === "smooth"}
+                          strokeEnabled={element.sloppiness === "smooth"}
                           listening={false}
+                          {...highlightProps}
                         />
                       )}
-                      <Line
-                        x={currentShape.x}
-                        y={currentShape.y}
-                        points={currentShape.points}
-                        stroke={currentShape.strokeColor}
-                        strokeWidth={currentShape.strokeWidth}
-                        opacity={currentShape.opacity * 0.7}
-                        lineCap="round"
-                        lineJoin="round"
-                        tension={
-                          currentShape.sloppiness === "smooth"
-                            ? 0.75
-                            : currentShape.sloppiness === "rough"
-                            ? 0.2
-                            : 0.5
-                        }
-                        strokeEnabled={currentShape.sloppiness === "smooth"}
-                        hitStrokeWidth={Math.max(12, currentShape.strokeWidth)}
-                      />
-                      {hasBackground &&
-                        penSloppyLayers.map((layer, index) => (
-                          <Line
-                            key={`${currentShape.id}-preview-pen-background-${index}`}
+                    </Fragment>
+                  );
+                } else if (element.type === "text") {
+                  if (isEditingElement) {
+                    return null;
+                  }
+                  const elementFontSize = element.fontSize ?? textFontSize;
+                  const lineHeightRatio = elementFontSize
+                    ? getLineHeight(elementFontSize) / elementFontSize
+                    : 1.4;
+                  return (
+                    <KonvaText
+                      key={element.id}
+                      id={element.id}
+                      x={element.x}
+                      y={element.y}
+                      text={element.text || ""}
+                      fontSize={elementFontSize}
+                      fontFamily={getFontFamilyCss(element.fontFamily)}
+                      lineHeight={lineHeightRatio}
+                      align={(element.textAlign as TextAlignment) ?? "left"}
+                      fill={element.strokeColor}
+                      opacity={element.opacity}
+                      width={element.width}
+                      {...highlightProps}
+                      {...interactionProps}
+                    />
+                  );
+                } else if (element.type === "image") {
+                  return (
+                    <ImageElement
+                      key={element.id}
+                      element={element}
+                      highlight={highlightProps}
+                      interaction={interactionProps}
+                    />
+                  );
+                } else if (element.type === "file") {
+                  return (
+                    <FileElement
+                      key={element.id}
+                      element={element}
+                      highlight={highlightProps}
+                      interaction={interactionProps}
+                    />
+                  );
+                }
+                return null;
+              })}
+
+              {selectionRect &&
+                (() => {
+                  const bounds = normalizeRectBounds(
+                    selectionRect.x,
+                    selectionRect.y,
+                    selectionRect.width,
+                    selectionRect.height
+                  );
+                  const width = bounds.maxX - bounds.minX;
+                  const height = bounds.maxY - bounds.minY;
+                  if (width === 0 && height === 0) {
+                    return null;
+                  }
+                  const strokeWidth = Math.max(1 / safeZoom, 0.5);
+                  return (
+                    <Rect
+                      x={bounds.minX}
+                      y={bounds.minY}
+                      width={width}
+                      height={height}
+                      stroke="#0ea5e9"
+                      strokeWidth={strokeWidth}
+                      dash={[4 / safeZoom, 4 / safeZoom]}
+                      fill="rgba(14, 165, 233, 0.12)"
+                      listening={false}
+                    />
+                  );
+                })()}
+
+              {activeTool === "select" &&
+                selectedIds.length > 1 &&
+                (() => {
+                  if (!selectionBounds) {
+                    return null;
+                  }
+                  const bounds = selectionBounds as Bounds;
+                  const width = bounds.maxX - bounds.minX;
+                  const height = bounds.maxY - bounds.minY;
+                  if (width === 0 && height === 0) {
+                    return null;
+                  }
+                  return (
+                    <Rect
+                      id={SELECTION_GROUP_ID}
+                      x={bounds.minX}
+                      y={bounds.minY}
+                      width={Math.max(width, 1)}
+                      height={Math.max(height, 1)}
+                      fill="rgba(14, 165, 233, 0.0001)"
+                      draggable
+                      onDragStart={handleSelectionGroupDragStart}
+                      onDragMove={handleSelectionGroupDragMove}
+                      onDragEnd={handleSelectionGroupDragEnd}
+                    />
+                  );
+                })()}
+
+              <Transformer
+                ref={transformerRef}
+                rotateEnabled={false}
+                anchorSize={8}
+                anchorFill="#f8fafc"
+                anchorStroke="#0ea5e9"
+                anchorCornerRadius={3}
+                borderStroke="#0ea5e9"
+                borderStrokeWidth={1}
+                ignoreStroke
+              />
+
+              {/* Render current drawing shape */}
+              {currentShape && (
+                <>
+                  {currentShape.type === "rectangle" &&
+                    (() => {
+                      const outlinePoints = getRectangleOutlinePoints(
+                        currentShape.width ?? 0,
+                        currentShape.height ?? 0,
+                        currentShape.cornerRadius ?? 0
+                      );
+                      const layers = createSloppyStrokeLayers(outlinePoints, {
+                        sloppiness: currentShape.sloppiness,
+                        strokeWidth: currentShape.strokeWidth,
+                        seed: `${currentShape.id}-preview-rect`,
+                        closed: true,
+                      });
+                      return (
+                        <>
+                          <Rect
                             x={currentShape.x}
                             y={currentShape.y}
-                            points={layer.points}
-                            stroke={currentShape.penBackground}
-                            strokeWidth={layer.strokeWidth + 12}
-                            opacity={Math.min(1, backgroundOpacity) * layer.opacity}
+                            width={currentShape.width}
+                            height={currentShape.height}
+                            stroke={currentShape.strokeColor}
+                            strokeWidth={currentShape.strokeWidth}
+                            dash={getStrokeDash(currentShape.strokeStyle)}
+                            fill={currentShape.fillColor}
+                            opacity={currentShape.opacity * 0.7}
+                            cornerRadius={currentShape.cornerRadius ?? 0}
+                            strokeEnabled={currentShape.sloppiness === "smooth"}
+                            hitStrokeWidth={Math.max(
+                              12,
+                              currentShape.strokeWidth
+                            )}
+                          />
+                          {layers.map((layer, index) => (
+                            <Line
+                              key={`${currentShape.id}-preview-rect-${index}`}
+                              x={currentShape.x}
+                              y={currentShape.y}
+                              points={layer.points}
+                              stroke={currentShape.strokeColor}
+                              strokeWidth={layer.strokeWidth}
+                              dash={getStrokeDash(currentShape.strokeStyle)}
+                              opacity={
+                                currentShape.opacity * 0.7 * layer.opacity
+                              }
+                              lineCap="round"
+                              lineJoin="round"
+                              closed
+                              listening={false}
+                            />
+                          ))}
+                        </>
+                      );
+                    })()}
+                  {currentShape.type === "diamond" &&
+                    (() => {
+                      const diamond = getDiamondShape(
+                        currentShape.x,
+                        currentShape.y,
+                        currentShape.width ?? 0,
+                        currentShape.height ?? 0
+                      );
+                      const layers = createSloppyStrokeLayers(diamond.points, {
+                        sloppiness: currentShape.sloppiness,
+                        strokeWidth: currentShape.strokeWidth,
+                        seed: `${currentShape.id}-preview-diamond`,
+                        closed: true,
+                      });
+                      return (
+                        <>
+                          <Line
+                            x={diamond.x}
+                            y={diamond.y}
+                            points={diamond.points}
+                            stroke={currentShape.strokeColor}
+                            strokeWidth={currentShape.strokeWidth}
+                            dash={getStrokeDash(currentShape.strokeStyle)}
+                            fill={currentShape.fillColor}
+                            opacity={currentShape.opacity * 0.7}
+                            closed
+                            lineJoin="round"
+                            strokeEnabled={currentShape.sloppiness === "smooth"}
+                            hitStrokeWidth={Math.max(
+                              12,
+                              currentShape.strokeWidth
+                            )}
+                          />
+                          {layers.map((layer, index) => (
+                            <Line
+                              key={`${currentShape.id}-preview-diamond-${index}`}
+                              x={diamond.x}
+                              y={diamond.y}
+                              points={layer.points}
+                              stroke={currentShape.strokeColor}
+                              strokeWidth={layer.strokeWidth}
+                              dash={getStrokeDash(currentShape.strokeStyle)}
+                              opacity={
+                                currentShape.opacity * 0.7 * layer.opacity
+                              }
+                              closed
+                              lineJoin="round"
+                              listening={false}
+                            />
+                          ))}
+                        </>
+                      );
+                    })()}
+                  {currentShape.type === "ellipse" &&
+                    (() => {
+                      const outline = getEllipseOutlinePoints(
+                        currentShape.width ?? 0,
+                        currentShape.height ?? 0
+                      );
+                      const layers = createSloppyStrokeLayers(outline, {
+                        sloppiness: currentShape.sloppiness,
+                        strokeWidth: currentShape.strokeWidth,
+                        seed: `${currentShape.id}-preview-ellipse`,
+                        closed: true,
+                      });
+                      const centerX =
+                        currentShape.x + (currentShape.width ?? 0) / 2;
+                      const centerY =
+                        currentShape.y + (currentShape.height ?? 0) / 2;
+                      return (
+                        <>
+                          <Ellipse
+                            x={centerX}
+                            y={centerY}
+                            radiusX={Math.abs((currentShape.width ?? 0) / 2)}
+                            radiusY={Math.abs((currentShape.height ?? 0) / 2)}
+                            stroke={currentShape.strokeColor}
+                            strokeWidth={currentShape.strokeWidth}
+                            dash={getStrokeDash(currentShape.strokeStyle)}
+                            fill={currentShape.fillColor}
+                            opacity={currentShape.opacity * 0.7}
+                            strokeEnabled={currentShape.sloppiness === "smooth"}
+                            hitStrokeWidth={Math.max(
+                              12,
+                              currentShape.strokeWidth
+                            )}
+                          />
+                          {layers.map((layer, index) => (
+                            <Line
+                              key={`${currentShape.id}-preview-ellipse-${index}`}
+                              x={centerX}
+                              y={centerY}
+                              points={layer.points}
+                              stroke={currentShape.strokeColor}
+                              strokeWidth={layer.strokeWidth}
+                              dash={getStrokeDash(currentShape.strokeStyle)}
+                              opacity={
+                                currentShape.opacity * 0.7 * layer.opacity
+                              }
+                              closed
+                              lineJoin="round"
+                              listening={false}
+                            />
+                          ))}
+                        </>
+                      );
+                    })()}
+                  {currentShape.type === "line" &&
+                    (() => {
+                      const layers = createSloppyStrokeLayers(
+                        currentShape.points,
+                        {
+                          sloppiness: currentShape.sloppiness,
+                          strokeWidth: currentShape.strokeWidth,
+                          seed: `${currentShape.id}-preview-line`,
+                        }
+                      );
+                      return (
+                        <>
+                          <Line
+                            x={currentShape.x}
+                            y={currentShape.y}
+                            points={currentShape.points}
+                            stroke={currentShape.strokeColor}
+                            strokeWidth={currentShape.strokeWidth}
+                            dash={getStrokeDash(currentShape.strokeStyle)}
+                            opacity={currentShape.opacity * 0.7}
                             lineCap="round"
                             lineJoin="round"
-                            listening={false}
+                            strokeEnabled={currentShape.sloppiness === "smooth"}
+                            hitStrokeWidth={Math.max(
+                              12,
+                              currentShape.strokeWidth
+                            )}
                           />
-                        ))}
-                      {penSloppyLayers.map((layer, index) => (
-                        <Line
-                          key={`${currentShape.id}-preview-pen-${index}`}
-                          x={currentShape.x}
-                          y={currentShape.y}
-                          points={layer.points}
-                          stroke={currentShape.strokeColor}
-                          strokeWidth={layer.strokeWidth}
-                          opacity={currentShape.opacity * 0.7 * layer.opacity}
-                          lineCap="round"
-                          lineJoin="round"
-                          listening={false}
-                        />
-                      ))}
-                    </>
-                  );
-                })()
+                          {layers.map((layer, index) => (
+                            <Line
+                              key={`${currentShape.id}-preview-line-${index}`}
+                              x={currentShape.x}
+                              y={currentShape.y}
+                              points={layer.points}
+                              stroke={currentShape.strokeColor}
+                              strokeWidth={layer.strokeWidth}
+                              dash={getStrokeDash(currentShape.strokeStyle)}
+                              opacity={
+                                currentShape.opacity * 0.7 * layer.opacity
+                              }
+                              lineCap="round"
+                              lineJoin="round"
+                              listening={false}
+                            />
+                          ))}
+                        </>
+                      );
+                    })()}
+                  {currentShape.type === "arrow" &&
+                    (() => {
+                      const { points: arrowPoints, bezier } =
+                        getArrowRenderConfig(
+                          currentShape.points,
+                          currentShape.arrowStyle
+                        );
+                      const pointerAtBeginning =
+                        currentShape.arrowType === "arrow-start" ||
+                        currentShape.arrowType === "arrow-both";
+                      const pointerAtEnding =
+                        currentShape.arrowType === "arrow-end" ||
+                        currentShape.arrowType === "arrow-both";
+                      const overlayPoints = bezier
+                        ? sampleCurvePoints(arrowPoints)
+                        : arrowPoints;
+                      const layers = createSloppyStrokeLayers(overlayPoints, {
+                        sloppiness: currentShape.sloppiness,
+                        strokeWidth: currentShape.strokeWidth,
+                        seed: `${currentShape.id}-preview-arrow`,
+                      });
+                      const [primaryLayer, ...extraLayers] = layers;
+                      return (
+                        <>
+                          <Arrow
+                            x={currentShape.x}
+                            y={currentShape.y}
+                            points={arrowPoints}
+                            stroke={currentShape.strokeColor}
+                            strokeWidth={currentShape.strokeWidth}
+                            dash={getStrokeDash(currentShape.strokeStyle)}
+                            opacity={currentShape.opacity * 0.7}
+                            pointerLength={12}
+                            pointerWidth={12}
+                            pointerAtBeginning={pointerAtBeginning}
+                            pointerAtEnding={pointerAtEnding}
+                            bezier={bezier}
+                            tension={bezier ? 0.4 : 0}
+                            strokeEnabled={currentShape.sloppiness === "smooth"}
+                            hitStrokeWidth={Math.max(
+                              12,
+                              currentShape.strokeWidth
+                            )}
+                          />
+                          {primaryLayer && (
+                            <Arrow
+                              key={`${currentShape.id}-preview-arrow-primary`}
+                              x={currentShape.x}
+                              y={currentShape.y}
+                              points={primaryLayer.points}
+                              stroke={currentShape.strokeColor}
+                              strokeWidth={primaryLayer.strokeWidth}
+                              dash={getStrokeDash(currentShape.strokeStyle)}
+                              opacity={
+                                currentShape.opacity *
+                                0.7 *
+                                primaryLayer.opacity
+                              }
+                              pointerLength={12}
+                              pointerWidth={12}
+                              pointerAtBeginning={pointerAtBeginning}
+                              pointerAtEnding={pointerAtEnding}
+                              bezier={false}
+                              tension={0}
+                              listening={false}
+                            />
+                          )}
+                          {extraLayers.map((layer, index) => (
+                            <Line
+                              key={`${currentShape.id}-preview-arrow-${index}`}
+                              x={currentShape.x}
+                              y={currentShape.y}
+                              points={layer.points}
+                              stroke={currentShape.strokeColor}
+                              strokeWidth={layer.strokeWidth}
+                              dash={getStrokeDash(currentShape.strokeStyle)}
+                              opacity={
+                                currentShape.opacity * 0.7 * layer.opacity
+                              }
+                              lineCap="round"
+                              lineJoin="round"
+                              listening={false}
+                            />
+                          ))}
+                        </>
+                      );
+                    })()}
+                  {currentShape.type === "pen" &&
+                    (() => {
+                      const hasBackground =
+                        currentShape.penBackground &&
+                        currentShape.penBackground !== "transparent";
+                      const backgroundOpacity =
+                        currentShape.opacity * 0.4 + 0.2;
+                      return (
+                        <>
+                          {hasBackground && (
+                            <Line
+                              x={currentShape.x}
+                              y={currentShape.y}
+                              points={currentShape.points}
+                              stroke={currentShape.penBackground}
+                              strokeWidth={currentShape.strokeWidth + 12}
+                              opacity={Math.min(1, backgroundOpacity)}
+                              lineCap="round"
+                              lineJoin="round"
+                              tension={
+                                currentShape.sloppiness === "smooth"
+                                  ? 0.75
+                                  : currentShape.sloppiness === "rough"
+                                  ? 0.2
+                                  : 0.5
+                              }
+                              strokeEnabled={
+                                currentShape.sloppiness === "smooth"
+                              }
+                              listening={false}
+                            />
+                          )}
+                          <Line
+                            x={currentShape.x}
+                            y={currentShape.y}
+                            points={currentShape.points}
+                            stroke={currentShape.strokeColor}
+                            strokeWidth={currentShape.strokeWidth}
+                            opacity={currentShape.opacity * 0.7}
+                            lineCap="round"
+                            lineJoin="round"
+                            tension={
+                              currentShape.sloppiness === "smooth"
+                                ? 0.75
+                                : currentShape.sloppiness === "rough"
+                                ? 0.2
+                                : 0.5
+                            }
+                            strokeEnabled={currentShape.sloppiness === "smooth"}
+                            hitStrokeWidth={Math.max(
+                              12,
+                              currentShape.strokeWidth
+                            )}
+                          />
+                        </>
+                      );
+                    })()}
+                </>
               )}
-            </>
-          )}
 
-          {/* Render cursors */}
-          {users.map((user) => (
-            <UserCursor key={user.id} user={user} pan={pan} zoom={zoom} />
-          ))}
-        </Layer>
-      </Stage>
+              {/* Render cursors */}
+              {users.map((user) => (
+                <UserCursor key={user.id} user={user} pan={pan} zoom={zoom} />
+              ))}
+            </Layer>
+          </Stage>
 
-      {miniMapContent &&
-        (miniMapContainer
-          ? createPortal(miniMapContent, miniMapContainer)
-          : (
+          {miniMapContent &&
+            (miniMapContainer ? (
+              createPortal(miniMapContent, miniMapContainer)
+            ) : (
               <div className="pointer-events-none absolute bottom-6 left-6 z-30 w-max max-w-[200px] sm:max-w-[240px] [&>*]:pointer-events-auto">
                 {miniMapContent}
               </div>
@@ -3293,7 +3041,12 @@ export const WhiteboardCanvas = () => {
           ) : null}
         </ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem disabled={!clipboardReadSupported} onSelect={() => { void handlePasteAction(); }}>
+        <ContextMenuItem
+          disabled={!clipboardReadSupported}
+          onSelect={() => {
+            void handlePasteAction();
+          }}
+        >
           Paste
           <ContextMenuShortcut>Ctrl+V</ContextMenuShortcut>
         </ContextMenuItem>
