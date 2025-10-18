@@ -13,7 +13,7 @@ new_sqlite_classes = ["SignalingRoom"]
 
 [vars]
 NEXT_PUBLIC_COLLAB_TRANSPORT = "webrtc"
-NEXT_PUBLIC_WEBRTC_SIGNALING_URLS = "wss://<your-workers-subdomain>.workers.dev/signaling"
+NEXT_PUBLIC_WEBRTC_SIGNALING_URLS = "wss://realitea-canvas-signaling.yuriimashchuk.workers.dev/signaling"
 NEXT_PUBLIC_WEBRTC_ROOM_KEY = ""
 
 [observability]
