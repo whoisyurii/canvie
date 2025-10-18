@@ -66,6 +66,8 @@ export const LeftSidebar = () => {
     setStrokeColor,
     fillColor,
     setFillColor,
+    recentStrokeColors,
+    recentFillColors,
     strokeWidth,
     setStrokeWidth,
     strokeStyle,
@@ -162,8 +164,8 @@ export const LeftSidebar = () => {
       case "rectangle":
         return (
           <>
-            <StrokePalette colors={STROKE_COLORS} value={strokeColor} onChange={setStrokeColor} />
-            <FillPalette colors={FILL_COLORS} value={fillColor} onChange={setFillColor} />
+            <StrokePalette colors={STROKE_COLORS} value={strokeColor} onChange={setStrokeColor} recentColors={recentStrokeColors} />
+            <FillPalette colors={FILL_COLORS} value={fillColor} onChange={setFillColor} recentColors={recentFillColors} />
             <StrokeWidthSelector widths={STROKE_WIDTHS} value={strokeWidth} onChange={setStrokeWidth} />
             <StrokeStyleSelector value={strokeStyle} onChange={setStrokeStyle} />
             <EdgeStyleSelector value={rectangleCornerStyle} onChange={setRectangleCornerStyle} />
@@ -175,8 +177,8 @@ export const LeftSidebar = () => {
       case "ellipse":
         return (
           <>
-            <StrokePalette colors={STROKE_COLORS} value={strokeColor} onChange={setStrokeColor} />
-            <FillPalette colors={FILL_COLORS} value={fillColor} onChange={setFillColor} />
+            <StrokePalette colors={STROKE_COLORS} value={strokeColor} onChange={setStrokeColor} recentColors={recentStrokeColors} />
+            <FillPalette colors={FILL_COLORS} value={fillColor} onChange={setFillColor} recentColors={recentFillColors} />
             <StrokeWidthSelector widths={STROKE_WIDTHS} value={strokeWidth} onChange={setStrokeWidth} />
             <StrokeStyleSelector value={strokeStyle} onChange={setStrokeStyle} />
             <SloppinessSelector value={sloppiness} onChange={setSloppiness} />
@@ -186,7 +188,7 @@ export const LeftSidebar = () => {
       case "line":
         return (
           <>
-            <StrokePalette colors={STROKE_COLORS} value={strokeColor} onChange={setStrokeColor} />
+            <StrokePalette colors={STROKE_COLORS} value={strokeColor} onChange={setStrokeColor} recentColors={recentStrokeColors} />
             <StrokeWidthSelector widths={STROKE_WIDTHS} value={strokeWidth} onChange={setStrokeWidth} />
             <StrokeStyleSelector value={strokeStyle} onChange={setStrokeStyle} />
             <SloppinessSelector value={sloppiness} onChange={setSloppiness} />
@@ -196,7 +198,7 @@ export const LeftSidebar = () => {
       case "arrow":
         return (
           <>
-            <StrokePalette colors={STROKE_COLORS} value={strokeColor} onChange={setStrokeColor} />
+            <StrokePalette colors={STROKE_COLORS} value={strokeColor} onChange={setStrokeColor} recentColors={recentStrokeColors} />
             <StrokeWidthSelector widths={STROKE_WIDTHS} value={strokeWidth} onChange={setStrokeWidth} />
             <StrokeStyleSelector value={strokeStyle} onChange={setStrokeStyle} />
             <ArrowTypeSelector
@@ -212,7 +214,7 @@ export const LeftSidebar = () => {
       case "pen":
         return (
           <>
-            <StrokePalette colors={STROKE_COLORS} value={strokeColor} onChange={setStrokeColor} />
+            <StrokePalette colors={STROKE_COLORS} value={strokeColor} onChange={setStrokeColor} recentColors={recentStrokeColors} />
             <StrokeWidthSelector widths={STROKE_WIDTHS} value={strokeWidth} onChange={setStrokeWidth} />
             <SloppinessSelector value={sloppiness} onChange={setSloppiness} />
             <PenBackgroundSelector
@@ -226,7 +228,7 @@ export const LeftSidebar = () => {
       case "text":
         return (
           <>
-            <StrokePalette colors={STROKE_COLORS} value={strokeColor} onChange={setStrokeColor} />
+            <StrokePalette colors={STROKE_COLORS} value={strokeColor} onChange={setStrokeColor} recentColors={recentStrokeColors} />
             <TextFormattingControls
               fontFamily={textFontFamily}
               onFontFamilyChange={setTextFontFamily}

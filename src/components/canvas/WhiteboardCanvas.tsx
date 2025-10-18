@@ -206,6 +206,10 @@ export const WhiteboardCanvas = () => {
     pushHistory,
     users,
     focusedElementId,
+    bringToFront,
+    bringForward,
+    sendToBack,
+    sendBackward,
   } = useWhiteboardStore();
 
   const panX = pan.x;
@@ -966,6 +970,72 @@ export const WhiteboardCanvas = () => {
       textarea.setSelectionRange(textarea.value.length, textarea.value.length);
     });
   }, [editingText]);
+
+  // QW-1: Delete Key Support & QW-2: Duplicate with Ctrl+D
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Don't handle keyboard shortcuts if we're editing text
+      if (editingTextRef.current) {
+        return;
+      }
+
+      // Don't handle if user is typing in an input or textarea
+      const target = event.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      // QW-1: Delete and Backspace - Delete selected elements
+      if (event.key === "Delete" || event.key === "Backspace") {
+        if (selectedIds.length > 0) {
+          event.preventDefault();
+          const { deleteSelection } = useWhiteboardStore.getState();
+          deleteSelection();
+        }
+        return;
+      }
+
+      // QW-2: Ctrl+D or Cmd+D - Duplicate selected elements
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        event.key === "d" &&
+        !event.shiftKey &&
+        !event.altKey
+      ) {
+        if (selectedIds.length > 0) {
+          event.preventDefault();
+          const newIds: string[] = [];
+          selectedIds.forEach((id) => {
+            const element = elements.find((item) => item.id === id);
+            if (element) {
+              const clone = duplicateElement(element);
+              clone.x += 24;
+              clone.y += 24;
+              addElement(clone);
+              newIds.push(clone.id);
+            }
+          });
+          if (newIds.length > 0) {
+            setSelectedIds(newIds);
+          }
+        }
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [selectedIds, elements, addElement, setSelectedIds]);
 
   const renderBounds = useMemo(() => {
     if (stageSize.width === 0 || stageSize.height === 0) {
@@ -3049,6 +3119,44 @@ export const WhiteboardCanvas = () => {
         >
           Paste
           <ContextMenuShortcut>Ctrl+V</ContextMenuShortcut>
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        {/* QW-3: Z-Index Context Menu Items */}
+        <ContextMenuItem
+          disabled={selectedIds.length === 0}
+          onSelect={() => {
+            bringToFront();
+          }}
+        >
+          Bring to Front
+          <ContextMenuShortcut>Ctrl+Shift+]</ContextMenuShortcut>
+        </ContextMenuItem>
+        <ContextMenuItem
+          disabled={selectedIds.length === 0}
+          onSelect={() => {
+            bringForward();
+          }}
+        >
+          Bring Forward
+          <ContextMenuShortcut>Ctrl+]</ContextMenuShortcut>
+        </ContextMenuItem>
+        <ContextMenuItem
+          disabled={selectedIds.length === 0}
+          onSelect={() => {
+            sendBackward();
+          }}
+        >
+          Send Backward
+          <ContextMenuShortcut>Ctrl+[</ContextMenuShortcut>
+        </ContextMenuItem>
+        <ContextMenuItem
+          disabled={selectedIds.length === 0}
+          onSelect={() => {
+            sendToBack();
+          }}
+        >
+          Send to Back
+          <ContextMenuShortcut>Ctrl+Shift+[</ContextMenuShortcut>
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem

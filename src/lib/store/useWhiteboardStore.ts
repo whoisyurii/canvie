@@ -270,6 +270,8 @@ interface WhiteboardState {
   setStrokeColor: (color: string) => void;
   fillColor: string;
   setFillColor: (color: string) => void;
+  recentStrokeColors: string[];
+  recentFillColors: string[];
   strokeWidth: number;
   setStrokeWidth: (width: number) => void;
   strokeStyle: StrokeStyle;
@@ -301,7 +303,9 @@ interface WhiteboardState {
   updateElement: (id: string, updates: Partial<CanvasElement>) => void;
   deleteElement: (id: string) => void;
   bringToFront: () => void;
+  bringForward: () => void;
   sendToBack: () => void;
+  sendBackward: () => void;
   clearSelection: () => void;
   deleteSelection: () => void;
   selectedIds: string[];
@@ -364,9 +368,45 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
 
   // Tool settings
   strokeColor: "#000000",
-  setStrokeColor: (color) => set({ strokeColor: color }),
+  setStrokeColor: (color) => {
+    set((state) => {
+      const recentColors = [...state.recentStrokeColors];
+      // Remove color if it already exists
+      const index = recentColors.indexOf(color);
+      if (index > -1) {
+        recentColors.splice(index, 1);
+      }
+      // Add to the beginning
+      recentColors.unshift(color);
+      // Keep only last 6 colors
+      const limitedRecent = recentColors.slice(0, 6);
+      return {
+        strokeColor: color,
+        recentStrokeColors: limitedRecent,
+      };
+    });
+  },
   fillColor: "transparent",
-  setFillColor: (color) => set({ fillColor: color }),
+  setFillColor: (color) => {
+    set((state) => {
+      const recentColors = [...state.recentFillColors];
+      // Remove color if it already exists
+      const index = recentColors.indexOf(color);
+      if (index > -1) {
+        recentColors.splice(index, 1);
+      }
+      // Add to the beginning
+      recentColors.unshift(color);
+      // Keep only last 6 colors
+      const limitedRecent = recentColors.slice(0, 6);
+      return {
+        fillColor: color,
+        recentFillColors: limitedRecent,
+      };
+    });
+  },
+  recentStrokeColors: [],
+  recentFillColors: [],
   strokeWidth: 2,
   setStrokeWidth: (width) => set({ strokeWidth: width }),
   strokeStyle: "solid",
@@ -596,6 +636,174 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
     const selected = state.elements.filter((el) => selectedIdsSet.has(el.id));
 
     set({ elements: [...selected, ...others] });
+    get().pushHistory();
+  },
+  bringForward: () => {
+    const state = get();
+    if (state.selectedIds.length === 0) return;
+
+    const collaboration = state.collaboration;
+    if (collaboration?.elements) {
+      const { elements: sharedElements, historyEntries, historyMeta } = collaboration;
+      const doc = sharedElements.doc;
+
+      const reorder = () => {
+        const selectedIdsSet = new Set(state.selectedIds);
+        const currentElements = sharedElements.toArray();
+        const reordered = [...currentElements];
+
+        // Find the highest index of selected elements
+        let maxSelectedIndex = -1;
+        for (let i = reordered.length - 1; i >= 0; i--) {
+          if (selectedIdsSet.has(reordered[i].id)) {
+            maxSelectedIndex = i;
+            break;
+          }
+        }
+
+        // If already at the top, nothing to do
+        if (maxSelectedIndex === reordered.length - 1) return;
+
+        // Move selected elements one position forward
+        for (let i = maxSelectedIndex; i >= 0; i--) {
+          if (selectedIdsSet.has(reordered[i].id) && i < reordered.length - 1) {
+            // Swap with next element if next is not selected
+            if (!selectedIdsSet.has(reordered[i + 1].id)) {
+              [reordered[i], reordered[i + 1]] = [reordered[i + 1], reordered[i]];
+            }
+          }
+        }
+
+        sharedElements.delete(0, sharedElements.length);
+        sharedElements.insert(0, reordered.map((el) => ({ ...el })));
+
+        if (historyEntries && historyMeta) {
+          const snapshot = deepClone(reordered);
+          applySharedHistoryUpdate(historyEntries, historyMeta, snapshot);
+        }
+      };
+
+      if (doc) {
+        doc.transact(reorder);
+      } else {
+        reorder();
+      }
+
+      return;
+    }
+
+    const selectedIdsSet = new Set(state.selectedIds);
+    const reordered = [...state.elements];
+
+    // Find the highest index of selected elements
+    let maxSelectedIndex = -1;
+    for (let i = reordered.length - 1; i >= 0; i--) {
+      if (selectedIdsSet.has(reordered[i].id)) {
+        maxSelectedIndex = i;
+        break;
+      }
+    }
+
+    // If already at the top, nothing to do
+    if (maxSelectedIndex === reordered.length - 1) {
+      return;
+    }
+
+    // Move selected elements one position forward
+    for (let i = maxSelectedIndex; i >= 0; i--) {
+      if (selectedIdsSet.has(reordered[i].id) && i < reordered.length - 1) {
+        // Swap with next element if next is not selected
+        if (!selectedIdsSet.has(reordered[i + 1].id)) {
+          [reordered[i], reordered[i + 1]] = [reordered[i + 1], reordered[i]];
+        }
+      }
+    }
+
+    set({ elements: reordered });
+    get().pushHistory();
+  },
+  sendBackward: () => {
+    const state = get();
+    if (state.selectedIds.length === 0) return;
+
+    const collaboration = state.collaboration;
+    if (collaboration?.elements) {
+      const { elements: sharedElements, historyEntries, historyMeta } = collaboration;
+      const doc = sharedElements.doc;
+
+      const reorder = () => {
+        const selectedIdsSet = new Set(state.selectedIds);
+        const currentElements = sharedElements.toArray();
+        const reordered = [...currentElements];
+
+        // Find the lowest index of selected elements
+        let minSelectedIndex = reordered.length;
+        for (let i = 0; i < reordered.length; i++) {
+          if (selectedIdsSet.has(reordered[i].id)) {
+            minSelectedIndex = i;
+            break;
+          }
+        }
+
+        // If already at the bottom, nothing to do
+        if (minSelectedIndex === 0) return;
+
+        // Move selected elements one position backward
+        for (let i = minSelectedIndex; i < reordered.length; i++) {
+          if (selectedIdsSet.has(reordered[i].id) && i > 0) {
+            // Swap with previous element if previous is not selected
+            if (!selectedIdsSet.has(reordered[i - 1].id)) {
+              [reordered[i], reordered[i - 1]] = [reordered[i - 1], reordered[i]];
+            }
+          }
+        }
+
+        sharedElements.delete(0, sharedElements.length);
+        sharedElements.insert(0, reordered.map((el) => ({ ...el })));
+
+        if (historyEntries && historyMeta) {
+          const snapshot = deepClone(reordered);
+          applySharedHistoryUpdate(historyEntries, historyMeta, snapshot);
+        }
+      };
+
+      if (doc) {
+        doc.transact(reorder);
+      } else {
+        reorder();
+      }
+
+      return;
+    }
+
+    const selectedIdsSet = new Set(state.selectedIds);
+    const reordered = [...state.elements];
+
+    // Find the lowest index of selected elements
+    let minSelectedIndex = reordered.length;
+    for (let i = 0; i < reordered.length; i++) {
+      if (selectedIdsSet.has(reordered[i].id)) {
+        minSelectedIndex = i;
+        break;
+      }
+    }
+
+    // If already at the bottom, nothing to do
+    if (minSelectedIndex === 0) {
+      return;
+    }
+
+    // Move selected elements one position backward
+    for (let i = minSelectedIndex; i < reordered.length; i++) {
+      if (selectedIdsSet.has(reordered[i].id) && i > 0) {
+        // Swap with previous element if previous is not selected
+        if (!selectedIdsSet.has(reordered[i - 1].id)) {
+          [reordered[i], reordered[i - 1]] = [reordered[i - 1], reordered[i]];
+        }
+      }
+    }
+
+    set({ elements: reordered });
     get().pushHistory();
   },
   clearSelection: () => {
