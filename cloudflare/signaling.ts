@@ -113,6 +113,9 @@ export default {
         return new Response("failed to create WebSocket pair", { status: 500 });
       }
 
+      // Accept the server-side WebSocket in the Worker
+      durable.accept();
+
       try {
         await attachToRoom(env, roomId, durable, clientId);
       } catch (error) {

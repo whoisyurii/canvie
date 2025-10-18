@@ -70,8 +70,6 @@ export class SignalingRoom {
     const clientId = url.searchParams.get("clientId") ?? crypto.randomUUID();
     const now = Date.now();
 
-    this.state.acceptWebSocket(webSocket, [clientId]);
-
     const session: PeerSession = {
       id: clientId,
       socket: webSocket,
