@@ -5,6 +5,7 @@ import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
 import { nanoid } from "nanoid";
 import { useToast } from "@/hooks/use-toast";
 import { generateFilePreview } from "@/lib/files/preview";
+import { storeFile, hashFile, type FileMetadata } from "@/lib/files/storage";
 
 const toCanvasCoordinates = (
   e: DragEvent,
@@ -56,19 +57,39 @@ export const useDragDrop = () => {
         const fileName = file.name || "Untitled";
         const fileId = nanoid();
 
-        const url = URL.createObjectURL(file);
-        const generatedThumbnail = await generateFilePreview(file, url);
-        const thumbnailUrl =
-          generatedThumbnail ?? (fileType.startsWith("image/") ? url : undefined);
+        // Compute hash for deduplication and store in IndexedDB
+        const fileHash = await hashFile(new Blob([file]));
 
+        const metadata: FileMetadata = {
+          name: fileName,
+          type: fileType,
+          size: file.size,
+          ownerId: currentUser?.id ?? "local-user",
+          ownerName: currentUser?.name ?? "You",
+        };
+
+        // Store file in IndexedDB
+        await storeFile(fileId, file, metadata, fileHash);
+
+        // Create temporary blob URL for preview generation only
+        const tempUrl = URL.createObjectURL(file);
+        const generatedThumbnail = await generateFilePreview(file, tempUrl);
+        const thumbnailUrl = generatedThumbnail ?? (fileType.startsWith("image/") ? undefined : undefined);
+
+        // Clean up temporary URL after preview is generated
+        if (!thumbnailUrl && tempUrl) {
+          URL.revokeObjectURL(tempUrl);
+        }
+
+        // Add file metadata to shared store (no blob URL, just file ID)
         addFile({
           id: fileId,
           name: fileName,
           type: fileType,
-          url,
-          ownerId: currentUser?.id ?? "local-user",
-          ownerName: currentUser?.name ?? "You",
-          thumbnailUrl,
+          url: fileId, // Store file ID instead of blob URL
+          ownerId: metadata.ownerId,
+          ownerName: metadata.ownerName,
+          thumbnailUrl, // This is a data URL from preview, not a blob URL
         });
 
         const resolvePosition = (width: number, height: number) =>
@@ -96,7 +117,7 @@ export const useDragDrop = () => {
               strokeWidth: 0,
               strokeStyle: "solid",
               opacity: 1,
-              fileUrl: url,
+              fileUrl: fileId, // Use file ID instead of blob URL
               fileName,
               fileType,
             });
@@ -116,12 +137,12 @@ export const useDragDrop = () => {
               strokeWidth: 0,
               strokeStyle: "solid",
               opacity: 1,
-              fileUrl: url,
+              fileUrl: fileId, // Use file ID instead of blob URL
               fileName,
               fileType,
             });
           };
-          img.src = url;
+          img.src = tempUrl;
         } else if (fileType === "application/pdf") {
           const addPdfElement = (width: number, height: number) => {
             const { x, y } = resolvePosition(width, height);
@@ -136,7 +157,7 @@ export const useDragDrop = () => {
               strokeWidth: 2,
               strokeStyle: "solid",
               opacity: 1,
-              fileUrl: url,
+              fileUrl: fileId, // Use file ID instead of blob URL
               fileName,
               fileType,
               thumbnailUrl,

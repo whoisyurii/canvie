@@ -142,6 +142,7 @@ interface CollaborationBindings {
   files: Y.Array<SharedFile> | null;
   historyEntries: Y.Array<CanvasElement[]> | null;
   historyMeta: Y.Map<any> | null;
+  fileSyncManager: any | null; // Will be FileSyncManager, using any to avoid circular deps
 }
 
 const deepClone = <T>(value: T): T => JSON.parse(JSON.stringify(value));

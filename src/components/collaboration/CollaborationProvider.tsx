@@ -9,6 +9,7 @@ import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
 import type { CanvasElement, SharedFile, Tool, User } from "@/lib/store/useWhiteboardStore";
 import { nanoid } from "nanoid";
 import { resolveCollaborationTransport } from "@/lib/collaboration/room";
+import { FileSyncManager } from "@/lib/collaboration/fileSync";
 
 interface CollaborationProviderProps {
   roomId: string;
@@ -67,6 +68,7 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
   const webrtcProviderRef = useRef<WebrtcProvider | null>(null);
   const awarenessRef = useRef<Awareness | null>(null);
   const persistenceRef = useRef<IndexeddbPersistence | null>(null);
+  const fileSyncManagerRef = useRef<FileSyncManager | null>(null);
   const userIdRef = useRef<string | null>(null);
   const userColorRef = useRef<string | null>(null);
   const userNameRef = useRef<string | null>(null);
@@ -281,6 +283,7 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       files: yFiles,
       historyEntries: yHistoryEntries,
       historyMeta: yHistoryMeta,
+      fileSyncManager: null, // Will be set after WebRTC provider is ready
     });
 
     const syncElements = () => {
@@ -409,6 +412,67 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
 
     awarenessInstance.on("change", awarenessChangeHandler);
 
+    // Initialize file sync manager for P2P file sharing
+    let fileSyncManager: FileSyncManager | null = null;
+    if (webrtcProviderRef.current && awarenessInstance) {
+      fileSyncManager = new FileSyncManager(awarenessInstance, webrtcProviderRef.current, {
+        onFileAvailable: (fileId) => {
+          if (IS_DEV) {
+            console.info(`[FileSync] File ${fileId} now available`);
+          }
+        },
+        onFileDownloadStart: (fileId) => {
+          if (IS_DEV) {
+            console.info(`[FileSync] Starting download of ${fileId}`);
+          }
+        },
+        onFileDownloadProgress: (fileId, progress, total) => {
+          if (IS_DEV) {
+            console.info(`[FileSync] ${fileId}: ${progress}/${total}`);
+          }
+        },
+        onFileDownloadComplete: (fileId) => {
+          if (IS_DEV) {
+            console.info(`[FileSync] Download complete: ${fileId}`);
+          }
+        },
+        onFileDownloadError: (fileId, error) => {
+          console.error(`[FileSync] Error downloading ${fileId}:`, error);
+        },
+      });
+
+      fileSyncManagerRef.current = fileSyncManager;
+
+      // Update collaboration binding with file sync manager
+      setCollaboration({
+        ydoc,
+        elements: yElements,
+        files: yFiles,
+        historyEntries: yHistoryEntries,
+        historyMeta: yHistoryMeta,
+        fileSyncManager,
+      });
+
+      // Listen for file transfer messages in awareness
+      const fileMessageHandler = () => {
+        const state = awarenessInstance.getLocalState() as any;
+        const allStates = awarenessInstance.getStates();
+
+        allStates.forEach((peerState: any, clientId: number) => {
+          if (clientId === awarenessInstance.clientID) {
+            return;
+          }
+
+          const fileMessage = peerState?._fileMessage;
+          if (fileMessage && fileMessage.targetPeer === awarenessInstance.clientID.toString()) {
+            fileSyncManager?.handleIncomingMessage(fileMessage);
+          }
+        });
+      };
+
+      awarenessInstance.on("change", fileMessageHandler);
+    }
+
     const updateHandler = () => {
       if (IS_DEV) {
         setDebugStats((stats) => ({ ...stats, updates: stats.updates + 1 }));
@@ -480,6 +544,12 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       yFiles.unobserve(syncFiles);
       yHistoryEntries.unobserve(syncHistory);
       yHistoryMeta.unobserve(syncHistory);
+
+      // Cleanup file sync manager
+      if (fileSyncManagerRef.current) {
+        fileSyncManagerRef.current.cleanup();
+        fileSyncManagerRef.current = null;
+      }
 
       cleanupTimers.forEach((timeout) => clearTimeout(timeout));
       cleanupTimers.clear();

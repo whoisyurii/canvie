@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Group, Rect, Text as KonvaText, Image as KonvaImage } from "react-konva";
 import type { CanvasElement } from "@/lib/store/useWhiteboardStore";
+import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
 
 type HighlightProps = Record<string, unknown> | undefined;
 
@@ -15,6 +16,7 @@ interface FileElementProps {
 export const FileElement = ({ element, highlight, interaction }: FileElementProps) => {
   const [thumbnail, setThumbnail] = useState<HTMLImageElement | null>(null);
   const [thumbnailError, setThumbnailError] = useState(false);
+  const collaboration = useWhiteboardStore((state) => state.collaboration);
 
   useEffect(() => {
     if (!element.thumbnailUrl) {
