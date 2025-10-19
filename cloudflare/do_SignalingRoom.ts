@@ -1,14 +1,17 @@
 /// <reference types="@cloudflare/workers-types" />
 
-const STALE_SOCKET_TIMEOUT_MS = 60_000;
-const CLEANUP_INTERVAL_MS = 20_000;
-const RATE_INTERVAL_MS = 1_000;
-const MAX_MESSAGES_PER_INTERVAL = 120;
+// Free tier MVP settings - suitable for 30+ minute sessions
+const STALE_SOCKET_TIMEOUT_MS = 600_000; // 10 minutes (increased from 60s)
+const CLEANUP_INTERVAL_MS = 20_000;      // 20 seconds
+const HEARTBEAT_INTERVAL_MS = 30_000;    // 30 seconds - keeps connections alive
+const RATE_INTERVAL_MS = 1_000;          // 1 second
+const MAX_MESSAGES_PER_INTERVAL = 120;   // 120 messages per second
 
 interface PeerSession {
   id: string;
   socket: WebSocket;
   lastSeen: number;
+  connectedAt: number; // Track connection duration for stats
   rateWindowStart: number;
   messagesInWindow: number;
 }
@@ -17,12 +20,15 @@ interface StatsPayload {
   roomId: string;
   peerCount: number;
   lastActivity: number;
+  averageSessionDuration?: number; // Average connection duration in ms
+  longestSession?: number;          // Longest active session in ms
 }
 
 export class SignalingRoom {
   private readonly state: DurableObjectState;
   private readonly peers = new Map<string, PeerSession>();
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private lastActivity = Date.now();
 
   constructor(state: DurableObjectState) {
@@ -61,6 +67,7 @@ export class SignalingRoom {
       id: clientId,
       socket: server,
       lastSeen: now,
+      connectedAt: now,
       rateWindowStart: now,
       messagesInWindow: 0,
     };
@@ -68,6 +75,7 @@ export class SignalingRoom {
     this.peers.set(clientId, session);
     this.lastActivity = now;
     this.ensureCleanupTimer();
+    this.ensureHeartbeatTimer();
 
     server.addEventListener("message", (event: MessageEvent) => {
       this.handleMessage(session, event.data);
@@ -81,10 +89,24 @@ export class SignalingRoom {
   }
 
   private handleStats(): Response {
+    const now = Date.now();
+    let totalDuration = 0;
+    let longestSession = 0;
+
+    this.peers.forEach((peer) => {
+      const duration = now - peer.connectedAt;
+      totalDuration += duration;
+      if (duration > longestSession) {
+        longestSession = duration;
+      }
+    });
+
     const payload: StatsPayload = {
       roomId: this.state.id.toString(),
       peerCount: this.peers.size,
       lastActivity: this.lastActivity,
+      averageSessionDuration: this.peers.size > 0 ? totalDuration / this.peers.size : undefined,
+      longestSession: this.peers.size > 0 ? longestSession : undefined,
     };
     return new Response(JSON.stringify(payload), {
       status: 200,
@@ -112,6 +134,7 @@ export class SignalingRoom {
       id: clientId,
       socket: webSocket,
       lastSeen: now,
+      connectedAt: now,
       rateWindowStart: now,
       messagesInWindow: 0,
     };
@@ -119,6 +142,7 @@ export class SignalingRoom {
     this.peers.set(clientId, session);
     this.lastActivity = now;
     this.ensureCleanupTimer();
+    this.ensureHeartbeatTimer();
 
     webSocket.addEventListener("message", (event: MessageEvent) => {
       this.handleMessage(session, event.data);
@@ -243,6 +267,7 @@ export class SignalingRoom {
 
     if (this.peers.size === 0) {
       this.clearCleanupTimer();
+      this.clearHeartbeatTimer();
     }
   }
 
@@ -263,6 +288,35 @@ export class SignalingRoom {
     this.cleanupTimer = null;
   }
 
+  private ensureHeartbeatTimer() {
+    if (this.heartbeatTimer) {
+      return;
+    }
+    // Send periodic heartbeat to all connected peers to keep connections alive
+    this.heartbeatTimer = setInterval(() => {
+      this.sendHeartbeat();
+    }, HEARTBEAT_INTERVAL_MS);
+  }
+
+  private clearHeartbeatTimer() {
+    if (!this.heartbeatTimer) {
+      return;
+    }
+    clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = null;
+  }
+
+  private sendHeartbeat() {
+    const pingMessage = JSON.stringify({ type: "ping", ts: Date.now() });
+    this.peers.forEach((peer) => {
+      try {
+        peer.socket.send(pingMessage);
+      } catch {
+        // If send fails, peer will be cleaned up by sweepStalePeers
+      }
+    });
+  }
+
   private sweepStalePeers() {
     const threshold = Date.now() - STALE_SOCKET_TIMEOUT_MS;
     this.peers.forEach((peer, peerId) => {
@@ -273,6 +327,7 @@ export class SignalingRoom {
 
     if (this.peers.size === 0) {
       this.clearCleanupTimer();
+      this.clearHeartbeatTimer();
     }
   }
 }
