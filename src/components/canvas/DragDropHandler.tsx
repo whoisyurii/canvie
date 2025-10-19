@@ -6,6 +6,7 @@ import { nanoid } from "nanoid";
 import { useToast } from "@/hooks/use-toast";
 import { generateFilePreview } from "@/lib/files/preview";
 import { storeFile, hashFile, type FileMetadata } from "@/lib/files/storage";
+import type { FileSyncManager } from "@/lib/collaboration/fileSync";
 
 const toCanvasCoordinates = (
   e: DragEvent,
@@ -29,8 +30,9 @@ export type UploadPosition = {
 };
 
 export const useDragDrop = () => {
-  const { addElement, addFile, currentUser, pan, zoom } = useWhiteboardStore();
+  const { addElement, addFile, currentUser, pan, zoom, collaboration } = useWhiteboardStore();
   const { toast } = useToast();
+  const fileSyncManager = collaboration?.fileSyncManager as FileSyncManager | null;
 
   const getCenteredPosition = useCallback(
     (width: number, height: number, index: number) => {
@@ -70,6 +72,9 @@ export const useDragDrop = () => {
 
         // Store file in IndexedDB
         await storeFile(fileId, file, metadata, fileHash);
+        if (fileSyncManager?.notifyLocalFileAdded) {
+          await fileSyncManager.notifyLocalFileAdded(fileId);
+        }
 
         // Create temporary blob URL for preview generation only
         const tempUrl = URL.createObjectURL(file);
@@ -213,6 +218,7 @@ export const useDragDrop = () => {
       addFile,
       currentUser?.id,
       currentUser?.name,
+      fileSyncManager,
       getCenteredPosition,
       toast,
     ],
