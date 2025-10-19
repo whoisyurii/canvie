@@ -23,6 +23,7 @@ import { nanoid } from "nanoid";
 import { useWhiteboardStore, Tool } from "@/lib/store/useWhiteboardStore";
 import { generateFilePreview } from "@/lib/files/preview";
 import { hashFile, storeFile, type FileMetadata } from "@/lib/files/storage";
+import type { FileSyncManager } from "@/lib/collaboration/fileSync";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -116,11 +117,13 @@ export const TopToolbar = () => {
     resetView,
     selectedIds,
     elements,
+    collaboration,
   } = useWhiteboardStore();
   const { toast } = useToast();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const hasSelection = selectedIds.length > 0;
   const hasElements = elements.length > 0;
+  const fileSyncManager = collaboration?.fileSyncManager as FileSyncManager | null;
 
   const processFile = useCallback(
     async (file: File) => {
@@ -142,6 +145,9 @@ export const TopToolbar = () => {
       };
 
       await storeFile(fileId, file, metadata, fileHash);
+      if (fileSyncManager?.notifyLocalFileAdded) {
+        await fileSyncManager.notifyLocalFileAdded(fileId);
+      }
 
       const tempUrl = URL.createObjectURL(file);
       let urlRevoked = false;
@@ -273,6 +279,7 @@ export const TopToolbar = () => {
       addFile,
       currentUser?.id,
       currentUser?.name,
+      fileSyncManager,
       fillColor,
       opacity,
       strokeColor,

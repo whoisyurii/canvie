@@ -81,6 +81,15 @@ export class FileSyncManager {
   }
 
   /**
+   * Public hook to notify the manager that we've added a new local file.
+   * This simply refreshes our awareness state so peers learn about it.
+   */
+  async notifyLocalFileAdded(fileId: string): Promise<void> {
+    void fileId; // fileId may be useful for future optimizations
+    await this.updateLocalFileList();
+  }
+
+  /**
    * Handle awareness changes from peers
    */
   private handleAwarenessChange(changed: {
