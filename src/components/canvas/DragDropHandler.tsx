@@ -101,6 +101,26 @@ export const useDragDrop = () => {
               fileType,
             });
           };
+          img.onerror = () => {
+            console.error(`Failed to load image file: ${fileName}`);
+            // Add element with default dimensions if image fails to load
+            const { x, y } = resolvePosition(200, 200);
+            addElement({
+              id: fileId,
+              type: "image",
+              x,
+              y,
+              width: 200,
+              height: 200,
+              strokeColor: "#000000",
+              strokeWidth: 0,
+              strokeStyle: "solid",
+              opacity: 1,
+              fileUrl: url,
+              fileName,
+              fileType,
+            });
+          };
           img.src = url;
         } else if (fileType === "application/pdf") {
           const addPdfElement = (width: number, height: number) => {

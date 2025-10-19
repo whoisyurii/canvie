@@ -14,6 +14,7 @@ interface FileElementProps {
 
 export const FileElement = ({ element, highlight, interaction }: FileElementProps) => {
   const [thumbnail, setThumbnail] = useState<HTMLImageElement | null>(null);
+  const [thumbnailError, setThumbnailError] = useState(false);
 
   useEffect(() => {
     if (!element.thumbnailUrl) {
@@ -21,12 +22,19 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
       return;
     }
 
+    setThumbnailError(false);
     const img = new window.Image();
     img.src = element.thumbnailUrl;
     img.onload = () => setThumbnail(img);
+    img.onerror = () => {
+      console.warn(`Failed to load thumbnail: ${element.thumbnailUrl}`);
+      setThumbnailError(true);
+      setThumbnail(null);
+    };
 
     return () => {
       img.onload = null;
+      img.onerror = null;
     };
   }, [element.thumbnailUrl]);
 
@@ -34,6 +42,13 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
   const height = element.height ?? 240;
   const padding = 12;
   const previewHeight = Math.max(0, height - padding * 2 - 32);
+
+  // Calculate safe corner radius to prevent negative radius errors
+  const cornerRadius = Math.min(
+    8,
+    Math.abs(width) / 2,
+    Math.abs(height) / 2
+  );
 
   return (
     <Group
@@ -54,7 +69,7 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
         strokeWidth={element.strokeWidth}
         fill="white"
         opacity={element.opacity}
-        cornerRadius={8}
+        cornerRadius={cornerRadius}
         listening={false}
       />
       {thumbnail ? (

@@ -69,6 +69,28 @@ import {
 import { CheckIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+/**
+ * Calculates a safe corner radius value to prevent negative radius errors.
+ * The radius is clamped to be at most half of the smallest dimension.
+ */
+const getSafeCornerRadius = (
+  width: number | undefined,
+  height: number | undefined,
+  cornerRadius: number | undefined
+): number => {
+  if (!cornerRadius || cornerRadius <= 0) return 0;
+
+  const w = Math.abs(width ?? 0);
+  const h = Math.abs(height ?? 0);
+
+  // Ensure we have valid dimensions
+  if (w <= 0 || h <= 0) return 0;
+
+  // Clamp radius to at most half of the smallest dimension
+  const maxRadius = Math.min(w, h) / 2;
+  return Math.max(0, Math.min(Math.abs(cornerRadius), maxRadius));
+};
+
 const MINIMAP_ENABLED = false;
 
 type SelectionRect = {
@@ -242,16 +264,17 @@ export const WhiteboardCanvas = () => {
     }
   }, [activeTool, isErasing]);
 
+  // Sync Stage position with pan state (but not while panning to avoid conflicts)
   useEffect(() => {
     const stage = stageRef.current;
-    if (!stage) return;
+    if (!stage || isPanning) return;
 
     const position = stage.position();
     if (position.x !== panX || position.y !== panY) {
       stage.position({ x: panX, y: panY });
       stage.batchDraw();
     }
-  }, [panX, panY]);
+  }, [panX, panY, isPanning]);
 
   useEffect(() => {
     const stage = stageRef.current;
@@ -2156,8 +2179,6 @@ export const WhiteboardCanvas = () => {
             draggable={isPanMode}
             scaleX={safeZoom}
             scaleY={safeZoom}
-            x={panX}
-            y={panY}
             className={cn("h-full w-full", stageCursorClass)}
             onDragStart={() => setIsPanning(true)}
             onDragMove={syncPanFromStage}
@@ -2203,10 +2224,15 @@ export const WhiteboardCanvas = () => {
                 const interactionProps = getInteractionProps(element);
                 const isEditingElement = editingText?.id === element.id;
                 if (element.type === "rectangle") {
+                  const safeCornerRadius = getSafeCornerRadius(
+                    element.width,
+                    element.height,
+                    element.cornerRadius
+                  );
                   const rectOutlinePoints = getRectangleOutlinePoints(
                     element.width ?? 0,
                     element.height ?? 0,
-                    element.cornerRadius ?? 0
+                    safeCornerRadius
                   );
                   const rectSloppyLayers = createSloppyStrokeLayers(
                     rectOutlinePoints,
@@ -2232,7 +2258,7 @@ export const WhiteboardCanvas = () => {
                         fill={element.fillColor}
                         opacity={element.opacity}
                         rotation={element.rotation}
-                        cornerRadius={element.cornerRadius ?? 0}
+                        cornerRadius={safeCornerRadius}
                         strokeEnabled={element.sloppiness === "smooth"}
                         hitStrokeWidth={Math.max(12, element.strokeWidth)}
                         {...highlightProps}
@@ -2719,10 +2745,15 @@ export const WhiteboardCanvas = () => {
                 <>
                   {currentShape.type === "rectangle" &&
                     (() => {
+                      const safeCornerRadius = getSafeCornerRadius(
+                        currentShape.width,
+                        currentShape.height,
+                        currentShape.cornerRadius
+                      );
                       const outlinePoints = getRectangleOutlinePoints(
                         currentShape.width ?? 0,
                         currentShape.height ?? 0,
-                        currentShape.cornerRadius ?? 0
+                        safeCornerRadius
                       );
                       const layers = createSloppyStrokeLayers(outlinePoints, {
                         sloppiness: currentShape.sloppiness,
@@ -2742,7 +2773,7 @@ export const WhiteboardCanvas = () => {
                             dash={getStrokeDash(currentShape.strokeStyle)}
                             fill={currentShape.fillColor}
                             opacity={currentShape.opacity * 0.7}
-                            cornerRadius={currentShape.cornerRadius ?? 0}
+                            cornerRadius={safeCornerRadius}
                             strokeEnabled={currentShape.sloppiness === "smooth"}
                             hitStrokeWidth={Math.max(
                               12,
