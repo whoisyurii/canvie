@@ -22,6 +22,7 @@ import {
 import { nanoid } from "nanoid";
 import { useWhiteboardStore, Tool } from "@/lib/store/useWhiteboardStore";
 import { generateFilePreview } from "@/lib/files/preview";
+import { hashFile, storeFile, type FileMetadata } from "@/lib/files/storage";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -128,18 +129,40 @@ export const TopToolbar = () => {
       }
 
       const fileId = nanoid();
-      const fileUrl = URL.createObjectURL(file);
+      const fileType = file.type || "";
+      const fileName = file.name || "Untitled";
+
+      const fileHash = await hashFile(file);
+      const metadata: FileMetadata = {
+        name: fileName,
+        type: fileType,
+        size: file.size,
+        ownerId: currentUser?.id ?? "local-user",
+        ownerName: currentUser?.name ?? "You",
+      };
+
+      await storeFile(fileId, file, metadata, fileHash);
+
+      const tempUrl = URL.createObjectURL(file);
+      let urlRevoked = false;
+      const revokeTempUrl = () => {
+        if (!urlRevoked) {
+          URL.revokeObjectURL(tempUrl);
+          urlRevoked = true;
+        }
+      };
+
+      const generatedThumbnail = await generateFilePreview(file, tempUrl);
       const thumbnailUrl =
-        (await generateFilePreview(file, fileUrl)) ??
-        (file.type.startsWith("image/") ? fileUrl : undefined);
+        generatedThumbnail ?? (fileType.startsWith("image/") ? undefined : undefined);
 
       addFile({
         id: fileId,
-        name: file.name,
-        type: file.type,
-        url: fileUrl,
-        ownerId: currentUser?.id ?? "local-user",
-        ownerName: currentUser?.name ?? "You",
+        name: fileName,
+        type: fileType,
+        url: fileId,
+        ownerId: metadata.ownerId,
+        ownerName: metadata.ownerName,
         thumbnailUrl,
       });
 
@@ -154,11 +177,11 @@ export const TopToolbar = () => {
         opacity,
       };
 
-      if (file.type.startsWith("image/")) {
+      if (fileType.startsWith("image/")) {
         await new Promise<void>((resolve) => {
           const image = new window.Image();
           image.onload = () => {
-            const maxDimension = 420;
+            const maxDimension = 400;
             const scale = Math.min(
               1,
               maxDimension / Math.max(image.width, image.height),
@@ -168,39 +191,75 @@ export const TopToolbar = () => {
               type: "image",
               width: Math.max(1, Math.round(image.width * scale)),
               height: Math.max(1, Math.round(image.height * scale)),
-              fileUrl,
-              fileName: file.name,
+              fileUrl: fileId,
+              fileName,
+              fileType,
             });
+            revokeTempUrl();
             resolve();
           };
-          image.onerror = () => resolve();
-          image.src = fileUrl;
+          image.onerror = () => {
+            revokeTempUrl();
+            resolve();
+          };
+          image.src = tempUrl;
         });
         return;
       }
 
-      if (file.type === "application/pdf") {
-        addElement({
-          ...baseElement,
-          type: "file",
-          width: 220,
-          height: 280,
-          fileUrl,
-          fileName: file.name,
-        });
+      revokeTempUrl();
+
+      if (fileType === "application/pdf") {
+        const addPdfElement = (width: number, height: number) => {
+          addElement({
+            ...baseElement,
+            type: "file",
+            width,
+            height,
+            fileUrl: fileId,
+            fileName,
+            fileType,
+            thumbnailUrl,
+          });
+        };
+
+        if (thumbnailUrl) {
+          await new Promise<void>((resolve) => {
+            const previewImage = new window.Image();
+            previewImage.onload = () => {
+              const maxDimension = 240;
+              const scale = Math.min(
+                1,
+                maxDimension / Math.max(previewImage.width, previewImage.height),
+              );
+              addPdfElement(
+                Math.max(120, previewImage.width * scale),
+                Math.max(160, previewImage.height * scale),
+              );
+              resolve();
+            };
+            previewImage.onerror = () => {
+              addPdfElement(200, 260);
+              resolve();
+            };
+            previewImage.src = thumbnailUrl;
+          });
+        } else {
+          addPdfElement(200, 260);
+        }
         return;
       }
 
-      if (file.type === "text/plain") {
+      if (fileType === "text/plain") {
         await new Promise<void>((resolve) => {
           const reader = new FileReader();
           reader.onload = (evt) => {
-            const text = evt.target?.result as string;
+            const text = (evt.target?.result as string) ?? "";
             addElement({
               ...baseElement,
               type: "text",
               text: text.slice(0, 200),
-              fileName: file.name,
+              fileName,
             });
             resolve();
           };
