@@ -96,6 +96,7 @@ const getSafeCornerRadius = (
 
 const MINIMAP_ENABLED = false;
 const PEN_TENSION = 0.75;
+const STROKE_BACKGROUND_PADDING = 12;
 
 type SelectionRect = {
   x: number;
@@ -1572,6 +1573,7 @@ export const WhiteboardCanvas = () => {
         newElement.points = [0, 0, 0, 0];
         newElement.arrowType = arrowType;
         newElement.arrowStyle = arrowStyle;
+        newElement.penBackground = penBackground;
         break;
       case "pen":
         newElement.type = "pen";
@@ -2575,6 +2577,14 @@ export const WhiteboardCanvas = () => {
                   );
                   const interactionOpacity =
                     element.sloppiness === "smooth" ? element.opacity : 0.001;
+                  const hasBackground =
+                    element.penBackground &&
+                    element.penBackground !== "transparent";
+                  const backgroundOpacity = element.opacity * 0.4 + 0.2;
+                  const baseBackgroundOpacity = Math.min(1, backgroundOpacity);
+                  const backgroundStrokeWidth =
+                    element.strokeWidth + STROKE_BACKGROUND_PADDING;
+                  const showBaseStroke = element.sloppiness === "smooth";
                   return (
                     <Fragment key={element.id}>
                       <Line
@@ -2598,6 +2608,25 @@ export const WhiteboardCanvas = () => {
                         hitStrokeWidth={Math.max(12, element.strokeWidth)}
                         {...interactionProps}
                       />
+                      {hasBackground && showBaseStroke && (
+                        <Line
+                          key={`${element.id}-background`}
+                          id={`${element.id}-background`}
+                          elementId={element.id}
+                          x={element.x}
+                          y={element.y}
+                          points={element.points}
+                          stroke={element.penBackground}
+                          strokeWidth={backgroundStrokeWidth}
+                          dash={getStrokeDash(element.strokeStyle)}
+                          opacity={baseBackgroundOpacity}
+                          lineCap="round"
+                          lineJoin="round"
+                          bezier={bezier}
+                          tension={bezier ? 0.4 : 0}
+                          listening={false}
+                        />
+                      )}
                       <Line
                         key={`${element.id}-visible`}
                         elementId={element.id}
@@ -2619,26 +2648,54 @@ export const WhiteboardCanvas = () => {
                         listening={false}
                         {...highlightProps}
                       />
-                      {lineSloppyLayers.map((layer, index) => (
-                        <Line
-                          key={`${element.id}-sloppy-line-${index}`}
-                          elementId={element.id}
-                          x={element.x}
-                          y={element.y}
-                          points={layer.points}
-                          stroke={getColorWithOpacity(
-                            element.strokeColor,
-                            element.strokeOpacity,
-                          )}
-                          strokeWidth={layer.strokeWidth}
-                          dash={getStrokeDash(element.strokeStyle)}
-                          opacity={element.opacity * layer.opacity}
-                          lineCap="round"
-                          lineJoin="round"
-                          listening={false}
-                          {...highlightProps}
-                        />
-                      ))}
+                      {lineSloppyLayers.map((layer, index) => {
+                        const layerOpacity = element.opacity * layer.opacity;
+                        const layerBackgroundOpacity = Math.min(
+                          1,
+                          backgroundOpacity * layer.opacity,
+                        );
+                        return (
+                          <Fragment
+                            key={`${element.id}-sloppy-line-${index}`}
+                          >
+                            {hasBackground && (
+                              <Line
+                                key={`${element.id}-sloppy-line-background-${index}`}
+                                elementId={element.id}
+                                x={element.x}
+                                y={element.y}
+                                points={layer.points}
+                                stroke={element.penBackground}
+                                strokeWidth={
+                                  layer.strokeWidth + STROKE_BACKGROUND_PADDING
+                                }
+                                dash={getStrokeDash(element.strokeStyle)}
+                                opacity={layerBackgroundOpacity}
+                                lineCap="round"
+                                lineJoin="round"
+                                listening={false}
+                              />
+                            )}
+                            <Line
+                              elementId={element.id}
+                              x={element.x}
+                              y={element.y}
+                              points={layer.points}
+                              stroke={getColorWithOpacity(
+                                element.strokeColor,
+                                element.strokeOpacity,
+                              )}
+                              strokeWidth={layer.strokeWidth}
+                              dash={getStrokeDash(element.strokeStyle)}
+                              opacity={layerOpacity}
+                              lineCap="round"
+                              lineJoin="round"
+                              listening={false}
+                              {...highlightProps}
+                            />
+                          </Fragment>
+                        );
+                      })}
                     </Fragment>
                   );
                 } else if (element.type === "arrow") {
@@ -2667,6 +2724,15 @@ export const WhiteboardCanvas = () => {
                     arrowSloppyLayers;
                   const interactionOpacity =
                     element.sloppiness === "smooth" ? element.opacity : 0.001;
+                  const hasBackground =
+                    element.penBackground &&
+                    element.penBackground !== "transparent";
+                  const backgroundOpacity = element.opacity * 0.4 + 0.2;
+                  const baseBackgroundOpacity = Math.min(1, backgroundOpacity);
+                  const backgroundStrokeWidth =
+                    element.strokeWidth + STROKE_BACKGROUND_PADDING;
+                  const pointerBackgroundSize = 12 + STROKE_BACKGROUND_PADDING;
+                  const showBaseStroke = element.sloppiness === "smooth";
                   return (
                     <Fragment key={element.id}>
                       <Arrow
@@ -2692,6 +2758,27 @@ export const WhiteboardCanvas = () => {
                         hitStrokeWidth={Math.max(12, element.strokeWidth)}
                         {...interactionProps}
                       />
+                      {hasBackground && showBaseStroke && (
+                        <Arrow
+                          key={`${element.id}-background`}
+                          id={`${element.id}-background`}
+                          elementId={element.id}
+                          x={element.x}
+                          y={element.y}
+                          points={arrowPoints}
+                          stroke={element.penBackground}
+                          strokeWidth={backgroundStrokeWidth}
+                          dash={getStrokeDash(element.strokeStyle)}
+                          opacity={baseBackgroundOpacity}
+                          pointerLength={pointerBackgroundSize}
+                          pointerWidth={pointerBackgroundSize}
+                          pointerAtBeginning={pointerAtBeginning}
+                          pointerAtEnding={pointerAtEnding}
+                          bezier={bezier}
+                          tension={bezier ? 0.4 : 0}
+                          listening={false}
+                        />
+                      )}
                       <Arrow
                         key={element.id}
                         elementId={element.id}
@@ -2716,49 +2803,105 @@ export const WhiteboardCanvas = () => {
                         {...highlightProps}
                       />
                       {primaryArrowLayer && (
-                        <Arrow
-                          key={`${element.id}-sloppy-arrow-primary`}
-                          elementId={element.id}
-                          x={element.x}
-                          y={element.y}
-                          points={primaryArrowLayer.points}
-                          stroke={getColorWithOpacity(
-                            element.strokeColor,
-                            element.strokeOpacity,
+                        <Fragment>
+                          {hasBackground && (
+                            <Arrow
+                              key={`${element.id}-sloppy-arrow-background`}
+                              elementId={element.id}
+                              x={element.x}
+                              y={element.y}
+                              points={primaryArrowLayer.points}
+                              stroke={element.penBackground}
+                              strokeWidth={
+                                primaryArrowLayer.strokeWidth +
+                                STROKE_BACKGROUND_PADDING
+                              }
+                              dash={getStrokeDash(element.strokeStyle)}
+                              opacity={Math.min(
+                                1,
+                                backgroundOpacity * primaryArrowLayer.opacity,
+                              )}
+                              pointerLength={pointerBackgroundSize}
+                              pointerWidth={pointerBackgroundSize}
+                              pointerAtBeginning={pointerAtBeginning}
+                              pointerAtEnding={pointerAtEnding}
+                              bezier={false}
+                              tension={0}
+                              listening={false}
+                            />
                           )}
-                          strokeWidth={primaryArrowLayer.strokeWidth}
-                          dash={getStrokeDash(element.strokeStyle)}
-                          opacity={element.opacity * primaryArrowLayer.opacity}
-                          pointerLength={12}
-                          pointerWidth={12}
-                          pointerAtBeginning={pointerAtBeginning}
-                          pointerAtEnding={pointerAtEnding}
-                          bezier={false}
-                          tension={0}
-                          listening={false}
-                          {...highlightProps}
-                        />
+                          <Arrow
+                            key={`${element.id}-sloppy-arrow-primary`}
+                            elementId={element.id}
+                            x={element.x}
+                            y={element.y}
+                            points={primaryArrowLayer.points}
+                            stroke={getColorWithOpacity(
+                              element.strokeColor,
+                              element.strokeOpacity,
+                            )}
+                            strokeWidth={primaryArrowLayer.strokeWidth}
+                            dash={getStrokeDash(element.strokeStyle)}
+                            opacity={element.opacity * primaryArrowLayer.opacity}
+                            pointerLength={12}
+                            pointerWidth={12}
+                            pointerAtBeginning={pointerAtBeginning}
+                            pointerAtEnding={pointerAtEnding}
+                            bezier={false}
+                            tension={0}
+                            listening={false}
+                            {...highlightProps}
+                          />
+                        </Fragment>
                       )}
-                      {extraArrowLayers.map((layer, index) => (
-                        <Line
-                          key={`${element.id}-sloppy-arrow-extra-${index}`}
-                          elementId={element.id}
-                          x={element.x}
-                          y={element.y}
-                          points={layer.points}
-                          stroke={getColorWithOpacity(
-                            element.strokeColor,
-                            element.strokeOpacity,
-                          )}
-                          strokeWidth={layer.strokeWidth}
-                          dash={getStrokeDash(element.strokeStyle)}
-                          opacity={element.opacity * layer.opacity}
-                          lineCap="round"
-                          lineJoin="round"
-                          listening={false}
-                          {...highlightProps}
-                        />
-                      ))}
+                      {extraArrowLayers.map((layer, index) => {
+                        const layerOpacity = element.opacity * layer.opacity;
+                        const layerBackgroundOpacity = Math.min(
+                          1,
+                          backgroundOpacity * layer.opacity,
+                        );
+                        return (
+                          <Fragment
+                            key={`${element.id}-sloppy-arrow-extra-${index}`}
+                          >
+                            {hasBackground && (
+                              <Line
+                                key={`${element.id}-sloppy-arrow-extra-background-${index}`}
+                                elementId={element.id}
+                                x={element.x}
+                                y={element.y}
+                                points={layer.points}
+                                stroke={element.penBackground}
+                                strokeWidth={
+                                  layer.strokeWidth + STROKE_BACKGROUND_PADDING
+                                }
+                                dash={getStrokeDash(element.strokeStyle)}
+                                opacity={layerBackgroundOpacity}
+                                lineCap="round"
+                                lineJoin="round"
+                                listening={false}
+                              />
+                            )}
+                            <Line
+                              elementId={element.id}
+                              x={element.x}
+                              y={element.y}
+                              points={layer.points}
+                              stroke={getColorWithOpacity(
+                                element.strokeColor,
+                                element.strokeOpacity,
+                              )}
+                              strokeWidth={layer.strokeWidth}
+                              dash={getStrokeDash(element.strokeStyle)}
+                              opacity={layerOpacity}
+                              lineCap="round"
+                              lineJoin="round"
+                              listening={false}
+                              {...highlightProps}
+                            />
+                          </Fragment>
+                        );
+                      })}
                     </Fragment>
                   );
                 } else if (element.type === "pen") {
@@ -2766,12 +2909,31 @@ export const WhiteboardCanvas = () => {
                     element.penBackground &&
                     element.penBackground !== "transparent";
                   const backgroundOpacity = element.opacity * 0.4 + 0.2;
+                  const backgroundStrokeWidth =
+                    element.strokeWidth + STROKE_BACKGROUND_PADDING;
+                  const interactionOpacity = element.opacity;
                   const lineTension = PEN_TENSION;
                   return (
                     <Fragment key={element.id}>
+                      {hasBackground && (
+                        <Line
+                          key={`${element.id}-background`}
+                          id={`${element.id}-background`}
+                          elementId={element.id}
+                          x={element.x}
+                          y={element.y}
+                          points={element.points}
+                          stroke={element.penBackground}
+                          strokeWidth={backgroundStrokeWidth}
+                          opacity={Math.min(1, backgroundOpacity)}
+                          lineCap="round"
+                          lineJoin="round"
+                          tension={lineTension}
+                          listening={false}
+                        />
+                      )}
                       <Line
-                        key={`${element.id}-interaction`}
-                        id={element.id}
+                        key={`${element.id}-visible`}
                         elementId={element.id}
                         x={element.x}
                         y={element.y}
@@ -2785,27 +2947,28 @@ export const WhiteboardCanvas = () => {
                         lineCap="round"
                         lineJoin="round"
                         tension={lineTension}
+                        listening={false}
+                        {...highlightProps}
+                      />
+                      <Line
+                        key={`${element.id}-interaction`}
+                        id={element.id}
+                        elementId={element.id}
+                        x={element.x}
+                        y={element.y}
+                        points={element.points}
+                        stroke={getColorWithOpacity(
+                          element.strokeColor,
+                          element.strokeOpacity,
+                        )}
+                        strokeWidth={element.strokeWidth}
+                        opacity={interactionOpacity}
+                        lineCap="round"
+                        lineJoin="round"
+                        tension={lineTension}
                         hitStrokeWidth={Math.max(12, element.strokeWidth)}
                         {...interactionProps}
                       />
-                      {hasBackground && (
-                        <Line
-                          key={`${element.id}-background`}
-                          id={`${element.id}-background`}
-                          elementId={element.id}
-                          x={element.x}
-                          y={element.y}
-                          points={element.points}
-                          stroke={element.penBackground}
-                          strokeWidth={element.strokeWidth + 12}
-                          opacity={Math.min(1, backgroundOpacity)}
-                          lineCap="round"
-                          lineJoin="round"
-                          tension={lineTension}
-                          listening={false}
-                          {...highlightProps}
-                        />
-                      )}
                     </Fragment>
                   );
                 } else if (element.type === "text") {
@@ -3206,8 +3369,37 @@ export const WhiteboardCanvas = () => {
                         strokeWidth: currentShape.strokeWidth,
                         seed: `${currentShape.id}-preview-line`,
                       });
+                      const hasBackground =
+                        currentShape.penBackground &&
+                        currentShape.penBackground !== "transparent";
+                      const backgroundOpacity =
+                        currentShape.opacity * 0.4 + 0.2;
+                      const baseBackgroundOpacity = Math.min(
+                        1,
+                        backgroundOpacity,
+                      );
+                      const backgroundStrokeWidth =
+                        currentShape.strokeWidth + STROKE_BACKGROUND_PADDING;
+                      const showBaseStroke =
+                        currentShape.sloppiness === "smooth";
                       return (
                         <>
+                          {hasBackground && showBaseStroke && (
+                            <Line
+                              x={currentShape.x}
+                              y={currentShape.y}
+                              points={currentShape.points}
+                              stroke={currentShape.penBackground}
+                              strokeWidth={backgroundStrokeWidth}
+                              dash={getStrokeDash(currentShape.strokeStyle)}
+                              opacity={baseBackgroundOpacity}
+                              lineCap="round"
+                              lineJoin="round"
+                              bezier={bezier}
+                              tension={bezier ? 0.4 : 0}
+                              listening={false}
+                            />
+                          )}
                           <Line
                             x={currentShape.x}
                             y={currentShape.y}
@@ -3229,26 +3421,54 @@ export const WhiteboardCanvas = () => {
                               currentShape.strokeWidth
                             )}
                           />
-                          {layers.map((layer, index) => (
-                            <Line
-                              key={`${currentShape.id}-preview-line-${index}`}
-                              x={currentShape.x}
-                              y={currentShape.y}
-                              points={layer.points}
-                              stroke={getColorWithOpacity(
-                                currentShape.strokeColor,
-                                currentShape.strokeOpacity,
-                              )}
-                              strokeWidth={layer.strokeWidth}
-                              dash={getStrokeDash(currentShape.strokeStyle)}
-                              opacity={
-                                currentShape.opacity * 0.7 * layer.opacity
-                              }
-                              lineCap="round"
-                              lineJoin="round"
-                              listening={false}
-                            />
-                          ))}
+                          {layers.map((layer, index) => {
+                            const layerOpacity =
+                              currentShape.opacity * 0.7 * layer.opacity;
+                            const layerBackgroundOpacity = Math.min(
+                              1,
+                              backgroundOpacity * layer.opacity,
+                            );
+                            return (
+                              <Fragment
+                                key={`${currentShape.id}-preview-line-${index}`}
+                              >
+                                {hasBackground && (
+                                  <Line
+                                    x={currentShape.x}
+                                    y={currentShape.y}
+                                    points={layer.points}
+                                    stroke={currentShape.penBackground}
+                                    strokeWidth={
+                                      layer.strokeWidth +
+                                      STROKE_BACKGROUND_PADDING
+                                    }
+                                    dash={getStrokeDash(
+                                      currentShape.strokeStyle,
+                                    )}
+                                    opacity={layerBackgroundOpacity}
+                                    lineCap="round"
+                                    lineJoin="round"
+                                    listening={false}
+                                  />
+                                )}
+                                <Line
+                                  x={currentShape.x}
+                                  y={currentShape.y}
+                                  points={layer.points}
+                                  stroke={getColorWithOpacity(
+                                    currentShape.strokeColor,
+                                    currentShape.strokeOpacity,
+                                  )}
+                                  strokeWidth={layer.strokeWidth}
+                                  dash={getStrokeDash(currentShape.strokeStyle)}
+                                  opacity={layerOpacity}
+                                  lineCap="round"
+                                  lineJoin="round"
+                                  listening={false}
+                                />
+                              </Fragment>
+                            );
+                          })}
                         </>
                       );
                     })()}
@@ -3274,8 +3494,41 @@ export const WhiteboardCanvas = () => {
                         seed: `${currentShape.id}-preview-arrow`,
                       });
                       const [primaryLayer, ...extraLayers] = layers;
+                      const hasBackground =
+                        currentShape.penBackground &&
+                        currentShape.penBackground !== "transparent";
+                      const backgroundOpacity =
+                        currentShape.opacity * 0.4 + 0.2;
+                      const baseBackgroundOpacity = Math.min(
+                        1,
+                        backgroundOpacity,
+                      );
+                      const backgroundStrokeWidth =
+                        currentShape.strokeWidth + STROKE_BACKGROUND_PADDING;
+                      const pointerBackgroundSize =
+                        12 + STROKE_BACKGROUND_PADDING;
+                      const showBaseStroke =
+                        currentShape.sloppiness === "smooth";
                       return (
                         <>
+                          {hasBackground && showBaseStroke && (
+                            <Arrow
+                              x={currentShape.x}
+                              y={currentShape.y}
+                              points={arrowPoints}
+                              stroke={currentShape.penBackground}
+                              strokeWidth={backgroundStrokeWidth}
+                              dash={getStrokeDash(currentShape.strokeStyle)}
+                              opacity={baseBackgroundOpacity}
+                              pointerLength={pointerBackgroundSize}
+                              pointerWidth={pointerBackgroundSize}
+                              pointerAtBeginning={pointerAtBeginning}
+                              pointerAtEnding={pointerAtEnding}
+                              bezier={bezier}
+                              tension={bezier ? 0.4 : 0}
+                              listening={false}
+                            />
+                          )}
                           <Arrow
                             x={currentShape.x}
                             y={currentShape.y}
@@ -3300,51 +3553,108 @@ export const WhiteboardCanvas = () => {
                             )}
                           />
                           {primaryLayer && (
-                            <Arrow
-                              key={`${currentShape.id}-preview-arrow-primary`}
-                              x={currentShape.x}
-                              y={currentShape.y}
-                              points={primaryLayer.points}
-                              stroke={getColorWithOpacity(
-                                currentShape.strokeColor,
-                                currentShape.strokeOpacity,
+                            <Fragment>
+                              {hasBackground && (
+                                <Arrow
+                                  key={`${currentShape.id}-preview-arrow-background`}
+                                  x={currentShape.x}
+                                  y={currentShape.y}
+                                  points={primaryLayer.points}
+                                  stroke={currentShape.penBackground}
+                                  strokeWidth={
+                                    primaryLayer.strokeWidth +
+                                    STROKE_BACKGROUND_PADDING
+                                  }
+                                  dash={getStrokeDash(
+                                    currentShape.strokeStyle,
+                                  )}
+                                  opacity={Math.min(
+                                    1,
+                                    backgroundOpacity * primaryLayer.opacity,
+                                  )}
+                                  pointerLength={pointerBackgroundSize}
+                                  pointerWidth={pointerBackgroundSize}
+                                  pointerAtBeginning={pointerAtBeginning}
+                                  pointerAtEnding={pointerAtEnding}
+                                  bezier={false}
+                                  tension={0}
+                                  listening={false}
+                                />
                               )}
-                              strokeWidth={primaryLayer.strokeWidth}
-                              dash={getStrokeDash(currentShape.strokeStyle)}
-                              opacity={
-                                currentShape.opacity *
-                                0.7 *
-                                primaryLayer.opacity
-                              }
-                              pointerLength={12}
-                              pointerWidth={12}
-                              pointerAtBeginning={pointerAtBeginning}
-                              pointerAtEnding={pointerAtEnding}
-                              bezier={false}
-                              tension={0}
-                              listening={false}
-                            />
+                              <Arrow
+                                key={`${currentShape.id}-preview-arrow-primary`}
+                                x={currentShape.x}
+                                y={currentShape.y}
+                                points={primaryLayer.points}
+                                stroke={getColorWithOpacity(
+                                  currentShape.strokeColor,
+                                  currentShape.strokeOpacity,
+                                )}
+                                strokeWidth={primaryLayer.strokeWidth}
+                                dash={getStrokeDash(currentShape.strokeStyle)}
+                                opacity={
+                                  currentShape.opacity *
+                                  0.7 *
+                                  primaryLayer.opacity
+                                }
+                                pointerLength={12}
+                                pointerWidth={12}
+                                pointerAtBeginning={pointerAtBeginning}
+                                pointerAtEnding={pointerAtEnding}
+                                bezier={false}
+                                tension={0}
+                                listening={false}
+                              />
+                            </Fragment>
                           )}
-                          {extraLayers.map((layer, index) => (
-                            <Line
-                              key={`${currentShape.id}-preview-arrow-${index}`}
-                              x={currentShape.x}
-                              y={currentShape.y}
-                              points={layer.points}
-                              stroke={getColorWithOpacity(
-                                currentShape.strokeColor,
-                                currentShape.strokeOpacity,
-                              )}
-                              strokeWidth={layer.strokeWidth}
-                              dash={getStrokeDash(currentShape.strokeStyle)}
-                              opacity={
-                                currentShape.opacity * 0.7 * layer.opacity
-                              }
-                              lineCap="round"
-                              lineJoin="round"
-                              listening={false}
-                            />
-                          ))}
+                          {extraLayers.map((layer, index) => {
+                            const layerOpacity =
+                              currentShape.opacity * 0.7 * layer.opacity;
+                            const layerBackgroundOpacity = Math.min(
+                              1,
+                              backgroundOpacity * layer.opacity,
+                            );
+                            return (
+                              <Fragment
+                                key={`${currentShape.id}-preview-arrow-${index}`}
+                              >
+                                {hasBackground && (
+                                  <Line
+                                    x={currentShape.x}
+                                    y={currentShape.y}
+                                    points={layer.points}
+                                    stroke={currentShape.penBackground}
+                                    strokeWidth={
+                                      layer.strokeWidth +
+                                      STROKE_BACKGROUND_PADDING
+                                    }
+                                    dash={getStrokeDash(
+                                      currentShape.strokeStyle,
+                                    )}
+                                    opacity={layerBackgroundOpacity}
+                                    lineCap="round"
+                                    lineJoin="round"
+                                    listening={false}
+                                  />
+                                )}
+                                <Line
+                                  x={currentShape.x}
+                                  y={currentShape.y}
+                                  points={layer.points}
+                                  stroke={getColorWithOpacity(
+                                    currentShape.strokeColor,
+                                    currentShape.strokeOpacity,
+                                  )}
+                                  strokeWidth={layer.strokeWidth}
+                                  dash={getStrokeDash(currentShape.strokeStyle)}
+                                  opacity={layerOpacity}
+                                  lineCap="round"
+                                  lineJoin="round"
+                                  listening={false}
+                                />
+                              </Fragment>
+                            );
+                          })}
                         </>
                       );
                     })()}

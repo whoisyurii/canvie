@@ -8,6 +8,7 @@ interface PenBackgroundSelectorProps {
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  title?: string;
 }
 
 const transparentPattern =
@@ -18,11 +19,13 @@ export const PenBackgroundSelector = ({
   value,
   onChange,
   disabled,
+  title,
 }: PenBackgroundSelectorProps) => {
   const isTransparent = value === "transparent";
+  const sectionTitle = title ?? "Stroke Background";
 
   return (
-    <SidebarSection title="Pen Background" disabled={disabled}>
+    <SidebarSection title={sectionTitle} disabled={disabled}>
       <div className="grid grid-cols-6 gap-1.5">
         <button
           type="button"

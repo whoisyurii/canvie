@@ -215,6 +215,7 @@ const TOOL_DEFAULTS: Record<Tool, ToolSettingDefaults> = {
     arrowType: "arrow-end",
     arrowStyle: "straight",
     opacity: 1,
+    penBackground: "transparent",
   },
   line: {
     strokeColor: "#1f2937",
@@ -227,6 +228,7 @@ const TOOL_DEFAULTS: Record<Tool, ToolSettingDefaults> = {
     arrowType: "line",
     arrowStyle: "straight",
     opacity: 1,
+    penBackground: "transparent",
   },
   text: {
     strokeColor: "#1f2937",
