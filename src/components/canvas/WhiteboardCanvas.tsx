@@ -1213,6 +1213,7 @@ export const WhiteboardCanvas = () => {
     if (activeTool !== "select" || selectedIds.length === 0) {
       transformer.nodes([]);
       transformer.resizeEnabled(true);
+      transformer.keepRatio(false);
       transformer.getLayer()?.batchDraw();
       return;
     }
@@ -1224,16 +1225,25 @@ export const WhiteboardCanvas = () => {
     if (nodes.length === 0) {
       transformer.nodes([]);
       transformer.resizeEnabled(true);
+      transformer.keepRatio(false);
       transformer.getLayer()?.batchDraw();
       return;
     }
 
-    const containsNonResizable = selectedIds.some((id) => {
-      const element = visibleElements.find((item) => item.id === id);
-      return element ? !RESIZABLE_ELEMENT_TYPES.has(element.type) : false;
+    const selectedElements = selectedIds
+      .map((id) => visibleElements.find((item) => item.id === id) ?? null)
+      .filter((element): element is CanvasElement => Boolean(element));
+
+    const containsNonResizable = selectedElements.some((element) => {
+      return !RESIZABLE_ELEMENT_TYPES.has(element.type);
     });
 
+    const shouldKeepAspectRatio = selectedElements.length === 1 &&
+      selectedElements[0]?.type === "file" &&
+      selectedElements[0]?.fileType === "application/pdf";
+
     transformer.resizeEnabled(!containsNonResizable);
+    transformer.keepRatio(shouldKeepAspectRatio);
     transformer.nodes(nodes);
     transformer.getLayer()?.batchDraw();
   }, [activeTool, selectedIds, visibleElements]);
@@ -2090,6 +2100,32 @@ export const WhiteboardCanvas = () => {
         updates.x = nextX;
         updates.y = nextY;
         updates.width = width;
+      } else if (
+        element.type === "file" &&
+        element.fileType === "application/pdf"
+      ) {
+        const baseWidth = Math.max(1, node.width());
+        const baseHeight = Math.max(1, node.height());
+        const scaleXAbs = Math.abs(scaleX);
+        const scaleYAbs = Math.abs(scaleY);
+        const scaleCandidates = [scaleXAbs, scaleYAbs].filter(
+          (value) => Number.isFinite(value) && value > 0,
+        );
+        let uniformScale = scaleCandidates[0] ?? 1;
+        if (scaleCandidates.length === 2) {
+          const deviationX = Math.abs(scaleXAbs - 1);
+          const deviationY = Math.abs(scaleYAbs - 1);
+          uniformScale = deviationX >= deviationY ? scaleXAbs : scaleYAbs;
+        }
+
+        const width = Math.max(1, baseWidth * uniformScale);
+        const height = Math.max(1, baseHeight * uniformScale);
+        node.scaleX(1);
+        node.scaleY(1);
+        updates.x = nextX;
+        updates.y = nextY;
+        updates.width = width;
+        updates.height = height;
       } else {
         const width = Math.max(1, node.width() * scaleX);
         const height = Math.max(1, node.height() * scaleY);
