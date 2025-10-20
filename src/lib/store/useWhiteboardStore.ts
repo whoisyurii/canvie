@@ -171,7 +171,7 @@ const TOOL_DEFAULTS: Record<Tool, ToolSettingDefaults> = {
   rectangle: {
     strokeColor: "#1f2937",
     fillColor: "transparent",
-    strokeWidth: 2,
+    strokeWidth: 4,
     strokeStyle: "solid",
     sloppiness: "normal",
     opacity: 1,
@@ -180,7 +180,7 @@ const TOOL_DEFAULTS: Record<Tool, ToolSettingDefaults> = {
   diamond: {
     strokeColor: "#1f2937",
     fillColor: "transparent",
-    strokeWidth: 2,
+    strokeWidth: 4,
     strokeStyle: "solid",
     sloppiness: "normal",
     opacity: 1,
@@ -188,7 +188,7 @@ const TOOL_DEFAULTS: Record<Tool, ToolSettingDefaults> = {
   ellipse: {
     strokeColor: "#1f2937",
     fillColor: "transparent",
-    strokeWidth: 2,
+    strokeWidth: 4,
     strokeStyle: "solid",
     sloppiness: "normal",
     opacity: 1,
@@ -196,7 +196,7 @@ const TOOL_DEFAULTS: Record<Tool, ToolSettingDefaults> = {
   arrow: {
     strokeColor: "#1f2937",
     fillColor: "transparent",
-    strokeWidth: 3,
+    strokeWidth: 4,
     strokeStyle: "solid",
     sloppiness: "normal",
     arrowType: "arrow-end",
@@ -206,7 +206,7 @@ const TOOL_DEFAULTS: Record<Tool, ToolSettingDefaults> = {
   line: {
     strokeColor: "#1f2937",
     fillColor: "transparent",
-    strokeWidth: 2,
+    strokeWidth: 4,
     strokeStyle: "solid",
     sloppiness: "normal",
     arrowType: "line",
@@ -224,14 +224,14 @@ const TOOL_DEFAULTS: Record<Tool, ToolSettingDefaults> = {
   pen: {
     strokeColor: "#1f2937",
     fillColor: "transparent",
-    strokeWidth: 3,
+    strokeWidth: 4,
     sloppiness: "smooth",
     penBackground: "transparent",
     opacity: 1,
   },
   eraser: {
     strokeColor: "#ffffff",
-    strokeWidth: 18,
+    strokeWidth: 4,
     strokeStyle: "solid",
     sloppiness: "smooth",
     opacity: 1,
@@ -408,7 +408,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   },
   recentStrokeColors: [],
   recentFillColors: [],
-  strokeWidth: 2,
+  strokeWidth: 4,
   setStrokeWidth: (width) => set({ strokeWidth: width }),
   strokeStyle: "solid",
   setStrokeStyle: (style) => set({ strokeStyle: style }),

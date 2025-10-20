@@ -49,7 +49,7 @@ const FILL_COLORS = [
   "#e9d5ff",
 ];
 const PEN_BACKGROUND_COLORS = ["#fde68a", "#bbf7d0", "#bae6fd", "#fbcfe8", "#fecaca"];
-const STROKE_WIDTHS = [1, 2, 3, 4, 6, 8, 10, 20];
+const STROKE_WIDTHS = [1, 2, 3, 4, 6, 8, 10, 16];
 
 const TOOL_EMPTY_STATE: Record<string, string> = {
   select: "Select an element to view its settings.",
