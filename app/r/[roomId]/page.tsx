@@ -9,6 +9,7 @@ import { LeftSidebar } from "@/components/sidebars/LeftSidebar";
 import { TopToolbar } from "@/components/toolbars/TopToolbar";
 import { WhiteboardCanvas } from "@/components/canvas/WhiteboardCanvas";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { PdfViewerDialog } from "@/components/files/PdfViewerDialog";
 import { getRoomValidationMessage, validateRoomId } from "@/lib/collaboration/room";
 
 export const runtime = "edge";
@@ -37,6 +38,7 @@ export default function RoomPage() {
     <CollaborationProvider roomId={roomId}>
       <div className="relative h-screen w-full overflow-x-hidden overflow-y-auto bg-[hsl(var(--bg-board))]">
         <WhiteboardCanvas />
+        <PdfViewerDialog />
 
         <div className="absolute left-1/2 top-3 z-50 -translate-x-1/2">
           <TopToolbar />
