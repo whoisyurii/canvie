@@ -36,6 +36,7 @@ import { useDragDrop } from "./DragDropHandler";
 import { UserCursor } from "./UserCursor";
 import { ImageElement, FileElement } from "./elements";
 import { cn } from "@/lib/utils";
+import { getColorWithOpacity } from "@/lib/color";
 import {
   createSloppyStrokeLayers,
   getEllipseOutlinePoints,
@@ -208,9 +209,11 @@ export const WhiteboardCanvas = () => {
     updateElement,
     deleteElement,
     strokeColor,
+    strokeOpacity,
     strokeWidth,
     strokeStyle,
     fillColor,
+    fillOpacity,
     opacity,
     arrowType,
     arrowStyle,
@@ -374,6 +377,7 @@ export const WhiteboardCanvas = () => {
         text: trimmed,
         strokeColor,
         fillColor,
+        fillOpacity,
         strokeWidth,
         strokeStyle,
         opacity,
@@ -391,6 +395,7 @@ export const WhiteboardCanvas = () => {
     [
       addElement,
       fillColor,
+      fillOpacity,
       opacity,
       setSelectedIds,
       sloppiness,
@@ -1500,7 +1505,9 @@ export const WhiteboardCanvas = () => {
         y: pointer.y,
         text: "",
         strokeColor,
+        strokeOpacity,
         fillColor,
+        fillOpacity,
         strokeWidth,
         strokeStyle,
         opacity,
@@ -1533,9 +1540,11 @@ export const WhiteboardCanvas = () => {
       x,
       y,
       strokeColor,
+      strokeOpacity,
       strokeWidth,
       strokeStyle,
       fillColor,
+      fillOpacity,
       opacity,
       sloppiness,
     };
@@ -2378,10 +2387,16 @@ export const WhiteboardCanvas = () => {
                         y={element.y}
                         width={element.width}
                         height={element.height}
-                        stroke={element.strokeColor}
+                        stroke={getColorWithOpacity(
+                          element.strokeColor,
+                          element.strokeOpacity,
+                        )}
                         strokeWidth={element.strokeWidth}
                         dash={getStrokeDash(element.strokeStyle)}
-                        fill={element.fillColor}
+                        fill={getColorWithOpacity(
+                          element.fillColor,
+                          element.fillOpacity
+                        )}
                         opacity={element.opacity}
                         rotation={element.rotation}
                         cornerRadius={safeCornerRadius}
@@ -2396,7 +2411,10 @@ export const WhiteboardCanvas = () => {
                           x={element.x}
                           y={element.y}
                           points={layer.points}
-                          stroke={element.strokeColor}
+                          stroke={getColorWithOpacity(
+                            element.strokeColor,
+                            element.strokeOpacity,
+                          )}
                           strokeWidth={layer.strokeWidth}
                           dash={getStrokeDash(element.strokeStyle)}
                           opacity={element.opacity * layer.opacity}
@@ -2434,10 +2452,16 @@ export const WhiteboardCanvas = () => {
                         x={diamond.x}
                         y={diamond.y}
                         points={diamond.points}
-                        stroke={element.strokeColor}
+                        stroke={getColorWithOpacity(
+                          element.strokeColor,
+                          element.strokeOpacity,
+                        )}
                         strokeWidth={element.strokeWidth}
                         dash={getStrokeDash(element.strokeStyle)}
-                        fill={element.fillColor}
+                        fill={getColorWithOpacity(
+                          element.fillColor,
+                          element.fillOpacity
+                        )}
                         opacity={element.opacity}
                         rotation={element.rotation}
                         closed
@@ -2453,7 +2477,10 @@ export const WhiteboardCanvas = () => {
                           x={diamond.x}
                           y={diamond.y}
                           points={layer.points}
-                          stroke={element.strokeColor}
+                          stroke={getColorWithOpacity(
+                            element.strokeColor,
+                            element.strokeOpacity,
+                          )}
                           strokeWidth={layer.strokeWidth}
                           dash={getStrokeDash(element.strokeStyle)}
                           opacity={element.opacity * layer.opacity}
@@ -2491,10 +2518,16 @@ export const WhiteboardCanvas = () => {
                         y={ellipseCenterY}
                         radiusX={Math.abs((element.width ?? 0) / 2)}
                         radiusY={Math.abs((element.height ?? 0) / 2)}
-                        stroke={element.strokeColor}
+                        stroke={getColorWithOpacity(
+                          element.strokeColor,
+                          element.strokeOpacity,
+                        )}
                         strokeWidth={element.strokeWidth}
                         dash={getStrokeDash(element.strokeStyle)}
-                        fill={element.fillColor}
+                        fill={getColorWithOpacity(
+                          element.fillColor,
+                          element.fillOpacity
+                        )}
                         opacity={element.opacity}
                         rotation={element.rotation}
                         strokeEnabled={element.sloppiness === "smooth"}
@@ -2508,7 +2541,10 @@ export const WhiteboardCanvas = () => {
                           x={ellipseCenterX}
                           y={ellipseCenterY}
                           points={layer.points}
-                          stroke={element.strokeColor}
+                          stroke={getColorWithOpacity(
+                            element.strokeColor,
+                            element.strokeOpacity,
+                          )}
                           strokeWidth={layer.strokeWidth}
                           dash={getStrokeDash(element.strokeStyle)}
                           opacity={element.opacity * layer.opacity}
@@ -2547,8 +2583,11 @@ export const WhiteboardCanvas = () => {
                         elementId={element.id}
                         x={element.x}
                         y={element.y}
-                        points={linePoints}
-                        stroke={element.strokeColor}
+                        points={element.points}
+                        stroke={getColorWithOpacity(
+                          element.strokeColor,
+                          element.strokeOpacity,
+                        )}
                         strokeWidth={element.strokeWidth}
                         dash={getStrokeDash(element.strokeStyle)}
                         opacity={interactionOpacity}
@@ -2564,8 +2603,11 @@ export const WhiteboardCanvas = () => {
                         elementId={element.id}
                         x={element.x}
                         y={element.y}
-                        points={linePoints}
-                        stroke={element.strokeColor}
+                        points={element.points}
+                        stroke={getColorWithOpacity(
+                          element.strokeColor,
+                          element.strokeOpacity,
+                        )}
                         strokeWidth={element.strokeWidth}
                         dash={getStrokeDash(element.strokeStyle)}
                         opacity={element.opacity}
@@ -2584,7 +2626,10 @@ export const WhiteboardCanvas = () => {
                           x={element.x}
                           y={element.y}
                           points={layer.points}
-                          stroke={element.strokeColor}
+                          stroke={getColorWithOpacity(
+                            element.strokeColor,
+                            element.strokeOpacity,
+                          )}
                           strokeWidth={layer.strokeWidth}
                           dash={getStrokeDash(element.strokeStyle)}
                           opacity={element.opacity * layer.opacity}
@@ -2631,7 +2676,10 @@ export const WhiteboardCanvas = () => {
                         x={element.x}
                         y={element.y}
                         points={arrowPoints}
-                        stroke={element.strokeColor}
+                        stroke={getColorWithOpacity(
+                          element.strokeColor,
+                          element.strokeOpacity,
+                        )}
                         strokeWidth={element.strokeWidth}
                         dash={getStrokeDash(element.strokeStyle)}
                         opacity={interactionOpacity}
@@ -2650,7 +2698,10 @@ export const WhiteboardCanvas = () => {
                         x={element.x}
                         y={element.y}
                         points={arrowPoints}
-                        stroke={element.strokeColor}
+                        stroke={getColorWithOpacity(
+                          element.strokeColor,
+                          element.strokeOpacity,
+                        )}
                         strokeWidth={element.strokeWidth}
                         dash={getStrokeDash(element.strokeStyle)}
                         opacity={element.opacity}
@@ -2671,7 +2722,10 @@ export const WhiteboardCanvas = () => {
                           x={element.x}
                           y={element.y}
                           points={primaryArrowLayer.points}
-                          stroke={element.strokeColor}
+                          stroke={getColorWithOpacity(
+                            element.strokeColor,
+                            element.strokeOpacity,
+                          )}
                           strokeWidth={primaryArrowLayer.strokeWidth}
                           dash={getStrokeDash(element.strokeStyle)}
                           opacity={element.opacity * primaryArrowLayer.opacity}
@@ -2692,7 +2746,10 @@ export const WhiteboardCanvas = () => {
                           x={element.x}
                           y={element.y}
                           points={layer.points}
-                          stroke={element.strokeColor}
+                          stroke={getColorWithOpacity(
+                            element.strokeColor,
+                            element.strokeOpacity,
+                          )}
                           strokeWidth={layer.strokeWidth}
                           dash={getStrokeDash(element.strokeStyle)}
                           opacity={element.opacity * layer.opacity}
@@ -2719,7 +2776,10 @@ export const WhiteboardCanvas = () => {
                         x={element.x}
                         y={element.y}
                         points={element.points}
-                        stroke={element.strokeColor}
+                        stroke={getColorWithOpacity(
+                          element.strokeColor,
+                          element.strokeOpacity,
+                        )}
                         strokeWidth={element.strokeWidth}
                         opacity={element.opacity}
                         lineCap="round"
@@ -2767,7 +2827,10 @@ export const WhiteboardCanvas = () => {
                       fontFamily={getFontFamilyCss(element.fontFamily)}
                       lineHeight={lineHeightRatio}
                       align={(element.textAlign as TextAlignment) ?? "left"}
-                      fill={element.strokeColor}
+                      fill={getColorWithOpacity(
+                        element.strokeColor,
+                        element.strokeOpacity,
+                      )}
                       opacity={element.opacity}
                       width={element.width}
                       {...highlightProps}
@@ -2962,10 +3025,16 @@ export const WhiteboardCanvas = () => {
                             y={currentShape.y}
                             width={currentShape.width}
                             height={currentShape.height}
-                            stroke={currentShape.strokeColor}
+                            stroke={getColorWithOpacity(
+                              currentShape.strokeColor,
+                              currentShape.strokeOpacity,
+                            )}
                             strokeWidth={currentShape.strokeWidth}
                             dash={getStrokeDash(currentShape.strokeStyle)}
-                            fill={currentShape.fillColor}
+                            fill={getColorWithOpacity(
+                              currentShape.fillColor,
+                              currentShape.fillOpacity
+                            )}
                             opacity={currentShape.opacity * 0.7}
                             cornerRadius={safeCornerRadius}
                             strokeEnabled={currentShape.sloppiness === "smooth"}
@@ -2980,7 +3049,10 @@ export const WhiteboardCanvas = () => {
                               x={currentShape.x}
                               y={currentShape.y}
                               points={layer.points}
-                              stroke={currentShape.strokeColor}
+                              stroke={getColorWithOpacity(
+                                currentShape.strokeColor,
+                                currentShape.strokeOpacity,
+                              )}
                               strokeWidth={layer.strokeWidth}
                               dash={getStrokeDash(currentShape.strokeStyle)}
                               opacity={
@@ -3015,10 +3087,16 @@ export const WhiteboardCanvas = () => {
                             x={diamond.x}
                             y={diamond.y}
                             points={diamond.points}
-                            stroke={currentShape.strokeColor}
+                            stroke={getColorWithOpacity(
+                              currentShape.strokeColor,
+                              currentShape.strokeOpacity,
+                            )}
                             strokeWidth={currentShape.strokeWidth}
                             dash={getStrokeDash(currentShape.strokeStyle)}
-                            fill={currentShape.fillColor}
+                            fill={getColorWithOpacity(
+                              currentShape.fillColor,
+                              currentShape.fillOpacity
+                            )}
                             opacity={currentShape.opacity * 0.7}
                             closed
                             lineJoin="round"
@@ -3034,7 +3112,10 @@ export const WhiteboardCanvas = () => {
                               x={diamond.x}
                               y={diamond.y}
                               points={layer.points}
-                              stroke={currentShape.strokeColor}
+                              stroke={getColorWithOpacity(
+                                currentShape.strokeColor,
+                                currentShape.strokeOpacity,
+                              )}
                               strokeWidth={layer.strokeWidth}
                               dash={getStrokeDash(currentShape.strokeStyle)}
                               opacity={
@@ -3071,10 +3152,16 @@ export const WhiteboardCanvas = () => {
                             y={centerY}
                             radiusX={Math.abs((currentShape.width ?? 0) / 2)}
                             radiusY={Math.abs((currentShape.height ?? 0) / 2)}
-                            stroke={currentShape.strokeColor}
+                            stroke={getColorWithOpacity(
+                              currentShape.strokeColor,
+                              currentShape.strokeOpacity,
+                            )}
                             strokeWidth={currentShape.strokeWidth}
                             dash={getStrokeDash(currentShape.strokeStyle)}
-                            fill={currentShape.fillColor}
+                            fill={getColorWithOpacity(
+                              currentShape.fillColor,
+                              currentShape.fillOpacity
+                            )}
                             opacity={currentShape.opacity * 0.7}
                             strokeEnabled={currentShape.sloppiness === "smooth"}
                             hitStrokeWidth={Math.max(
@@ -3088,7 +3175,10 @@ export const WhiteboardCanvas = () => {
                               x={centerX}
                               y={centerY}
                               points={layer.points}
-                              stroke={currentShape.strokeColor}
+                              stroke={getColorWithOpacity(
+                                currentShape.strokeColor,
+                                currentShape.strokeOpacity,
+                              )}
                               strokeWidth={layer.strokeWidth}
                               dash={getStrokeDash(currentShape.strokeStyle)}
                               opacity={
@@ -3121,8 +3211,11 @@ export const WhiteboardCanvas = () => {
                           <Line
                             x={currentShape.x}
                             y={currentShape.y}
-                            points={linePoints}
-                            stroke={currentShape.strokeColor}
+                            points={currentShape.points}
+                            stroke={getColorWithOpacity(
+                              currentShape.strokeColor,
+                              currentShape.strokeOpacity,
+                            )}
                             strokeWidth={currentShape.strokeWidth}
                             dash={getStrokeDash(currentShape.strokeStyle)}
                             opacity={currentShape.opacity * 0.7}
@@ -3142,7 +3235,10 @@ export const WhiteboardCanvas = () => {
                               x={currentShape.x}
                               y={currentShape.y}
                               points={layer.points}
-                              stroke={currentShape.strokeColor}
+                              stroke={getColorWithOpacity(
+                                currentShape.strokeColor,
+                                currentShape.strokeOpacity,
+                              )}
                               strokeWidth={layer.strokeWidth}
                               dash={getStrokeDash(currentShape.strokeStyle)}
                               opacity={
@@ -3184,7 +3280,10 @@ export const WhiteboardCanvas = () => {
                             x={currentShape.x}
                             y={currentShape.y}
                             points={arrowPoints}
-                            stroke={currentShape.strokeColor}
+                            stroke={getColorWithOpacity(
+                              currentShape.strokeColor,
+                              currentShape.strokeOpacity,
+                            )}
                             strokeWidth={currentShape.strokeWidth}
                             dash={getStrokeDash(currentShape.strokeStyle)}
                             opacity={currentShape.opacity * 0.7}
@@ -3206,7 +3305,10 @@ export const WhiteboardCanvas = () => {
                               x={currentShape.x}
                               y={currentShape.y}
                               points={primaryLayer.points}
-                              stroke={currentShape.strokeColor}
+                              stroke={getColorWithOpacity(
+                                currentShape.strokeColor,
+                                currentShape.strokeOpacity,
+                              )}
                               strokeWidth={primaryLayer.strokeWidth}
                               dash={getStrokeDash(currentShape.strokeStyle)}
                               opacity={
@@ -3229,7 +3331,10 @@ export const WhiteboardCanvas = () => {
                               x={currentShape.x}
                               y={currentShape.y}
                               points={layer.points}
-                              stroke={currentShape.strokeColor}
+                              stroke={getColorWithOpacity(
+                                currentShape.strokeColor,
+                                currentShape.strokeOpacity,
+                              )}
                               strokeWidth={layer.strokeWidth}
                               dash={getStrokeDash(currentShape.strokeStyle)}
                               opacity={
@@ -3271,7 +3376,10 @@ export const WhiteboardCanvas = () => {
                             x={currentShape.x}
                             y={currentShape.y}
                             points={currentShape.points}
-                            stroke={currentShape.strokeColor}
+                            stroke={getColorWithOpacity(
+                              currentShape.strokeColor,
+                              currentShape.strokeOpacity,
+                            )}
                             strokeWidth={currentShape.strokeWidth}
                             opacity={currentShape.opacity * 0.7}
                             lineCap="round"
