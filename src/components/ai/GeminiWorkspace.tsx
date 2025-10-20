@@ -60,7 +60,11 @@ export const GeminiWorkspace = ({
   }, [messages, open]);
 
   const conversation = useMemo<GeminiChatMessage[]>(
-    () => messages.map(({ role, content }) => ({ role, content })),
+    () =>
+      messages.map<GeminiChatMessage>(({ role, content }) => ({
+        role,
+        content,
+      })),
     [messages],
   );
 
@@ -86,7 +90,10 @@ export const GeminiWorkspace = ({
       content: trimmed,
     };
 
-    const nextConversation = [...conversation, { role: "user", content: trimmed }];
+    const nextConversation: GeminiChatMessage[] = [
+      ...conversation,
+      { role: "user", content: trimmed } satisfies GeminiChatMessage,
+    ];
 
     setMessages((previous) => [...previous, userMessage]);
     setInput("");
