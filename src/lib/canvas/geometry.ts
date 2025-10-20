@@ -7,18 +7,9 @@ const computeCurveControlPoint = (
   endX: number,
   endY: number
 ) => {
-  const dx = endX - startX;
-  const dy = endY - startY;
-  const length = Math.sqrt(dx * dx + dy * dy) || 1;
-  const normalX = -dy / length;
-  const normalY = dx / length;
   const midX = (startX + endX) / 2;
   const midY = (startY + endY) / 2;
-  const offset = Math.min(120, length * 0.3);
-  return {
-    x: midX + normalX * offset,
-    y: midY + normalY * offset,
-  };
+  return { x: midX, y: midY };
 };
 
 export const ensureCurvePoints = (points: number[] | undefined) => {
