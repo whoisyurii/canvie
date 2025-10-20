@@ -34,7 +34,7 @@ export const BottomBar = () => {
         <Redo2 className="h-4 w-4" />
       </Button>
 
-      <Separator orientation="vertical" className="mx-0.5 h-7" />
+      <Separator orientation="vertical" className="toolbar-separator" />
 
       {/* Zoom Controls */}
       <Button variant="ghost" size="icon" className="tool-button" onClick={zoomOut}>
