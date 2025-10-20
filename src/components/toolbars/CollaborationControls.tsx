@@ -1,7 +1,15 @@
 "use client";
 
 import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { FileText, MoreVertical, Pencil, Trash2, Share2, Upload } from "lucide-react";
+import {
+  ExternalLink,
+  FileText,
+  MoreVertical,
+  Pencil,
+  Trash2,
+  Share2,
+  Upload,
+} from "lucide-react";
 
 import {
   useWhiteboardStore,
@@ -108,10 +116,12 @@ const renderFileRow = (
   params: {
     canManage: boolean;
     onFocus: () => void;
+    onOpen: () => void;
     onRename: () => void;
     onRemove: () => void;
   },
 ) => {
+  const isPdf = file.type === "application/pdf";
   const fileTypeLabel = file.type ? file.type.split("/").pop() ?? file.type : "File";
   return (
     <div
@@ -119,6 +129,11 @@ const renderFileRow = (
       role="button"
       tabIndex={0}
       onClick={params.onFocus}
+      onDoubleClick={() => {
+        if (isPdf) {
+          params.onOpen();
+        }
+      }}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
@@ -147,39 +162,60 @@ const renderFileRow = (
           {fileTypeLabel.toUpperCase()} · Uploaded by {params.canManage ? "you" : file.ownerName}
         </p>
       </div>
-      {params.canManage ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 shrink-0 text-muted-foreground"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
-            <DropdownMenuItem
-              onSelect={(event) => {
-                event.preventDefault();
-                params.onRename();
-              }}
-            >
-              <Pencil className="mr-2 h-4 w-4" /> Rename
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onSelect={(event) => {
-                event.preventDefault();
-                params.onRemove();
-              }}
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Remove
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ) : null}
+      <div className="flex items-center gap-1">
+        {isPdf ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0 text-muted-foreground"
+                aria-label="Open PDF preview"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  params.onOpen();
+                }}
+              >
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">Open PDF preview</TooltipContent>
+          </Tooltip>
+        ) : null}
+        {params.canManage ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0 text-muted-foreground"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault();
+                  params.onRename();
+                }}
+              >
+                <Pencil className="mr-2 h-4 w-4" /> Rename
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onSelect={(event) => {
+                  event.preventDefault();
+                  params.onRemove();
+                }}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Remove
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+      </div>
     </div>
   );
 };
@@ -203,6 +239,7 @@ export const CollaborationControls = () => {
     focusElement,
     renameFile,
     removeFile,
+    openFilePreview,
     roomId,
     shareUrl,
   } = useWhiteboardStore();
@@ -471,6 +508,9 @@ export const CollaborationControls = () => {
             ) : (
               <ScrollArea className="h-[260px]">
                 <div className="space-y-2.5 px-3.5 py-2.5">
+                  <p className="text-xs text-muted-foreground">
+                    Double-click a PDF on the canvas or use Open to preview it.
+                  </p>
                   {uploadedFiles.map((file) => {
                     const canManage = currentUser?.id
                       ? file.ownerId === currentUser.id
@@ -479,6 +519,17 @@ export const CollaborationControls = () => {
                       canManage,
                       onFocus: () => {
                         focusElement(file.id);
+                        setFilesOpen(false);
+                      },
+                      onOpen: () => {
+                        openFilePreview(file.id, {
+                          name: file.name,
+                          type: file.type,
+                          ownerId: file.ownerId,
+                          ownerName: file.ownerName,
+                          sourceElementId: file.id,
+                          thumbnailUrl: file.thumbnailUrl,
+                        });
                         setFilesOpen(false);
                       },
                       onRename: () => {
