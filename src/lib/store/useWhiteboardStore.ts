@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import * as Y from "yjs";
+import { ensureCurvePoints, flattenCurvePoints } from "@/lib/canvas/geometry";
 
 export type Tool =
   | "select"
@@ -424,7 +425,45 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   arrowType: "arrow-end",
   setArrowType: (type) => set({ arrowType: type }),
   arrowStyle: "straight",
-  setArrowStyle: (style) => set({ arrowStyle: style }),
+  setArrowStyle: (style) => {
+    set({ arrowStyle: style });
+
+    const state = get();
+    if (state.activeTool !== "select") {
+      return;
+    }
+
+    const targetIds = state.selectedIds.filter((id) => {
+      const element = state.elements.find((el) => el.id === id);
+      if (!element) {
+        return false;
+      }
+      return element.type === "arrow" || element.type === "line";
+    });
+
+    if (targetIds.length === 0) {
+      return;
+    }
+
+    targetIds.forEach((id) => {
+      const element = state.elements.find((el) => el.id === id);
+      if (!element) {
+        return;
+      }
+
+      const nextPoints =
+        style === "curve"
+          ? ensureCurvePoints(element.points)
+          : flattenCurvePoints(element.points);
+
+      state.updateElement(id, {
+        arrowStyle: style,
+        points: nextPoints,
+      });
+    });
+
+    state.pushHistory();
+  },
   opacity: 1,
   setOpacity: (opacity) => set({ opacity }),
   rectangleCornerStyle: "rounded",
