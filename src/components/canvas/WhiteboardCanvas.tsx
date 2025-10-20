@@ -16,6 +16,7 @@ import {
   Stage,
   Layer,
   Rect,
+  Circle,
   Line,
   Text as KonvaText,
   Arrow,
@@ -49,6 +50,7 @@ import {
   isElementWithinSelection,
   getDiamondShape,
   getArrowRenderConfig,
+  ensureCurvePoints,
   getLineHeight,
   estimateTextBoxWidth,
   estimateTextBoxHeight,
@@ -267,6 +269,33 @@ export const WhiteboardCanvas = () => {
       lastErasedIdRef.current = null;
     }
   }, [activeTool, isErasing]);
+
+  useEffect(() => {
+    const targets = elements.filter(
+      (element) =>
+        (element.type === "line" || element.type === "arrow") &&
+        element.arrowStyle === "curve" &&
+        element.points &&
+        element.points.length !== 6
+    );
+
+    if (targets.length === 0) {
+      return;
+    }
+
+    targets.forEach((element) => {
+      const normalized = ensureCurvePoints(element.points);
+      if (
+        element.points &&
+        normalized.length === element.points.length &&
+        normalized.every((value, index) => value === element.points?.[index])
+      ) {
+        return;
+      }
+
+      updateElement(element.id, { points: normalized });
+    });
+  }, [elements, updateElement]);
 
   // Sync Stage position with pan state (but not while panning to avoid conflicts)
   useEffect(() => {
@@ -1101,6 +1130,24 @@ export const WhiteboardCanvas = () => {
     });
   }, [elements, renderBounds]);
 
+  const curveHandleElements = useMemo(() => {
+    if (activeTool !== "select") {
+      return [] as CanvasElement[];
+    }
+
+    return selectedIds
+      .map((id) => elements.find((item) => item.id === id) ?? null)
+      .filter((element): element is CanvasElement => {
+        if (!element) {
+          return false;
+        }
+        if (element.type !== "line" && element.type !== "arrow") {
+          return false;
+        }
+        return element.arrowStyle === "curve";
+      });
+  }, [activeTool, elements, selectedIds]);
+
   const selectionBounds = useMemo(() => {
     if (selectedIds.length === 0) {
       return null;
@@ -1621,9 +1668,14 @@ export const WhiteboardCanvas = () => {
         }
       }
 
+      const basePoints = [0, 0, endX, endY];
+      const nextPoints =
+        currentShape.arrowStyle === "curve"
+          ? ensureCurvePoints(basePoints)
+          : basePoints;
       const updatedShape = {
         ...currentShape,
-        points: [0, 0, endX, endY],
+        points: nextPoints,
       };
       setCurrentShape(updatedShape);
       currentShapeRef.current = updatedShape;
@@ -2082,6 +2134,78 @@ export const WhiteboardCanvas = () => {
       }
     : undefined;
 
+  const updateCurveHandlePosition = useCallback(
+    (element: CanvasElement, handleIndex: number, absX: number, absY: number) => {
+      const curvePoints = ensureCurvePoints(element.points);
+      if (curvePoints.length < 6) {
+        return;
+      }
+
+      const absolutePoints = [
+        {
+          x: element.x + (curvePoints[0] ?? 0),
+          y: element.y + (curvePoints[1] ?? 0),
+        },
+        {
+          x: element.x + (curvePoints[2] ?? 0),
+          y: element.y + (curvePoints[3] ?? 0),
+        },
+        {
+          x: element.x + (curvePoints[4] ?? 0),
+          y: element.y + (curvePoints[5] ?? 0),
+        },
+      ];
+
+      const index = Math.max(0, Math.min(handleIndex, absolutePoints.length - 1));
+      const current = absolutePoints[index];
+      if (current.x === absX && current.y === absY) {
+        return;
+      }
+
+      absolutePoints[index] = { x: absX, y: absY };
+
+      const basePoint = absolutePoints[0];
+      const nextPoints: number[] = [];
+      absolutePoints.forEach((point) => {
+        nextPoints.push(point.x - basePoint.x, point.y - basePoint.y);
+      });
+
+      updateElement(element.id, {
+        x: basePoint.x,
+        y: basePoint.y,
+        points: nextPoints,
+      });
+    },
+    [updateElement]
+  );
+
+  const handleCurveHandleDragMove = useCallback(
+    (
+      event: KonvaEventObject<DragEvent>,
+      element: CanvasElement,
+      handleIndex: number
+    ) => {
+      event.cancelBubble = true;
+      const node = event.target;
+      updateCurveHandlePosition(element, handleIndex, node.x(), node.y());
+    },
+    [updateCurveHandlePosition]
+  );
+
+  const handleCurveHandleDragEnd = useCallback(
+    (
+      event: KonvaEventObject<DragEvent>,
+      element: CanvasElement,
+      handleIndex: number
+    ) => {
+      event.cancelBubble = true;
+      const node = event.target;
+      updateCurveHandlePosition(element, handleIndex, node.x(), node.y());
+      pushHistory();
+    },
+    [pushHistory, updateCurveHandlePosition]
+  );
+
   const getInteractionProps = useCallback(
     (element: CanvasElement) => {
       if (activeTool !== "select") {
@@ -2434,8 +2558,15 @@ export const WhiteboardCanvas = () => {
                     </Fragment>
                   );
                 } else if (element.type === "line") {
-                  const lineSloppyLayers = createSloppyStrokeLayers(
+                  const { points: linePoints, bezier } = getArrowRenderConfig(
                     element.points,
+                    element.arrowStyle
+                  );
+                  const lineOverlayPoints = bezier
+                    ? sampleCurvePoints(linePoints)
+                    : linePoints;
+                  const lineSloppyLayers = createSloppyStrokeLayers(
+                    lineOverlayPoints,
                     {
                       sloppiness: element.sloppiness,
                       strokeWidth: element.strokeWidth,
@@ -2462,6 +2593,8 @@ export const WhiteboardCanvas = () => {
                         opacity={interactionOpacity}
                         lineCap="round"
                         lineJoin="round"
+                        bezier={bezier}
+                        tension={bezier ? 0.4 : 0}
                         hitStrokeWidth={Math.max(12, element.strokeWidth)}
                         {...interactionProps}
                       />
@@ -2480,6 +2613,8 @@ export const WhiteboardCanvas = () => {
                         opacity={element.opacity}
                         lineCap="round"
                         lineJoin="round"
+                        bezier={bezier}
+                        tension={bezier ? 0.4 : 0}
                         strokeEnabled={element.sloppiness === "smooth"}
                         listening={false}
                         {...highlightProps}
@@ -2793,6 +2928,75 @@ export const WhiteboardCanvas = () => {
                 ignoreStroke
               />
 
+              {curveHandleElements.map((element) => {
+                const curvePoints = ensureCurvePoints(element.points);
+                if (curvePoints.length < 6) {
+                  return null;
+                }
+
+                const handles = [
+                  {
+                    x: element.x + (curvePoints[0] ?? 0),
+                    y: element.y + (curvePoints[1] ?? 0),
+                  },
+                  {
+                    x: element.x + (curvePoints[2] ?? 0),
+                    y: element.y + (curvePoints[3] ?? 0),
+                  },
+                  {
+                    x: element.x + (curvePoints[4] ?? 0),
+                    y: element.y + (curvePoints[5] ?? 0),
+                  },
+                ];
+
+                const handleRadius = 8 / safeZoom;
+                const handleStrokeWidth = Math.max(1, 2 / safeZoom);
+                const connectorPoints = handles.flatMap((point) => [
+                  point.x,
+                  point.y,
+                ]);
+
+                return (
+                  <Fragment key={`${element.id}-curve-handles`}>
+                    <Line
+                      points={connectorPoints}
+                      stroke="#0ea5e9"
+                      strokeWidth={handleStrokeWidth}
+                      dash={[12 / safeZoom, 12 / safeZoom]}
+                      opacity={0.4}
+                      lineCap="round"
+                      lineJoin="round"
+                      listening={false}
+                    />
+                    {handles.map((handle, index) => (
+                      <Circle
+                        key={`${element.id}-curve-handle-${index}`}
+                        x={handle.x}
+                        y={handle.y}
+                        radius={handleRadius}
+                        fill="#f8fafc"
+                        stroke="#0ea5e9"
+                        strokeWidth={handleStrokeWidth}
+                        draggable
+                        dragOnTop
+                        onMouseDown={(event) => {
+                          event.cancelBubble = true;
+                        }}
+                        onDragStart={(event) => {
+                          event.cancelBubble = true;
+                        }}
+                        onDragMove={(event) =>
+                          handleCurveHandleDragMove(event, element, index)
+                        }
+                        onDragEnd={(event) =>
+                          handleCurveHandleDragEnd(event, element, index)
+                        }
+                      />
+                    ))}
+                  </Fragment>
+                );
+              })}
+
               {/* Render current drawing shape */}
               {currentShape && (
                 <>
@@ -2990,14 +3194,18 @@ export const WhiteboardCanvas = () => {
                     })()}
                   {currentShape.type === "line" &&
                     (() => {
-                      const layers = createSloppyStrokeLayers(
+                      const { points: linePoints, bezier } = getArrowRenderConfig(
                         currentShape.points,
-                        {
-                          sloppiness: currentShape.sloppiness,
-                          strokeWidth: currentShape.strokeWidth,
-                          seed: `${currentShape.id}-preview-line`,
-                        }
+                        currentShape.arrowStyle
                       );
+                      const overlayPoints = bezier
+                        ? sampleCurvePoints(linePoints)
+                        : linePoints;
+                      const layers = createSloppyStrokeLayers(overlayPoints, {
+                        sloppiness: currentShape.sloppiness,
+                        strokeWidth: currentShape.strokeWidth,
+                        seed: `${currentShape.id}-preview-line`,
+                      });
                       return (
                         <>
                           <Line
@@ -3013,6 +3221,8 @@ export const WhiteboardCanvas = () => {
                             opacity={currentShape.opacity * 0.7}
                             lineCap="round"
                             lineJoin="round"
+                            bezier={bezier}
+                            tension={bezier ? 0.4 : 0}
                             strokeEnabled={currentShape.sloppiness === "smooth"}
                             hitStrokeWidth={Math.max(
                               12,
