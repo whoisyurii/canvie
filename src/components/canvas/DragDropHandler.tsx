@@ -30,7 +30,15 @@ export type UploadPosition = {
 };
 
 export const useDragDrop = () => {
-  const { addElement, addFile, currentUser, pan, zoom, collaboration } = useWhiteboardStore();
+  const {
+    addElement,
+    addFile,
+    currentUser,
+    pan,
+    zoom,
+    collaboration,
+    setActiveTool,
+  } = useWhiteboardStore();
   const { toast } = useToast();
   const fileSyncManager = collaboration?.fileSyncManager as FileSyncManager | null;
 
@@ -127,6 +135,7 @@ export const useDragDrop = () => {
               fileName,
               fileType,
             });
+            setActiveTool("select");
           };
           img.onerror = () => {
             console.error(`Failed to load image file: ${fileName}`);
@@ -148,6 +157,7 @@ export const useDragDrop = () => {
               fileName,
               fileType,
             });
+            setActiveTool("select");
           };
           img.src = tempUrl;
         } else if (fileType === "application/pdf") {
@@ -170,6 +180,7 @@ export const useDragDrop = () => {
               fileType,
               thumbnailUrl,
             });
+            setActiveTool("select");
           };
 
           if (thumbnailUrl) {
@@ -189,27 +200,28 @@ export const useDragDrop = () => {
           } else {
             addPdfElement(200, 260);
           }
-        } else if (fileType === "text/plain") {
-          const reader = new FileReader();
-          reader.onload = (evt) => {
-            const text = (evt.target?.result as string) ?? "";
-            const { x, y } = resolvePosition(240, 160);
-            addElement({
-              id: fileId,
-              type: "text",
-              x,
-              y,
-              text: text.slice(0, 200),
-              strokeColor: "#000000",
-              strokeOpacity: 1,
-              strokeWidth: 0,
-              strokeStyle: "solid",
-              opacity: 1,
-              fileName,
-            });
-          };
-          reader.readAsText(file);
-        }
+          } else if (fileType === "text/plain") {
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+              const text = (evt.target?.result as string) ?? "";
+              const { x, y } = resolvePosition(240, 160);
+              addElement({
+                id: fileId,
+                type: "text",
+                x,
+                y,
+                text: text.slice(0, 200),
+                strokeColor: "#000000",
+                strokeOpacity: 1,
+                strokeWidth: 0,
+                strokeStyle: "solid",
+                opacity: 1,
+                fileName,
+              });
+              setActiveTool("select");
+            };
+            reader.readAsText(file);
+          }
 
         toast({
           title: "File added",
@@ -224,6 +236,7 @@ export const useDragDrop = () => {
       currentUser?.name,
       fileSyncManager,
       getCenteredPosition,
+      setActiveTool,
       toast,
     ],
   );
