@@ -18,6 +18,7 @@ import {
   ArrowDown,
   Trash2,
   Focus,
+  Sparkles,
 } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useWhiteboardStore, Tool } from "@/lib/store/useWhiteboardStore";
@@ -52,6 +53,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useAiSettings } from "@/hooks/useAiSettings";
+import { GeminiSettingsDialog } from "@/components/ai/GeminiSettingsDialog";
 import { CollaborationControls } from "./CollaborationControls";
 
 type ToolbarTool = {
@@ -123,6 +126,9 @@ export const TopToolbar = () => {
   } = useWhiteboardStore();
   const { toast } = useToast();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isGeminiDialogOpen, setIsGeminiDialogOpen] = useState(false);
+  const { geminiApiKey } = useAiSettings();
+  const hasGeminiKey = Boolean(geminiApiKey);
   const hasSelection = selectedIds.length > 0;
   const hasElements = elements.length > 0;
   const fileSyncManager = collaboration?.fileSyncManager as FileSyncManager | null;
@@ -462,6 +468,38 @@ export const TopToolbar = () => {
 
         <Separator orientation="vertical" className="toolbar-separator" />
 
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "tool-button",
+                isGeminiDialogOpen && "tool-button-active",
+                !hasGeminiKey && "text-amber-500 hover:text-amber-500",
+              )}
+              onClick={() => setIsGeminiDialogOpen(true)}
+              aria-label={hasGeminiKey ? "Open Gemini settings" : "Gemini API key required"}
+            >
+              <Sparkles className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p
+              className={cn(
+                "text-sm",
+                !hasGeminiKey && "font-medium text-amber-500",
+              )}
+            >
+              {hasGeminiKey
+                ? "Manage Gemini preferences"
+                : "Add a Gemini API key to unlock AI tools"}
+            </p>
+          </TooltipContent>
+        </Tooltip>
+
+        <Separator orientation="vertical" className="toolbar-separator" />
+
         <CollaborationControls />
 
         <Separator orientation="vertical" className="toolbar-separator" />
@@ -537,6 +575,12 @@ export const TopToolbar = () => {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <GeminiSettingsDialog
+          open={isGeminiDialogOpen}
+          onOpenChange={(open) => {
+            setIsGeminiDialogOpen(open);
+          }}
+        />
       </div>
     </TooltipProvider>
   );
