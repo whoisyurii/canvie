@@ -26,13 +26,13 @@ import { AiOutputMode, GeminiModel, useAiSettingsStore } from "@/lib/store/useAi
 
 const MODEL_OPTIONS: Array<{ label: string; value: GeminiModel; helper: string }> = [
   {
-    label: "Gemini 2.0 Flash",
-    value: "gemini-2.0-flash",
+    label: "Gemini 2.5 Flash",
+    value: "gemini-2.5-flash",
     helper: "Fast, cost-effective for live ideation.",
   },
   {
-    label: "Gemini 2.0 Pro",
-    value: "gemini-2.0-pro",
+    label: "Gemini 2.5 Pro",
+    value: "gemini-2.5-pro",
     helper: "Higher quality, better for detailed plans.",
   },
 ];
