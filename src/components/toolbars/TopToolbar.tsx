@@ -56,7 +56,6 @@ import { cn } from "@/lib/utils";
 import { useAiSettings } from "@/hooks/useAiSettings";
 import { GeminiSettingsDialog } from "@/components/ai/GeminiSettingsDialog";
 import { GeminiWorkspace } from "@/components/ai/GeminiWorkspace";
-import { GeminiDiagramGenerator } from "@/components/ai/GeminiDiagramGenerator";
 import { CollaborationControls } from "./CollaborationControls";
 
 type ToolbarTool = {
@@ -130,7 +129,6 @@ export const TopToolbar = () => {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isGeminiWorkspaceOpen, setIsGeminiWorkspaceOpen] = useState(false);
   const [isGeminiSettingsOpen, setIsGeminiSettingsOpen] = useState(false);
-  const [isGeminiDiagramOpen, setIsGeminiDiagramOpen] = useState(false);
   const { geminiApiKey } = useAiSettings();
   const hasGeminiKey = Boolean(geminiApiKey);
   const hasSelection = selectedIds.length > 0;
@@ -588,10 +586,8 @@ export const TopToolbar = () => {
         <GeminiWorkspace
           open={isGeminiWorkspaceOpen}
           onOpenChange={setIsGeminiWorkspaceOpen}
-          onOpenDiagram={() => setIsGeminiDiagramOpen(true)}
           onOpenSettings={() => setIsGeminiSettingsOpen(true)}
         />
-        <GeminiDiagramGenerator open={isGeminiDiagramOpen} onOpenChange={setIsGeminiDiagramOpen} />
         <GeminiSettingsDialog open={isGeminiSettingsOpen} onOpenChange={setIsGeminiSettingsOpen} />
       </div>
     </TooltipProvider>
