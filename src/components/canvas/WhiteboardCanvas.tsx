@@ -2375,6 +2375,17 @@ export const WhiteboardCanvas = () => {
                     element.height,
                     element.cornerRadius
                   );
+                  const rectWidth = Math.abs(element.width ?? 0);
+                  const rectHeight = Math.abs(element.height ?? 0);
+                  const hasLabel = Boolean(element.text?.trim());
+                  const labelFontSize = element.fontSize ?? textFontSize;
+                  const labelLineHeight = labelFontSize
+                    ? getLineHeight(labelFontSize) / labelFontSize
+                    : 1.4;
+                  const labelWidth = Math.max(40, rectWidth - 32);
+                  const labelHeight = Math.max(28, rectHeight - 32);
+                  const labelX = element.x + Math.max(0, (rectWidth - labelWidth) / 2);
+                  const labelY = element.y + Math.max(0, (rectHeight - labelHeight) / 2);
                   const rectOutlinePoints = getRectangleOutlinePoints(
                     element.width ?? 0,
                     element.height ?? 0,
@@ -2437,6 +2448,24 @@ export const WhiteboardCanvas = () => {
                           {...highlightProps}
                         />
                       ))}
+                      {hasLabel && rectWidth > 0 && rectHeight > 0 && (
+                        <KonvaText
+                          key={`${element.id}-label`}
+                          x={labelX}
+                          y={labelY}
+                          width={labelWidth}
+                          height={labelHeight}
+                          text={element.text ?? ""}
+                          fontSize={labelFontSize}
+                          fontFamily={getFontFamilyCss(element.fontFamily)}
+                          lineHeight={labelLineHeight}
+                          align={(element.textAlign as TextAlignment) ?? "center"}
+                          verticalAlign="middle"
+                          fill={getColorWithOpacity(element.strokeColor, element.strokeOpacity)}
+                          opacity={element.opacity}
+                          listening={false}
+                        />
+                      )}
                     </Fragment>
                   );
                 } else if (element.type === "diamond") {
@@ -2446,6 +2475,17 @@ export const WhiteboardCanvas = () => {
                     element.width ?? 0,
                     element.height ?? 0
                   );
+                  const diamondWidth = Math.abs(element.width ?? 0);
+                  const diamondHeight = Math.abs(element.height ?? 0);
+                  const hasLabel = Boolean(element.text?.trim());
+                  const labelFontSize = element.fontSize ?? textFontSize;
+                  const labelLineHeight = labelFontSize
+                    ? getLineHeight(labelFontSize) / labelFontSize
+                    : 1.4;
+                  const labelWidth = Math.max(40, diamondWidth - 36);
+                  const labelHeight = Math.max(28, diamondHeight - 36);
+                  const labelX = element.x + Math.max(0, (diamondWidth - labelWidth) / 2);
+                  const labelY = element.y + Math.max(0, (diamondHeight - labelHeight) / 2);
                   const diamondSloppyLayers = createSloppyStrokeLayers(
                     diamond.points,
                     {
@@ -2502,6 +2542,24 @@ export const WhiteboardCanvas = () => {
                           {...highlightProps}
                         />
                       ))}
+                      {hasLabel && diamondWidth > 0 && diamondHeight > 0 && (
+                        <KonvaText
+                          key={`${element.id}-label`}
+                          x={labelX}
+                          y={labelY}
+                          width={labelWidth}
+                          height={labelHeight}
+                          text={element.text ?? ""}
+                          fontSize={labelFontSize}
+                          fontFamily={getFontFamilyCss(element.fontFamily)}
+                          lineHeight={labelLineHeight}
+                          align={(element.textAlign as TextAlignment) ?? "center"}
+                          verticalAlign="middle"
+                          fill={getColorWithOpacity(element.strokeColor, element.strokeOpacity)}
+                          opacity={element.opacity}
+                          listening={false}
+                        />
+                      )}
                     </Fragment>
                   );
                 } else if (element.type === "ellipse") {
