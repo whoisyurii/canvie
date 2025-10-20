@@ -215,6 +215,12 @@ export const LeftSidebar = () => {
               recentColors={recentStrokeColors}
             />
             <StrokeWidthSelector widths={STROKE_WIDTHS} value={strokeWidth} onChange={setStrokeWidth} />
+            <PenBackgroundSelector
+              colors={PEN_BACKGROUND_COLORS}
+              value={penBackground}
+              onChange={setPenBackground}
+              title="Stroke Background"
+            />
             <StrokeStyleSelector value={strokeStyle} onChange={setStrokeStyle} />
             <SloppinessSelector value={sloppiness} onChange={setSloppiness} />
             <OpacityControl value={opacity} onChange={setOpacity} />
@@ -230,6 +236,12 @@ export const LeftSidebar = () => {
               recentColors={recentStrokeColors}
             />
             <StrokeWidthSelector widths={STROKE_WIDTHS} value={strokeWidth} onChange={setStrokeWidth} />
+            <PenBackgroundSelector
+              colors={PEN_BACKGROUND_COLORS}
+              value={penBackground}
+              onChange={setPenBackground}
+              title="Stroke Background"
+            />
             <StrokeStyleSelector value={strokeStyle} onChange={setStrokeStyle} />
             <ArrowTypeSelector
               type={arrowType}
@@ -255,6 +267,7 @@ export const LeftSidebar = () => {
               colors={PEN_BACKGROUND_COLORS}
               value={penBackground}
               onChange={setPenBackground}
+              title="Pen Background"
             />
             <OpacityControl value={opacity} onChange={setOpacity} />
           </>
