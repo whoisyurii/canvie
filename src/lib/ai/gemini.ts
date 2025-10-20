@@ -124,9 +124,15 @@ const callGeminiDiagram = async ({ apiKey, model, prompt, kind }: GeminiDiagramR
   if (!response.ok) {
     let message = `Gemini request failed (${response.status})`;
     try {
-      const errorPayload = await response.json();
-      if (errorPayload?.error?.message) {
-        message = errorPayload.error.message as string;
+      type GeminiErrorPayload = {
+        error?: {
+          message?: string;
+        };
+      };
+
+      const errorPayload = (await response.json()) as GeminiErrorPayload;
+      if (errorPayload.error?.message) {
+        message = errorPayload.error.message;
       }
     } catch (error) {
       // ignore parse failures
@@ -134,11 +140,21 @@ const callGeminiDiagram = async ({ apiKey, model, prompt, kind }: GeminiDiagramR
     throw new GeminiError(message);
   }
 
-  const data = await response.json();
+  type GeminiCandidatePart = { text?: string };
+  type GeminiCandidate = {
+    content?: {
+      parts?: GeminiCandidatePart[];
+    };
+  };
+  type GeminiSuccessResponse = {
+    candidates?: GeminiCandidate[];
+  };
+
+  const data = (await response.json()) as GeminiSuccessResponse;
   const firstCandidate = data?.candidates?.[0];
   const candidateParts: Array<string> = Array.isArray(firstCandidate?.content?.parts)
     ? firstCandidate.content.parts
-        .map((part: { text?: string }) => part?.text)
+        .map((part: GeminiCandidatePart) => part?.text)
         .filter((value: string | undefined): value is string => Boolean(value))
     : [];
 
