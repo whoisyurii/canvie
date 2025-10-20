@@ -216,7 +216,6 @@ export const LeftSidebar = () => {
           <>
             <StrokePalette colors={STROKE_COLORS} value={strokeColor} onChange={setStrokeColor} recentColors={recentStrokeColors} />
             <StrokeWidthSelector widths={STROKE_WIDTHS} value={strokeWidth} onChange={setStrokeWidth} />
-            <SloppinessSelector value={sloppiness} onChange={setSloppiness} />
             <PenBackgroundSelector
               colors={PEN_BACKGROUND_COLORS}
               value={penBackground}

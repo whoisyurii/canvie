@@ -413,7 +413,14 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   strokeStyle: "solid",
   setStrokeStyle: (style) => set({ strokeStyle: style }),
   sloppiness: "normal",
-  setSloppiness: (sloppiness) => set({ sloppiness }),
+  setSloppiness: (sloppiness) =>
+    set((state) => {
+      if (state.activeTool === "pen") {
+        return {};
+      }
+
+      return { sloppiness };
+    }),
   arrowType: "arrow-end",
   setArrowType: (type) => set({ arrowType: type }),
   arrowStyle: "straight",
