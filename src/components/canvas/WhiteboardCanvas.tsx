@@ -92,6 +92,7 @@ const getSafeCornerRadius = (
 };
 
 const MINIMAP_ENABLED = false;
+const PEN_TENSION = 0.75;
 
 type SelectionRect = {
   x: number;
@@ -1520,6 +1521,7 @@ export const WhiteboardCanvas = () => {
         newElement.type = "pen";
         newElement.points = [0, 0];
         newElement.penBackground = penBackground;
+        newElement.sloppiness = "smooth";
         break;
       default:
         break;
@@ -2572,6 +2574,7 @@ export const WhiteboardCanvas = () => {
                     element.penBackground &&
                     element.penBackground !== "transparent";
                   const backgroundOpacity = element.opacity * 0.4 + 0.2;
+                  const lineTension = PEN_TENSION;
                   return (
                     <Fragment key={element.id}>
                       <Line
@@ -2586,13 +2589,7 @@ export const WhiteboardCanvas = () => {
                         opacity={element.opacity}
                         lineCap="round"
                         lineJoin="round"
-                        tension={
-                          element.sloppiness === "smooth"
-                            ? 0.75
-                            : element.sloppiness === "rough"
-                            ? 0.2
-                            : 0.5
-                        }
+                        tension={lineTension}
                         hitStrokeWidth={Math.max(12, element.strokeWidth)}
                         {...interactionProps}
                       />
@@ -2609,14 +2606,7 @@ export const WhiteboardCanvas = () => {
                           opacity={Math.min(1, backgroundOpacity)}
                           lineCap="round"
                           lineJoin="round"
-                          tension={
-                            element.sloppiness === "smooth"
-                              ? 0.75
-                              : element.sloppiness === "rough"
-                              ? 0.2
-                              : 0.5
-                          }
-                          strokeEnabled={element.sloppiness === "smooth"}
+                          tension={lineTension}
                           listening={false}
                           {...highlightProps}
                         />
@@ -3050,6 +3040,7 @@ export const WhiteboardCanvas = () => {
                         currentShape.penBackground !== "transparent";
                       const backgroundOpacity =
                         currentShape.opacity * 0.4 + 0.2;
+                      const lineTension = PEN_TENSION;
                       return (
                         <>
                           {hasBackground && (
@@ -3062,16 +3053,7 @@ export const WhiteboardCanvas = () => {
                               opacity={Math.min(1, backgroundOpacity)}
                               lineCap="round"
                               lineJoin="round"
-                              tension={
-                                currentShape.sloppiness === "smooth"
-                                  ? 0.75
-                                  : currentShape.sloppiness === "rough"
-                                  ? 0.2
-                                  : 0.5
-                              }
-                              strokeEnabled={
-                                currentShape.sloppiness === "smooth"
-                              }
+                              tension={lineTension}
                               listening={false}
                             />
                           )}
@@ -3084,14 +3066,7 @@ export const WhiteboardCanvas = () => {
                             opacity={currentShape.opacity * 0.7}
                             lineCap="round"
                             lineJoin="round"
-                            tension={
-                              currentShape.sloppiness === "smooth"
-                                ? 0.75
-                                : currentShape.sloppiness === "rough"
-                                ? 0.2
-                                : 0.5
-                            }
-                            strokeEnabled={currentShape.sloppiness === "smooth"}
+                            tension={lineTension}
                             hitStrokeWidth={Math.max(
                               12,
                               currentShape.strokeWidth
