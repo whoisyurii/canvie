@@ -1,15 +1,12 @@
 "use client";
 
 import { SidebarSection } from "./SidebarSection";
-import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 
 interface StrokePaletteProps {
   colors: string[];
   value: string;
   onChange: (color: string) => void;
-  opacity: number;
-  onOpacityChange: (opacity: number) => void;
   disabled?: boolean;
   recentColors?: string[];
 }
@@ -18,13 +15,9 @@ export const StrokePalette = ({
   colors,
   value,
   onChange,
-  opacity,
-  onOpacityChange,
   disabled,
   recentColors = [],
 }: StrokePaletteProps) => {
-  const displayOpacity = Math.round(opacity * 100);
-
   return (
     <SidebarSection title="Stroke" disabled={disabled}>
       {/* QW-4: Recent Colors Section */}
@@ -77,21 +70,6 @@ export const StrokePalette = ({
             />
           );
         })}
-      </div>
-      <div className="mt-4">
-        <div className="mb-2 flex items-center justify-between text-xs font-medium text-muted-foreground">
-          <span>Opacity</span>
-          <span>{displayOpacity}%</span>
-        </div>
-        <Slider
-          color={value}
-          value={[opacity * 100]}
-          onValueChange={([next]) => onOpacityChange(next / 100)}
-          min={0}
-          max={100}
-          step={1}
-          disabled={disabled}
-        />
       </div>
     </SidebarSection>
   );

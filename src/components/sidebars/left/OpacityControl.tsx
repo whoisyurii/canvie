@@ -10,8 +10,20 @@ interface OpacityControlProps {
 }
 
 export const OpacityControl = ({ value, onChange, disabled }: OpacityControlProps) => {
+  const displayOpacity = Math.round(value * 100);
+
   return (
-    <SidebarSection title={`Opacity ${Math.round(value * 100)}%`} disabled={disabled}>
+    <SidebarSection
+      title={
+        <>
+          <span className="normal-case">Opacity</span>
+          <span className="normal-case text-[11px] font-medium text-muted-foreground">
+            {displayOpacity}%
+          </span>
+        </>
+      }
+      disabled={disabled}
+    >
       <Slider
         color="hsl(var(--sidebar-accent))"
         value={[value * 100]}

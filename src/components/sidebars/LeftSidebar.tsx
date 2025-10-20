@@ -64,12 +64,8 @@ export const LeftSidebar = () => {
     elements,
     strokeColor,
     setStrokeColor,
-    strokeOpacity,
-    setStrokeOpacity,
     fillColor,
     setFillColor,
-    fillOpacity,
-    setFillOpacity,
     recentStrokeColors,
     recentFillColors,
     strokeWidth,
@@ -172,16 +168,12 @@ export const LeftSidebar = () => {
               colors={STROKE_COLORS}
               value={strokeColor}
               onChange={setStrokeColor}
-              opacity={strokeOpacity}
-              onOpacityChange={setStrokeOpacity}
               recentColors={recentStrokeColors}
             />
             <FillPalette
               colors={FILL_COLORS}
               value={fillColor}
               onChange={setFillColor}
-              opacity={fillOpacity}
-              onOpacityChange={setFillOpacity}
               recentColors={recentFillColors}
             />
             <StrokeWidthSelector widths={STROKE_WIDTHS} value={strokeWidth} onChange={setStrokeWidth} />
@@ -199,16 +191,12 @@ export const LeftSidebar = () => {
               colors={STROKE_COLORS}
               value={strokeColor}
               onChange={setStrokeColor}
-              opacity={strokeOpacity}
-              onOpacityChange={setStrokeOpacity}
               recentColors={recentStrokeColors}
             />
             <FillPalette
               colors={FILL_COLORS}
               value={fillColor}
               onChange={setFillColor}
-              opacity={fillOpacity}
-              onOpacityChange={setFillOpacity}
               recentColors={recentFillColors}
             />
             <StrokeWidthSelector widths={STROKE_WIDTHS} value={strokeWidth} onChange={setStrokeWidth} />
@@ -224,8 +212,6 @@ export const LeftSidebar = () => {
               colors={STROKE_COLORS}
               value={strokeColor}
               onChange={setStrokeColor}
-              opacity={strokeOpacity}
-              onOpacityChange={setStrokeOpacity}
               recentColors={recentStrokeColors}
             />
             <StrokeWidthSelector widths={STROKE_WIDTHS} value={strokeWidth} onChange={setStrokeWidth} />
@@ -241,8 +227,6 @@ export const LeftSidebar = () => {
               colors={STROKE_COLORS}
               value={strokeColor}
               onChange={setStrokeColor}
-              opacity={strokeOpacity}
-              onOpacityChange={setStrokeOpacity}
               recentColors={recentStrokeColors}
             />
             <StrokeWidthSelector widths={STROKE_WIDTHS} value={strokeWidth} onChange={setStrokeWidth} />
@@ -264,8 +248,6 @@ export const LeftSidebar = () => {
               colors={STROKE_COLORS}
               value={strokeColor}
               onChange={setStrokeColor}
-              opacity={strokeOpacity}
-              onOpacityChange={setStrokeOpacity}
               recentColors={recentStrokeColors}
             />
             <StrokeWidthSelector widths={STROKE_WIDTHS} value={strokeWidth} onChange={setStrokeWidth} />
@@ -284,8 +266,6 @@ export const LeftSidebar = () => {
               colors={STROKE_COLORS}
               value={strokeColor}
               onChange={setStrokeColor}
-              opacity={strokeOpacity}
-              onOpacityChange={setStrokeOpacity}
               recentColors={recentStrokeColors}
             />
             <TextFormattingControls

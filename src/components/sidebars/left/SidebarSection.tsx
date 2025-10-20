@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 interface SidebarSectionProps {
-  title: string;
+  title: ReactNode;
   disabled?: boolean;
   children: ReactNode;
 }
@@ -16,7 +16,7 @@ export const SidebarSection = ({ title, disabled, children }: SidebarSectionProp
       className={cn("space-y-1.5", disabled && "opacity-40 pointer-events-none")}
       aria-disabled={disabled}
     >
-      <Label className="text-xs font-medium uppercase tracking-wide text-sidebar-foreground/80">
+      <Label className="flex items-center justify-between gap-2 text-xs font-medium uppercase tracking-wide text-sidebar-foreground/80">
         {title}
       </Label>
       {children}

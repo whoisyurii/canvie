@@ -1,15 +1,12 @@
 "use client";
 
 import { SidebarSection } from "./SidebarSection";
-import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 
 interface FillPaletteProps {
   colors: string[];
   value: string;
   onChange: (color: string) => void;
-  opacity: number;
-  onOpacityChange: (opacity: number) => void;
   disabled?: boolean;
   recentColors?: string[];
 }
@@ -21,15 +18,10 @@ export const FillPalette = ({
   colors,
   value,
   onChange,
-  opacity,
-  onOpacityChange,
   disabled,
   recentColors = [],
 }: FillPaletteProps) => {
   const isTransparent = value === "transparent";
-  const sliderDisabled = disabled || isTransparent;
-  const sliderColor = !isTransparent ? value : undefined;
-  const displayOpacity = Math.round(opacity * 100);
 
   return (
     <SidebarSection title="Fill" disabled={disabled}>
@@ -111,21 +103,6 @@ export const FillPalette = ({
             />
           );
         })}
-      </div>
-      <div className="mt-4">
-        <div className="mb-2 flex items-center justify-between text-xs font-medium text-muted-foreground">
-          <span>Opacity</span>
-          <span>{displayOpacity}%</span>
-        </div>
-        <Slider
-          color={sliderColor}
-          value={[opacity * 100]}
-          onValueChange={([next]) => onOpacityChange(next / 100)}
-          min={0}
-          max={100}
-          step={1}
-          disabled={sliderDisabled}
-        />
       </div>
     </SidebarSection>
   );
