@@ -55,6 +55,8 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useAiSettings } from "@/hooks/useAiSettings";
 import { GeminiSettingsDialog } from "@/components/ai/GeminiSettingsDialog";
+import { GeminiWorkspace } from "@/components/ai/GeminiWorkspace";
+import { GeminiDiagramGenerator } from "@/components/ai/GeminiDiagramGenerator";
 import { CollaborationControls } from "./CollaborationControls";
 
 type ToolbarTool = {
@@ -126,7 +128,9 @@ export const TopToolbar = () => {
   } = useWhiteboardStore();
   const { toast } = useToast();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
-  const [isGeminiDialogOpen, setIsGeminiDialogOpen] = useState(false);
+  const [isGeminiWorkspaceOpen, setIsGeminiWorkspaceOpen] = useState(false);
+  const [isGeminiSettingsOpen, setIsGeminiSettingsOpen] = useState(false);
+  const [isGeminiDiagramOpen, setIsGeminiDiagramOpen] = useState(false);
   const { geminiApiKey } = useAiSettings();
   const hasGeminiKey = Boolean(geminiApiKey);
   const hasSelection = selectedIds.length > 0;
@@ -475,11 +479,17 @@ export const TopToolbar = () => {
               size="icon"
               className={cn(
                 "tool-button",
-                isGeminiDialogOpen && "tool-button-active",
+                isGeminiWorkspaceOpen && hasGeminiKey && "tool-button-active",
                 !hasGeminiKey && "text-amber-500 hover:text-amber-500",
               )}
-              onClick={() => setIsGeminiDialogOpen(true)}
-              aria-label={hasGeminiKey ? "Open Gemini settings" : "Gemini API key required"}
+              onClick={() => {
+                if (hasGeminiKey) {
+                  setIsGeminiWorkspaceOpen(true);
+                } else {
+                  setIsGeminiSettingsOpen(true);
+                }
+              }}
+              aria-label={hasGeminiKey ? "Open Gemini workspace" : "Gemini API key required"}
             >
               <Sparkles className="h-4 w-4" />
             </Button>
@@ -492,7 +502,7 @@ export const TopToolbar = () => {
               )}
             >
               {hasGeminiKey
-                ? "Manage Gemini preferences"
+                ? "Open Gemini workspace"
                 : "Add a Gemini API key to unlock AI tools"}
             </p>
           </TooltipContent>
@@ -575,12 +585,14 @@ export const TopToolbar = () => {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <GeminiSettingsDialog
-          open={isGeminiDialogOpen}
-          onOpenChange={(open) => {
-            setIsGeminiDialogOpen(open);
-          }}
+        <GeminiWorkspace
+          open={isGeminiWorkspaceOpen}
+          onOpenChange={setIsGeminiWorkspaceOpen}
+          onOpenDiagram={() => setIsGeminiDiagramOpen(true)}
+          onOpenSettings={() => setIsGeminiSettingsOpen(true)}
         />
+        <GeminiDiagramGenerator open={isGeminiDiagramOpen} onOpenChange={setIsGeminiDiagramOpen} />
+        <GeminiSettingsDialog open={isGeminiSettingsOpen} onOpenChange={setIsGeminiSettingsOpen} />
       </div>
     </TooltipProvider>
   );

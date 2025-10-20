@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
-export type GeminiModel = "gemini-2.0-flash" | "gemini-2.0-pro";
+export type GeminiModel = "gemini-2.5-flash" | "gemini-2.5-pro";
 export type AiOutputMode = "inline" | "sticky-note" | "sidebar";
 
 export interface AiSettingsState {
@@ -17,7 +17,7 @@ export interface AiSettingsState {
   reset: () => void;
 }
 
-const DEFAULT_MODEL: GeminiModel = "gemini-2.0-flash";
+const DEFAULT_MODEL: GeminiModel = "gemini-2.5-flash";
 const DEFAULT_OUTPUT_MODE: AiOutputMode = "inline";
 
 export const useAiSettingsStore = create<AiSettingsState>()(

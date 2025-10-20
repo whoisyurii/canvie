@@ -33,6 +33,17 @@ export type GeminiDiagramKind = "mind-map" | "flowchart";
 
 const API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
+type GeminiCandidatePart = { text?: string };
+type GeminiCandidate = {
+  content?: {
+    parts?: GeminiCandidatePart[];
+  };
+};
+
+type GeminiSuccessResponse = {
+  candidates?: GeminiCandidate[];
+};
+
 export class GeminiError extends Error {
   constructor(message: string) {
     super(message);
@@ -53,6 +64,56 @@ export class GeminiResponseError extends GeminiError {
     this.name = "GeminiResponseError";
   }
 }
+
+const requestGemini = async ({
+  apiKey,
+  model,
+  payload,
+}: {
+  apiKey: string;
+  model: string;
+  payload: unknown;
+}) => {
+  const url = `${API_BASE_URL}/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    let message = `Gemini request failed (${response.status})`;
+    try {
+      type GeminiErrorPayload = {
+        error?: {
+          message?: string;
+        };
+      };
+
+      const errorPayload = (await response.json()) as GeminiErrorPayload;
+      if (errorPayload.error?.message) {
+        message = errorPayload.error.message;
+      }
+    } catch (error) {
+      // ignore parse failures
+    }
+    throw new GeminiError(message);
+  }
+
+  return (await response.json()) as GeminiSuccessResponse;
+};
+
+const collectCandidateText = (data: GeminiSuccessResponse): string[] => {
+  const firstCandidate = data?.candidates?.[0];
+  return Array.isArray(firstCandidate?.content?.parts)
+    ? firstCandidate.content.parts
+        .map((part: GeminiCandidatePart) => part?.text)
+        .filter((value: string | undefined): value is string => Boolean(value))
+    : [];
+};
 
 const extractJsonPayload = (text: string) => {
   if (!text) {
@@ -80,8 +141,23 @@ interface GeminiDiagramRequest {
   kind: GeminiDiagramKind;
 }
 
+export type GeminiChatRole = "user" | "assistant";
+
+export interface GeminiChatMessage {
+  role: GeminiChatRole;
+  content: string;
+}
+
+interface GeminiChatRequest {
+  apiKey: string;
+  model: string;
+  messages: GeminiChatMessage[];
+  systemInstruction?: string;
+}
+
+const toModelRole = (role: GeminiChatRole) => (role === "assistant" ? "model" : "user");
+
 const callGeminiDiagram = async ({ apiKey, model, prompt, kind }: GeminiDiagramRequest) => {
-  const url = `${API_BASE_URL}/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const targetDescription = kind === "flowchart" ? "flowchart" : "mind map";
   const systemInstruction =
     `You are a diagram planner. Always respond with strictly valid JSON describing a ${targetDescription}.` +
@@ -113,50 +189,8 @@ const callGeminiDiagram = async ({ apiKey, model, prompt, kind }: GeminiDiagramR
     },
   };
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    let message = `Gemini request failed (${response.status})`;
-    try {
-      type GeminiErrorPayload = {
-        error?: {
-          message?: string;
-        };
-      };
-
-      const errorPayload = (await response.json()) as GeminiErrorPayload;
-      if (errorPayload.error?.message) {
-        message = errorPayload.error.message;
-      }
-    } catch (error) {
-      // ignore parse failures
-    }
-    throw new GeminiError(message);
-  }
-
-  type GeminiCandidatePart = { text?: string };
-  type GeminiCandidate = {
-    content?: {
-      parts?: GeminiCandidatePart[];
-    };
-  };
-  type GeminiSuccessResponse = {
-    candidates?: GeminiCandidate[];
-  };
-
-  const data = (await response.json()) as GeminiSuccessResponse;
-  const firstCandidate = data?.candidates?.[0];
-  const candidateParts: Array<string> = Array.isArray(firstCandidate?.content?.parts)
-    ? firstCandidate.content.parts
-        .map((part: GeminiCandidatePart) => part?.text)
-        .filter((value: string | undefined): value is string => Boolean(value))
-    : [];
+  const data = await requestGemini({ apiKey, model, payload });
+  const candidateParts = collectCandidateText(data);
 
   if (candidateParts.length === 0) {
     throw new GeminiResponseError("Gemini returned no content.");
@@ -184,6 +218,49 @@ const callGeminiDiagram = async ({ apiKey, model, prompt, kind }: GeminiDiagramR
   }
 };
 
+const callGeminiChat = async ({ apiKey, model, messages, systemInstruction }: GeminiChatRequest) => {
+  if (!messages || messages.length === 0) {
+    throw new GeminiResponseError("Provide at least one message before calling Gemini.");
+  }
+
+  const payload: Record<string, unknown> = {
+    contents: messages.map((message) => ({
+      role: toModelRole(message.role),
+      parts: [
+        {
+          text: message.content,
+        },
+      ],
+    })),
+    generationConfig: {
+      responseMimeType: "text/plain",
+      temperature: 0.6,
+      topP: 0.95,
+      maxOutputTokens: 2048,
+    },
+  };
+
+  if (systemInstruction) {
+    payload.systemInstruction = {
+      role: "system",
+      parts: [
+        {
+          text: systemInstruction,
+        },
+      ],
+    };
+  }
+
+  const data = await requestGemini({ apiKey, model, payload });
+  const candidateParts = collectCandidateText(data);
+
+  if (candidateParts.length === 0) {
+    throw new GeminiResponseError("Gemini returned no content.");
+  }
+
+  return candidateParts.join("\n").trim();
+};
+
 export const useGeminiDiagram = () => {
   const { geminiApiKey, preferredModel } = useAiSettings();
 
@@ -208,5 +285,38 @@ export const useGeminiDiagram = () => {
     geminiApiKey,
     preferredModel,
     generate,
+  };
+};
+
+export const useGeminiChat = () => {
+  const { geminiApiKey, preferredModel } = useAiSettings();
+
+  const sendMessage = useCallback(
+    async ({
+      messages,
+      systemInstruction,
+    }: {
+      messages: GeminiChatMessage[];
+      systemInstruction?: string;
+    }) => {
+      if (!geminiApiKey) {
+        throw new GeminiMissingKeyError();
+      }
+
+      return callGeminiChat({
+        apiKey: geminiApiKey,
+        model: preferredModel,
+        messages,
+        systemInstruction,
+      });
+    },
+    [geminiApiKey, preferredModel],
+  );
+
+  return {
+    hasApiKey: Boolean(geminiApiKey),
+    geminiApiKey,
+    preferredModel,
+    sendMessage,
   };
 };
