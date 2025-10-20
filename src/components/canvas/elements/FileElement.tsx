@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Group, Rect, Text as KonvaText, Image as KonvaImage } from "react-konva";
 import type { CanvasElement } from "@/lib/store/useWhiteboardStore";
 import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
+import { getColorWithOpacity } from "@/lib/color";
 
 type HighlightProps = Record<string, unknown> | undefined;
 
@@ -67,7 +68,7 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
         y={0}
         width={width}
         height={height}
-        stroke={element.strokeColor}
+        stroke={getColorWithOpacity(element.strokeColor, element.strokeOpacity)}
         strokeWidth={element.strokeWidth}
         fill="white"
         opacity={element.opacity}

@@ -41,6 +41,7 @@ export interface CanvasElement {
   points?: number[];
   text?: string;
   strokeColor: string;
+  strokeOpacity?: number;
   fillColor?: string;
   fillOpacity?: number;
   strokeWidth: number;
@@ -152,6 +153,7 @@ const MAX_HISTORY_LENGTH = 200;
 
 type ToolSettingDefaults = {
   strokeColor?: string;
+  strokeOpacity?: number;
   fillColor?: string;
   fillOpacity?: number;
   strokeWidth?: number;
@@ -172,6 +174,7 @@ const TOOL_DEFAULTS: Record<Tool, ToolSettingDefaults> = {
   pan: {},
   rectangle: {
     strokeColor: "#1f2937",
+    strokeOpacity: 1,
     fillColor: "transparent",
     fillOpacity: 1,
     strokeWidth: 4,
@@ -182,6 +185,7 @@ const TOOL_DEFAULTS: Record<Tool, ToolSettingDefaults> = {
   },
   diamond: {
     strokeColor: "#1f2937",
+    strokeOpacity: 1,
     fillColor: "transparent",
     fillOpacity: 1,
     strokeWidth: 4,
@@ -191,6 +195,7 @@ const TOOL_DEFAULTS: Record<Tool, ToolSettingDefaults> = {
   },
   ellipse: {
     strokeColor: "#1f2937",
+    strokeOpacity: 1,
     fillColor: "transparent",
     fillOpacity: 1,
     strokeWidth: 4,
@@ -200,6 +205,7 @@ const TOOL_DEFAULTS: Record<Tool, ToolSettingDefaults> = {
   },
   arrow: {
     strokeColor: "#1f2937",
+    strokeOpacity: 1,
     fillColor: "transparent",
     fillOpacity: 1,
     strokeWidth: 4,
@@ -211,6 +217,7 @@ const TOOL_DEFAULTS: Record<Tool, ToolSettingDefaults> = {
   },
   line: {
     strokeColor: "#1f2937",
+    strokeOpacity: 1,
     fillColor: "transparent",
     fillOpacity: 1,
     strokeWidth: 4,
@@ -222,6 +229,7 @@ const TOOL_DEFAULTS: Record<Tool, ToolSettingDefaults> = {
   },
   text: {
     strokeColor: "#1f2937",
+    strokeOpacity: 1,
     fillColor: "transparent",
     fillOpacity: 1,
     opacity: 1,
@@ -231,6 +239,7 @@ const TOOL_DEFAULTS: Record<Tool, ToolSettingDefaults> = {
   },
   pen: {
     strokeColor: "#1f2937",
+    strokeOpacity: 1,
     fillColor: "transparent",
     fillOpacity: 1,
     strokeWidth: 4,
@@ -240,6 +249,7 @@ const TOOL_DEFAULTS: Record<Tool, ToolSettingDefaults> = {
   },
   eraser: {
     strokeColor: "#ffffff",
+    strokeOpacity: 1,
     strokeWidth: 4,
     strokeStyle: "solid",
     sloppiness: "smooth",
@@ -278,6 +288,8 @@ interface WhiteboardState {
   // Tool settings
   strokeColor: string;
   setStrokeColor: (color: string) => void;
+  strokeOpacity: number;
+  setStrokeOpacity: (opacity: number) => void;
   fillColor: string;
   setFillColor: (color: string) => void;
   fillOpacity: number;
@@ -398,6 +410,9 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       };
     });
   },
+  strokeOpacity: 1,
+  setStrokeOpacity: (opacity) =>
+    set({ strokeOpacity: Math.min(1, Math.max(0, opacity)) }),
   fillColor: "transparent",
   setFillColor: (color) => {
     set((state) => {
