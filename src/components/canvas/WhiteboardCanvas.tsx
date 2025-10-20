@@ -240,6 +240,7 @@ export const WhiteboardCanvas = () => {
     sendToBack,
     sendBackward,
     setActiveTool,
+    openFilePreview,
   } = useWhiteboardStore();
 
   const panX = pan.x;
@@ -763,13 +764,31 @@ export const WhiteboardCanvas = () => {
         const targetId = target.id();
         if (!targetId) return;
         const element = elements.find((item) => item.id === targetId);
-        if (element?.type === "text") {
+        if (!element) {
+          return;
+        }
+
+        if (element.type === "file") {
+          event.evt.preventDefault();
+          const fileId = element.fileUrl ?? element.id;
+          if (fileId) {
+            openFilePreview(fileId, {
+              name: element.fileName,
+              type: element.fileType,
+              sourceElementId: element.id,
+              thumbnailUrl: element.thumbnailUrl,
+            });
+          }
+          return;
+        }
+
+        if (element.type === "text") {
           event.evt.preventDefault();
           beginTextEditing(element);
         }
       }
     },
-    [beginTextEditing, elements]
+    [beginTextEditing, elements, openFilePreview]
   );
 
   const getMiniMapCoordinates = useCallback(

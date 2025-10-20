@@ -85,6 +85,16 @@ export type SharedFile = {
   thumbnailUrl?: string;
 };
 
+export type FilePreviewState = {
+  fileId: string;
+  name?: string;
+  type?: string;
+  ownerId?: string;
+  ownerName?: string;
+  sourceElementId?: string;
+  thumbnailUrl?: string;
+};
+
 const getElementCenter = (element: CanvasElement) => {
   if (
     element.type === "rectangle" ||
@@ -368,6 +378,12 @@ interface WhiteboardState {
   addFile: (file: SharedFile) => void;
   renameFile: (id: string, name: string) => void;
   removeFile: (id: string) => void;
+  filePreview: FilePreviewState | null;
+  openFilePreview: (
+    fileId: string,
+    metadata?: Partial<Omit<FilePreviewState, "fileId">>
+  ) => void;
+  closeFilePreview: () => void;
   clearCanvas: () => void;
 
   // Collaboration bindings
@@ -1147,6 +1163,30 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
     }
 
     get().deleteElement(id);
+  },
+  filePreview: null,
+  openFilePreview: (fileId, metadata) => {
+    const state = get();
+    const sharedFile = state.uploadedFiles.find((file) => file.id === fileId);
+    const relatedElement = state.elements.find(
+      (element) => element.fileUrl === fileId || element.id === fileId
+    );
+
+    const resolvedMetadata: FilePreviewState = {
+      fileId,
+      name: metadata?.name ?? sharedFile?.name ?? relatedElement?.fileName,
+      type: metadata?.type ?? sharedFile?.type ?? relatedElement?.fileType,
+      ownerId: metadata?.ownerId ?? sharedFile?.ownerId,
+      ownerName: metadata?.ownerName ?? sharedFile?.ownerName,
+      sourceElementId: metadata?.sourceElementId ?? relatedElement?.id,
+      thumbnailUrl:
+        metadata?.thumbnailUrl ?? sharedFile?.thumbnailUrl ?? relatedElement?.thumbnailUrl,
+    };
+
+    set({ filePreview: resolvedMetadata });
+  },
+  closeFilePreview: () => {
+    set({ filePreview: null });
   },
   clearCanvas: () => {
     const collaboration = get().collaboration;
