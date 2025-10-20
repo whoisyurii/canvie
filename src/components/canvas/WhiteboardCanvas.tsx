@@ -94,6 +94,57 @@ const getSafeCornerRadius = (
 const MINIMAP_ENABLED = false;
 const PEN_TENSION = 0.75;
 
+const getFillColorWithOpacity = (color?: string, fillOpacity?: number) => {
+  if (!color || color === "transparent") {
+    return "transparent";
+  }
+
+  const normalizedOpacity = Math.min(1, Math.max(0, fillOpacity ?? 1));
+  if (normalizedOpacity >= 1) {
+    return color;
+  }
+
+  if (color.startsWith("rgba(")) {
+    const components = color
+      .slice(5, -1)
+      .split(",")
+      .map((part) => part.trim());
+    if (components.length >= 3) {
+      return `rgba(${components[0]}, ${components[1]}, ${components[2]}, ${normalizedOpacity})`;
+    }
+  }
+
+  if (color.startsWith("rgb(")) {
+    const components = color
+      .slice(4, -1)
+      .split(",")
+      .map((part) => part.trim());
+    if (components.length >= 3) {
+      return `rgba(${components[0]}, ${components[1]}, ${components[2]}, ${normalizedOpacity})`;
+    }
+  }
+
+  if (color.startsWith("#")) {
+    let hex = color.slice(1);
+    if (hex.length === 3) {
+      hex = hex
+        .split("")
+        .map((char) => char + char)
+        .join("");
+    }
+    if (hex.length === 6) {
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      if (![r, g, b].some((component) => Number.isNaN(component))) {
+        return `rgba(${r}, ${g}, ${b}, ${normalizedOpacity})`;
+      }
+    }
+  }
+
+  return color;
+};
+
 type SelectionRect = {
   x: number;
   y: number;
@@ -209,6 +260,7 @@ export const WhiteboardCanvas = () => {
     strokeWidth,
     strokeStyle,
     fillColor,
+    fillOpacity,
     opacity,
     arrowType,
     arrowStyle,
@@ -345,6 +397,7 @@ export const WhiteboardCanvas = () => {
         text: trimmed,
         strokeColor,
         fillColor,
+        fillOpacity,
         strokeWidth,
         strokeStyle,
         opacity,
@@ -362,6 +415,7 @@ export const WhiteboardCanvas = () => {
     [
       addElement,
       fillColor,
+      fillOpacity,
       opacity,
       setSelectedIds,
       sloppiness,
@@ -1454,6 +1508,7 @@ export const WhiteboardCanvas = () => {
         text: "",
         strokeColor,
         fillColor,
+        fillOpacity,
         strokeWidth,
         strokeStyle,
         opacity,
@@ -1489,6 +1544,7 @@ export const WhiteboardCanvas = () => {
       strokeWidth,
       strokeStyle,
       fillColor,
+      fillOpacity,
       opacity,
       sloppiness,
     };
@@ -2257,7 +2313,10 @@ export const WhiteboardCanvas = () => {
                         stroke={element.strokeColor}
                         strokeWidth={element.strokeWidth}
                         dash={getStrokeDash(element.strokeStyle)}
-                        fill={element.fillColor}
+                        fill={getFillColorWithOpacity(
+                          element.fillColor,
+                          element.fillOpacity
+                        )}
                         opacity={element.opacity}
                         rotation={element.rotation}
                         cornerRadius={safeCornerRadius}
@@ -2313,7 +2372,10 @@ export const WhiteboardCanvas = () => {
                         stroke={element.strokeColor}
                         strokeWidth={element.strokeWidth}
                         dash={getStrokeDash(element.strokeStyle)}
-                        fill={element.fillColor}
+                        fill={getFillColorWithOpacity(
+                          element.fillColor,
+                          element.fillOpacity
+                        )}
                         opacity={element.opacity}
                         rotation={element.rotation}
                         closed
@@ -2370,7 +2432,10 @@ export const WhiteboardCanvas = () => {
                         stroke={element.strokeColor}
                         strokeWidth={element.strokeWidth}
                         dash={getStrokeDash(element.strokeStyle)}
-                        fill={element.fillColor}
+                        fill={getFillColorWithOpacity(
+                          element.fillColor,
+                          element.fillOpacity
+                        )}
                         opacity={element.opacity}
                         rotation={element.rotation}
                         strokeEnabled={element.sloppiness === "smooth"}
@@ -2761,7 +2826,10 @@ export const WhiteboardCanvas = () => {
                             stroke={currentShape.strokeColor}
                             strokeWidth={currentShape.strokeWidth}
                             dash={getStrokeDash(currentShape.strokeStyle)}
-                            fill={currentShape.fillColor}
+                            fill={getFillColorWithOpacity(
+                              currentShape.fillColor,
+                              currentShape.fillOpacity
+                            )}
                             opacity={currentShape.opacity * 0.7}
                             cornerRadius={safeCornerRadius}
                             strokeEnabled={currentShape.sloppiness === "smooth"}
@@ -2814,7 +2882,10 @@ export const WhiteboardCanvas = () => {
                             stroke={currentShape.strokeColor}
                             strokeWidth={currentShape.strokeWidth}
                             dash={getStrokeDash(currentShape.strokeStyle)}
-                            fill={currentShape.fillColor}
+                            fill={getFillColorWithOpacity(
+                              currentShape.fillColor,
+                              currentShape.fillOpacity
+                            )}
                             opacity={currentShape.opacity * 0.7}
                             closed
                             lineJoin="round"
@@ -2870,7 +2941,10 @@ export const WhiteboardCanvas = () => {
                             stroke={currentShape.strokeColor}
                             strokeWidth={currentShape.strokeWidth}
                             dash={getStrokeDash(currentShape.strokeStyle)}
-                            fill={currentShape.fillColor}
+                            fill={getFillColorWithOpacity(
+                              currentShape.fillColor,
+                              currentShape.fillOpacity
+                            )}
                             opacity={currentShape.opacity * 0.7}
                             strokeEnabled={currentShape.sloppiness === "smooth"}
                             hitStrokeWidth={Math.max(

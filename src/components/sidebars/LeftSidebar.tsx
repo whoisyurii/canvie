@@ -66,6 +66,8 @@ export const LeftSidebar = () => {
     setStrokeColor,
     fillColor,
     setFillColor,
+    fillOpacity,
+    setFillOpacity,
     recentStrokeColors,
     recentFillColors,
     strokeWidth,
@@ -165,7 +167,14 @@ export const LeftSidebar = () => {
         return (
           <>
             <StrokePalette colors={STROKE_COLORS} value={strokeColor} onChange={setStrokeColor} recentColors={recentStrokeColors} />
-            <FillPalette colors={FILL_COLORS} value={fillColor} onChange={setFillColor} recentColors={recentFillColors} />
+            <FillPalette
+              colors={FILL_COLORS}
+              value={fillColor}
+              onChange={setFillColor}
+              opacity={fillOpacity}
+              onOpacityChange={setFillOpacity}
+              recentColors={recentFillColors}
+            />
             <StrokeWidthSelector widths={STROKE_WIDTHS} value={strokeWidth} onChange={setStrokeWidth} />
             <StrokeStyleSelector value={strokeStyle} onChange={setStrokeStyle} />
             <EdgeStyleSelector value={rectangleCornerStyle} onChange={setRectangleCornerStyle} />
@@ -178,7 +187,14 @@ export const LeftSidebar = () => {
         return (
           <>
             <StrokePalette colors={STROKE_COLORS} value={strokeColor} onChange={setStrokeColor} recentColors={recentStrokeColors} />
-            <FillPalette colors={FILL_COLORS} value={fillColor} onChange={setFillColor} recentColors={recentFillColors} />
+            <FillPalette
+              colors={FILL_COLORS}
+              value={fillColor}
+              onChange={setFillColor}
+              opacity={fillOpacity}
+              onOpacityChange={setFillOpacity}
+              recentColors={recentFillColors}
+            />
             <StrokeWidthSelector widths={STROKE_WIDTHS} value={strokeWidth} onChange={setStrokeWidth} />
             <StrokeStyleSelector value={strokeStyle} onChange={setStrokeStyle} />
             <SloppinessSelector value={sloppiness} onChange={setSloppiness} />

@@ -1,12 +1,15 @@
 "use client";
 
 import { SidebarSection } from "./SidebarSection";
+import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 
 interface FillPaletteProps {
   colors: string[];
   value: string;
   onChange: (color: string) => void;
+  opacity: number;
+  onOpacityChange: (opacity: number) => void;
   disabled?: boolean;
   recentColors?: string[];
 }
@@ -14,8 +17,19 @@ interface FillPaletteProps {
 const transparentPattern =
   "linear-gradient(45deg, rgba(255,255,255,0.65) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.65) 75%), linear-gradient(45deg, rgba(255,255,255,0.65) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.65) 75%)";
 
-export const FillPalette = ({ colors, value, onChange, disabled, recentColors = [] }: FillPaletteProps) => {
+export const FillPalette = ({
+  colors,
+  value,
+  onChange,
+  opacity,
+  onOpacityChange,
+  disabled,
+  recentColors = [],
+}: FillPaletteProps) => {
   const isTransparent = value === "transparent";
+  const sliderDisabled = disabled || isTransparent;
+  const sliderColor = !isTransparent ? value : undefined;
+  const displayOpacity = Math.round(opacity * 100);
 
   return (
     <SidebarSection title="Fill" disabled={disabled}>
@@ -97,6 +111,21 @@ export const FillPalette = ({ colors, value, onChange, disabled, recentColors = 
             />
           );
         })}
+      </div>
+      <div className="mt-4">
+        <div className="mb-2 flex items-center justify-between text-xs font-medium text-muted-foreground">
+          <span>Opacity</span>
+          <span>{displayOpacity}%</span>
+        </div>
+        <Slider
+          color={sliderColor}
+          value={[opacity * 100]}
+          onValueChange={([next]) => onOpacityChange(next / 100)}
+          min={0}
+          max={100}
+          step={1}
+          disabled={sliderDisabled}
+        />
       </div>
     </SidebarSection>
   );

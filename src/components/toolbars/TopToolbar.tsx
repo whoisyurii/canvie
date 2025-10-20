@@ -108,6 +108,7 @@ export const TopToolbar = () => {
     strokeWidth,
     strokeStyle,
     fillColor,
+    fillOpacity,
     opacity,
     currentUser,
     bringToFront,
@@ -180,6 +181,7 @@ export const TopToolbar = () => {
         strokeWidth,
         strokeStyle,
         fillColor,
+        fillOpacity,
         opacity,
       };
 
@@ -281,6 +283,7 @@ export const TopToolbar = () => {
       currentUser?.name,
       fileSyncManager,
       fillColor,
+      fillOpacity,
       opacity,
       strokeColor,
       strokeStyle,
