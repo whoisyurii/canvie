@@ -22,6 +22,7 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
   useEffect(() => {
     if (!element.thumbnailUrl) {
       setThumbnail(null);
+      setThumbnailError(false);
       return;
     }
 
@@ -73,9 +74,8 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
         fill="white"
         opacity={element.opacity}
         cornerRadius={cornerRadius}
-        listening={false}
       />
-      {thumbnail ? (
+      {thumbnail && !thumbnailError ? (
         <KonvaImage
           image={thumbnail}
           x={padding}

@@ -106,15 +106,25 @@ export const generateFilePreview = async (
       const pdf = await loadingTask.promise;
       const page = await pdf.getPage(1);
       const viewport = page.getViewport({ scale: 1 });
-      const scale = clampScale(viewport.width, viewport.height, 160);
-      const scaledViewport = page.getViewport({ scale });
+      const MAX_PREVIEW_SIZE = 960;
+      const MAX_DPR = 2;
+      const devicePixelRatio = Math.min(
+        MAX_DPR,
+        typeof window !== "undefined" && window.devicePixelRatio
+          ? window.devicePixelRatio
+          : 1,
+      );
+      const scale = clampScale(viewport.width, viewport.height, MAX_PREVIEW_SIZE);
+      const scaledViewport = page.getViewport({ scale: scale * devicePixelRatio });
       const canvas = document.createElement("canvas");
       const context = canvas.getContext("2d");
       if (!context) {
         return createIconThumbnail("PDF", "#e03131");
       }
-      canvas.width = scaledViewport.width;
-      canvas.height = scaledViewport.height;
+      canvas.width = Math.ceil(scaledViewport.width);
+      canvas.height = Math.ceil(scaledViewport.height);
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.imageSmoothingQuality = "high";
       await page.render({ canvasContext: context, viewport: scaledViewport }).promise;
       return canvas.toDataURL("image/png");
     } catch (error) {
