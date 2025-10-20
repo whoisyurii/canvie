@@ -35,9 +35,10 @@ const pdfMocks = {
   })),
 };
 
-vi.mock("pdfjs-dist/legacy/build/pdf", () => ({
+vi.mock("pdfjs-dist", () => ({
   getDocument: (...args: unknown[]) => pdfMocks.getDocument(...args),
   GlobalWorkerOptions: { workerSrc: "" },
+  version: "4.10.38",
 }));
 
 describe("PdfViewerDialog", () => {

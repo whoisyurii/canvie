@@ -26,7 +26,11 @@ import {
   Loader2,
   RefreshCcw,
 } from "lucide-react";
-import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf";
+import {
+  GlobalWorkerOptions,
+  getDocument,
+  version as pdfjsVersion,
+} from "pdfjs-dist";
 import type {
   PDFDocumentLoadingTask,
   PDFDocumentProxy,
@@ -43,13 +47,9 @@ const configurePdfWorker = () => {
   try {
     let version: string | null = null;
 
-    try {
-      const candidate = (pdfjsLib as Record<string, unknown>).version;
-      if (typeof candidate === "string" && candidate.length > 0) {
-        version = candidate;
-      }
-    } catch {
-      // Ignore mock access errors when running in tests.
+    const candidate = typeof pdfjsVersion === "string" ? pdfjsVersion : null;
+    if (candidate && candidate.length > 0) {
+      version = candidate;
     }
 
     if (!version) {
@@ -58,7 +58,7 @@ const configurePdfWorker = () => {
     }
 
     const workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.mjs`;
-    pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
+    GlobalWorkerOptions.workerSrc = workerSrc;
     workerConfigured = true;
   } catch (error) {
     console.error("Failed to configure pdf.js worker", error);
@@ -169,7 +169,7 @@ export const PdfViewerDialog = () => {
         }
 
         updateObjectUrl(url);
-        const loadingTask = pdfjsLib.getDocument(url);
+        const loadingTask = getDocument(url);
         loadingTaskRef.current = loadingTask;
         const loadedDoc = await loadingTask.promise;
         if (cancelled) {
