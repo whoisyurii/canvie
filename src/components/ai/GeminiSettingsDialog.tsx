@@ -185,7 +185,10 @@ export const GeminiSettingsDialog = ({ open, onOpenChange }: GeminiSettingsDialo
                 onValueChange={(value: GeminiModel) => setLocalModel(value)}
               >
                 <SelectTrigger className="h-11 border-muted bg-muted/60 text-foreground shadow-inner">
-                  <SelectValue placeholder="Select a model" />
+                  <SelectValue
+                    placeholder="Select a model"
+                    className="text-foreground data-[placeholder]:text-muted-foreground"
+                  />
                 </SelectTrigger>
                 <SelectContent className="border-muted bg-card text-card-foreground">
                   {MODEL_OPTIONS.map((option) => (
@@ -209,7 +212,10 @@ export const GeminiSettingsDialog = ({ open, onOpenChange }: GeminiSettingsDialo
                 onValueChange={(value: AiOutputMode) => setLocalOutputMode(value)}
               >
                 <SelectTrigger className="h-11 border-muted bg-muted/60 text-foreground shadow-inner">
-                  <SelectValue placeholder="Choose an output style" />
+                  <SelectValue
+                    placeholder="Choose an output style"
+                    className="text-foreground data-[placeholder]:text-muted-foreground"
+                  />
                 </SelectTrigger>
                 <SelectContent className="border-muted bg-card text-card-foreground">
                   {OUTPUT_OPTIONS.map((option) => (
