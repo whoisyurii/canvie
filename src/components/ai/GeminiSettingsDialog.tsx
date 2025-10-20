@@ -180,19 +180,22 @@ export const GeminiSettingsDialog = ({ open, onOpenChange }: GeminiSettingsDialo
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Preferred Gemini model</Label>
-              <Select value={localModel} onValueChange={(value: GeminiModel) => setLocalModel(value)}>
-                <SelectTrigger>
+              <Select
+                value={localModel}
+                onValueChange={(value: GeminiModel) => setLocalModel(value)}
+              >
+                <SelectTrigger className="h-11 border-muted bg-muted/60 text-foreground shadow-inner">
                   <SelectValue placeholder="Select a model" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="border-muted bg-card text-card-foreground">
                   {MODEL_OPTIONS.map((option) => (
                     <SelectItem
                       key={option.value}
                       value={option.value}
-                      className="flex-col items-start gap-1"
+                      className="flex-col items-start gap-1 space-y-1 py-2"
                     >
-                      <span className="font-medium">{option.label}</span>
-                      <span className="text-xs text-muted-foreground">{option.helper}</span>
+                      <span className="block font-medium">{option.label}</span>
+                      <span className="block text-xs text-muted-foreground">{option.helper}</span>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -205,18 +208,18 @@ export const GeminiSettingsDialog = ({ open, onOpenChange }: GeminiSettingsDialo
                 value={localOutputMode}
                 onValueChange={(value: AiOutputMode) => setLocalOutputMode(value)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-11 border-muted bg-muted/60 text-foreground shadow-inner">
                   <SelectValue placeholder="Choose an output style" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="border-muted bg-card text-card-foreground">
                   {OUTPUT_OPTIONS.map((option) => (
                     <SelectItem
                       key={option.value}
                       value={option.value}
-                      className="flex-col items-start gap-1"
+                      className="flex-col items-start gap-1 space-y-1 py-2"
                     >
-                      <span className="font-medium">{option.label}</span>
-                      <span className="text-xs text-muted-foreground">{option.helper}</span>
+                      <span className="block font-medium">{option.label}</span>
+                      <span className="block text-xs text-muted-foreground">{option.helper}</span>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -233,7 +236,13 @@ export const GeminiSettingsDialog = ({ open, onOpenChange }: GeminiSettingsDialo
           </div>
 
           <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-between">
-            <Button type="button" variant="ghost" onClick={handleClearKey} disabled={!geminiApiKey}>
+            <Button
+              type="button"
+              variant="outline"
+              className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive disabled:border-muted"
+              onClick={handleClearKey}
+              disabled={!geminiApiKey}
+            >
               Remove key
             </Button>
             <div className="flex gap-2">
