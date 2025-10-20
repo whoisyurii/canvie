@@ -41,7 +41,23 @@ const configurePdfWorker = () => {
   }
 
   try {
-    const workerSrc = new URL("pdf.worker.min.mjs", import.meta.url).toString();
+    let version: string | null = null;
+
+    try {
+      const candidate = (pdfjsLib as Record<string, unknown>).version;
+      if (typeof candidate === "string" && candidate.length > 0) {
+        version = candidate;
+      }
+    } catch {
+      // Ignore mock access errors when running in tests.
+    }
+
+    if (!version) {
+      workerConfigured = true;
+      return;
+    }
+
+    const workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.mjs`;
     pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
     workerConfigured = true;
   } catch (error) {
