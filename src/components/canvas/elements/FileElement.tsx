@@ -237,6 +237,43 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
 
   const isPdf = element.fileType === "application/pdf";
   const previewImage = isPdf ? pdfPreview ?? thumbnail : thumbnail;
+  const previewAreaWidth = Math.max(0, width - padding * 2);
+  const previewAreaHeight = previewHeight;
+
+  let imageX = padding;
+  let imageY = padding;
+  let imageWidth = previewAreaWidth;
+  let imageHeight = previewAreaHeight;
+
+  if (
+    isPdf &&
+    previewImage &&
+    previewAreaWidth > 0 &&
+    previewAreaHeight > 0
+  ) {
+    const sourceWidth = Math.max(
+      1,
+      previewImage.naturalWidth || previewImage.width || 0,
+    );
+    const sourceHeight = Math.max(
+      1,
+      previewImage.naturalHeight || previewImage.height || 0,
+    );
+    const widthScale = previewAreaWidth / sourceWidth;
+    const heightScale = previewAreaHeight / sourceHeight;
+    const scaleCandidates = [widthScale, heightScale].filter(
+      (value) => Number.isFinite(value) && value > 0,
+    );
+    const scale =
+      scaleCandidates.length > 0 ? Math.min(...scaleCandidates) : 1;
+
+    imageWidth = Math.max(1, sourceWidth * scale);
+    imageHeight = Math.max(1, sourceHeight * scale);
+    const offsetX = (previewAreaWidth - imageWidth) / 2;
+    const offsetY = (previewAreaHeight - imageHeight) / 2;
+    imageX = padding + offsetX;
+    imageY = padding + offsetY;
+  }
   const placeholderText = isPdf
     ? isRenderingPdf
       ? "Rendering PDF..."
@@ -271,10 +308,10 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
       {previewImage ? (
         <KonvaImage
           image={previewImage}
-          x={padding}
-          y={padding}
-          width={Math.max(0, width - padding * 2)}
-          height={previewHeight}
+          x={imageX}
+          y={imageY}
+          width={imageWidth}
+          height={imageHeight}
           listening={false}
         />
       ) : (
