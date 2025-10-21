@@ -21,6 +21,54 @@ const generateRandomColor = () => {
   return `hsl(${hue}, 70%, 50%)`;
 };
 
+const ADJECTIVES = [
+  "adventurous",
+  "breezy",
+  "cheerful",
+  "curious",
+  "dazzling",
+  "eager",
+  "fascinated",
+  "gentle",
+  "glowing",
+  "lively",
+  "mellow",
+  "playful",
+  "radiant",
+  "sparkling",
+  "spirited",
+  "sunny",
+  "whimsical",
+  "zesty",
+];
+
+const NOUNS = [
+  "acorn",
+  "aurora",
+  "balloon",
+  "compass",
+  "feather",
+  "firefly",
+  "harbor",
+  "horizon",
+  "lantern",
+  "meadow",
+  "moonbeam",
+  "notebook",
+  "ocean",
+  "orchid",
+  "pencil",
+  "starling",
+  "sunbeam",
+  "willow",
+];
+
+const generateFriendlyName = () => {
+  const adjective = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
+  const noun = NOUNS[Math.floor(Math.random() * NOUNS.length)];
+  return `${adjective} ${noun}`;
+};
+
 const CURSOR_THROTTLE_MS = 40;
 const CURSOR_FADE_MS = 4000;
 
@@ -37,7 +85,7 @@ const buildRemoteUser = (params: {
   isConnected?: boolean;
 }): User => ({
   id: params.id,
-  name: params.name ?? "Guest",
+  name: params.name ?? generateFriendlyName(),
   color: params.color ?? "#888888",
   cursorX: params.cursorX ?? 0,
   cursorY: params.cursorY ?? 0,
@@ -91,7 +139,7 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       userColorRef.current = generateRandomColor();
     }
     if (userNameRef.current === null) {
-      userNameRef.current = `Guest ${Math.floor(Math.random() * 99) + 1}`.padStart(8, "0");
+      userNameRef.current = generateFriendlyName();
     }
   }
 
@@ -153,7 +201,7 @@ export const CollaborationProvider = ({ roomId, children }: CollaborationProvide
       const next = {
         user: {
           id: userIdRef.current ?? "",
-          name: userNameRef.current ?? "Guest",
+          name: userNameRef.current ?? generateFriendlyName(),
           color: userColorRef.current ?? "#888888",
           cursorX: 0,
           cursorY: 0,
