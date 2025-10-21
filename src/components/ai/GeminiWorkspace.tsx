@@ -177,6 +177,7 @@ export const GeminiWorkspace = ({ open, onOpenChange, onOpenSettings }: GeminiWo
       });
     },
   });
+  const { reset: resetDiagramMutation } = diagramMutation;
 
   useEffect(() => {
     if (scrollAnchorRef.current) {
@@ -188,9 +189,9 @@ export const GeminiWorkspace = ({ open, onOpenChange, onOpenSettings }: GeminiWo
     if (!open) {
       setMode("chat");
       setDiagramPrompt("");
-      diagramMutation.reset();
+      resetDiagramMutation();
     }
-  }, [open, diagramMutation]);
+  }, [open, resetDiagramMutation]);
 
   const conversation = useMemo<GeminiChatMessage[]>(
     () =>
