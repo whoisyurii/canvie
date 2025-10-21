@@ -13,7 +13,7 @@ export const BottomBar = () => {
   const resetZoom = () => setZoom(1);
 
   return (
-    <div className="floating-panel flex items-center gap-1.5 px-2.5 py-1.5">
+    <div className="floating-panel flex items-center gap-1 px-2 py-1">
       {/* Undo/Redo */}
       <Button
         variant="ghost"
@@ -42,7 +42,7 @@ export const BottomBar = () => {
       </Button>
       <Button
         variant="ghost"
-        className="tool-button min-w-[56px] text-sidebar-foreground"
+        className="tool-button min-w-[48px] text-sidebar-foreground"
         onClick={resetZoom}
       >
         {Math.round(zoom * 100)}%

@@ -374,7 +374,7 @@ export const CollaborationControls = () => {
         ? "Try again"
         : "Copy code";
 
-  const copyButtonClassName = "shrink-0 min-w-[108px] justify-center text-sm font-medium";
+  const copyButtonClassName = "shrink-0 min-w-[96px] justify-center text-sm font-medium";
 
   return (
     <div className="toolbar-section">
@@ -404,19 +404,19 @@ export const CollaborationControls = () => {
             <p>Invite collaborators</p>
           </TooltipContent>
         </Tooltip>
-        <PopoverContent align="center" className="floating-panel w-[320px] p-0">
+        <PopoverContent align="center" className="floating-panel w-[280px] p-0">
           <div className="flex flex-col">
-            <div className="border-b border-sidebar-border px-3.5 py-2.5">
+            <div className="border-b border-sidebar-border px-3 py-2">
               <h3 className="text-sm font-semibold text-sidebar-foreground">Invite collaborators</h3>
               <p className="text-xs text-muted-foreground">
                 Share this board and work together in real time.
               </p>
             </div>
-            <div className="space-y-3.5 px-3.5 py-2.5">
-              <div className="space-y-1.5">
+            <div className="space-y-3 px-3 py-2">
+              <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">Send this invite link to teammates.</p>
-                <div className="flex items-center gap-1.5">
-                  <code className="flex h-8 min-w-0 flex-1 items-center truncate rounded-md border border-sidebar-border bg-sidebar-accent/40 px-2.5 text-xs font-mono text-sidebar-foreground">
+                <div className="flex items-center gap-1">
+                  <code className="flex h-7 min-w-0 flex-1 items-center truncate rounded-md border border-sidebar-border bg-sidebar-accent/40 px-2 text-xs font-mono text-sidebar-foreground">
                     {inviteUrl || "Generating invite link..."}
                   </code>
                   <Button
@@ -431,10 +431,10 @@ export const CollaborationControls = () => {
                 </div>
               </div>
               {roomId ? (
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <p className="text-xs text-muted-foreground">Prefer to share a room code instead?</p>
-                  <div className="flex items-center gap-1.5">
-                    <code className="flex h-8 min-w-0 flex-1 items-center truncate rounded-md border border-sidebar-border bg-sidebar-accent/40 px-2.5 text-xs font-mono text-sidebar-foreground">
+                  <div className="flex items-center gap-1">
+                    <code className="flex h-7 min-w-0 flex-1 items-center truncate rounded-md border border-sidebar-border bg-sidebar-accent/40 px-2 text-xs font-mono text-sidebar-foreground">
                       {roomId}
                     </code>
                     <Button
@@ -448,12 +448,12 @@ export const CollaborationControls = () => {
                   </div>
                 </div>
               ) : null}
-              <div className="space-y-1.5">
-                <div className="border-t border-sidebar-border pt-3">
+              <div className="space-y-1">
+                <div className="border-t border-sidebar-border pt-2.5">
                   <h4 className="text-sm font-semibold text-sidebar-foreground">Participants</h4>
                 </div>
                 <ScrollArea className="h-auto max-h-[240px]">
-                  <div className="space-y-2.5 py-1.5">
+                  <div className="space-y-2 py-1.5">
                     {participantCards.map(({ user, isLocal }) => renderParticipant(user, { isLocal }))}
                   </div>
                 </ScrollArea>
@@ -481,9 +481,9 @@ export const CollaborationControls = () => {
             <p>Shared files</p>
           </TooltipContent>
         </Tooltip>
-        <PopoverContent align="center" className="floating-panel w-[320px] p-0">
+        <PopoverContent align="center" className="floating-panel w-[280px] p-0">
           <div className="flex flex-col">
-            <div className="space-y-2.5 border-b border-sidebar-border px-3.5 py-2.5">
+            <div className="space-y-2 border-b border-sidebar-border px-3 py-2">
               <h3 className="text-sm font-semibold text-sidebar-foreground">Shared files</h3>
               <p className="text-xs text-muted-foreground">Access uploads dropped onto the canvas.</p>
               <Button
@@ -496,7 +496,7 @@ export const CollaborationControls = () => {
               </Button>
             </div>
             {uploadedFiles.length === 0 ? (
-              <div className="flex h-[220px] flex-col items-center justify-center gap-2 px-3.5 py-3.5 text-center">
+              <div className="flex h-[200px] flex-col items-center justify-center gap-2 px-3 py-3 text-center">
                 <FileText className="h-8 w-8 text-muted-foreground" />
                 <div>
                   <p className="text-sm font-medium text-sidebar-foreground">No files yet</p>
@@ -506,8 +506,8 @@ export const CollaborationControls = () => {
                 </div>
               </div>
             ) : (
-              <ScrollArea className="h-[260px]">
-                <div className="space-y-2.5 px-3.5 py-2.5">
+              <ScrollArea className="h-[230px]">
+                <div className="space-y-2 px-3 py-2">
                   <p className="text-xs text-muted-foreground">
                     Double-click a PDF on the canvas or use Open to preview it.
                   </p>
