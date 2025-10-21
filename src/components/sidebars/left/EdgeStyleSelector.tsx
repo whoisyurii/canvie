@@ -38,8 +38,13 @@ export const EdgeStyleSelector = ({ value, onChange, disabled }: EdgeStyleSelect
             disabled={disabled}
           >
             <div className="flex h-full w-full flex-col items-center justify-center gap-1.5">
-              <div className="h-7 w-11 border-2 border-foreground" style={{ borderRadius: option.radius }} />
-              <span className="text-[11px] font-medium">{option.label}</span>
+              <div
+                className="h-7 w-11 border-2 border-sidebar-foreground transition group-data-[state=on]:border-foreground"
+                style={{ borderRadius: option.radius }}
+              />
+              <span className="text-[11px] font-medium text-sidebar-foreground group-data-[state=on]:text-foreground">
+                {option.label}
+              </span>
             </div>
           </ToggleGroupItem>
         ))}
