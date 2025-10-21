@@ -238,7 +238,7 @@ export const CurrentShapePreview = ({
           <Line
             x={currentShape.x}
             y={currentShape.y}
-            points={currentShape.points}
+            points={linePoints}
             stroke={currentShape.penBackground}
             strokeWidth={backgroundStrokeWidth}
             dash={getStrokeDash(currentShape.strokeStyle)}
@@ -253,7 +253,7 @@ export const CurrentShapePreview = ({
         <Line
           x={currentShape.x}
           y={currentShape.y}
-          points={currentShape.points}
+          points={linePoints}
           stroke={getColorWithOpacity(
             currentShape.strokeColor,
             currentShape.strokeOpacity

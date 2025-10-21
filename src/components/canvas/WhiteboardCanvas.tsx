@@ -2779,7 +2779,7 @@ export const WhiteboardCanvas = () => {
                         elementId={element.id}
                         x={element.x}
                         y={element.y}
-                        points={element.points}
+                        points={linePoints}
                         stroke={getColorWithOpacity(
                           element.strokeColor,
                           element.strokeOpacity,
@@ -2801,7 +2801,7 @@ export const WhiteboardCanvas = () => {
                           elementId={element.id}
                           x={element.x}
                           y={element.y}
-                          points={element.points}
+                          points={linePoints}
                           stroke={element.penBackground}
                           strokeWidth={backgroundStrokeWidth}
                           dash={getStrokeDash(element.strokeStyle)}
@@ -2818,7 +2818,7 @@ export const WhiteboardCanvas = () => {
                         elementId={element.id}
                         x={element.x}
                         y={element.y}
-                        points={element.points}
+                        points={linePoints}
                         stroke={getColorWithOpacity(
                           element.strokeColor,
                           element.strokeOpacity,
