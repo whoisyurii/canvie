@@ -2712,7 +2712,7 @@ export const WhiteboardCanvas = () => {
                         lineCap="round"
                         lineJoin="round"
                         bezier={bezier}
-                        tension={bezier ? 0.4 : 0}
+                        tension={0}
                         hitStrokeWidth={Math.max(12, element.strokeWidth)}
                         {...interactionProps}
                       />
@@ -2731,7 +2731,7 @@ export const WhiteboardCanvas = () => {
                           lineCap="round"
                           lineJoin="round"
                           bezier={bezier}
-                          tension={bezier ? 0.4 : 0}
+                          tension={0}
                           listening={false}
                         />
                       )}
@@ -2751,7 +2751,7 @@ export const WhiteboardCanvas = () => {
                         lineCap="round"
                         lineJoin="round"
                         bezier={bezier}
-                        tension={bezier ? 0.4 : 0}
+                        tension={0}
                         strokeEnabled={element.sloppiness === "smooth"}
                         listening={false}
                         {...highlightProps}
@@ -2862,7 +2862,7 @@ export const WhiteboardCanvas = () => {
                         pointerAtBeginning={pointerAtBeginning}
                         pointerAtEnding={pointerAtEnding}
                         bezier={bezier}
-                        tension={bezier ? 0.4 : 0}
+                        tension={0}
                         hitStrokeWidth={Math.max(12, element.strokeWidth)}
                         {...interactionProps}
                       />
@@ -2883,7 +2883,7 @@ export const WhiteboardCanvas = () => {
                           pointerAtBeginning={pointerAtBeginning}
                           pointerAtEnding={pointerAtEnding}
                           bezier={bezier}
-                          tension={bezier ? 0.4 : 0}
+                          tension={0}
                           listening={false}
                         />
                       )}
@@ -2905,7 +2905,7 @@ export const WhiteboardCanvas = () => {
                         pointerAtBeginning={pointerAtBeginning}
                         pointerAtEnding={pointerAtEnding}
                         bezier={bezier}
-                        tension={bezier ? 0.4 : 0}
+                        tension={0}
                         strokeEnabled={element.sloppiness === "smooth"}
                         listening={false}
                         {...highlightProps}
