@@ -118,6 +118,8 @@ export const WhiteboardCanvas = () => {
   const marqueeSelectionRef = useRef<MarqueeSelectionState | null>(null);
   const selectionDragStateRef = useRef<SelectionDragState | null>(null);
   const lastErasedIdRef = useRef<string | null>(null);
+  const pendingPanRef = useRef<{ x: number; y: number } | null>(null);
+  const panAnimationFrameRef = useRef<number | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isErasing, setIsErasing] = useState(false);
   const [currentShape, setCurrentShape] = useState<any>(null);
@@ -908,75 +910,6 @@ export const WhiteboardCanvas = () => {
     };
   }, [elements, panX, panY, safeZoom, stageSize.height, stageSize.width]);
 
-  const panToMiniMapPoint = useCallback(
-    (pointX: number, pointY: number) => {
-      if (!miniMapData) return;
-
-      const worldX = pointX / miniMapData.scale + miniMapData.offsetX;
-      const worldY = pointY / miniMapData.scale + miniMapData.offsetY;
-
-      const viewportWidth = stageSize.width / safeZoom;
-      const viewportHeight = stageSize.height / safeZoom;
-
-      const nextPanX = -(worldX - viewportWidth / 2) * safeZoom;
-      const nextPanY = -(worldY - viewportHeight / 2) * safeZoom;
-
-      setPan({
-        x: Number.isFinite(nextPanX) ? nextPanX : panX,
-        y: Number.isFinite(nextPanY) ? nextPanY : panY,
-      });
-    },
-    [
-      miniMapData,
-      panX,
-      panY,
-      safeZoom,
-      setPan,
-      stageSize.height,
-      stageSize.width,
-    ]
-  );
-
-  const updatePanFromMiniMap = useCallback(
-    (
-      event: ReactMouseEvent<SVGSVGElement> | ReactTouchEvent<SVGSVGElement>
-    ) => {
-      const coords = getMiniMapCoordinates(event);
-      if (!coords) return;
-      panToMiniMapPoint(coords.x, coords.y);
-    },
-    [getMiniMapCoordinates, panToMiniMapPoint]
-  );
-
-  const handleMiniMapPointerDown = useCallback(
-    (
-      event: ReactMouseEvent<SVGSVGElement> | ReactTouchEvent<SVGSVGElement>
-    ) => {
-      event.preventDefault();
-      event.stopPropagation();
-      miniMapDragRef.current = true;
-      setIsMiniMapInteracting(true);
-      updatePanFromMiniMap(event);
-    },
-    [updatePanFromMiniMap]
-  );
-
-  const handleMiniMapPointerMove = useCallback(
-    (
-      event: ReactMouseEvent<SVGSVGElement> | ReactTouchEvent<SVGSVGElement>
-    ) => {
-      if (!miniMapDragRef.current) return;
-      event.preventDefault();
-      updatePanFromMiniMap(event);
-    },
-    [updatePanFromMiniMap]
-  );
-
-  const endMiniMapInteraction = useCallback(() => {
-    miniMapDragRef.current = false;
-    setIsMiniMapInteracting(false);
-  }, []);
-
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -1114,13 +1047,22 @@ export const WhiteboardCanvas = () => {
     };
   }, [panX, panY, safeZoom, stageSize.height, stageSize.width]);
 
+  const elementBoundsMap = useMemo(() => {
+    const bounds = new Map<string, Bounds>();
+    elements.forEach((element) => {
+      bounds.set(element.id, getElementBounds(element));
+    });
+    return bounds;
+  }, [elements]);
+
   const visibleElements = useMemo(() => {
     if (!renderBounds) {
       return elements;
     }
 
     return elements.filter((element) => {
-      const bounds = getElementBounds(element);
+      const bounds =
+        elementBoundsMap.get(element.id) ?? getElementBounds(element);
       return (
         bounds.maxX >= renderBounds.minX &&
         bounds.minX <= renderBounds.maxX &&
@@ -1128,7 +1070,7 @@ export const WhiteboardCanvas = () => {
         bounds.minY <= renderBounds.maxY
       );
     });
-  }, [elements, renderBounds]);
+  }, [elements, elementBoundsMap, renderBounds]);
 
   const curveHandleElements = useMemo(() => {
     if (activeTool !== "select") {
@@ -1221,12 +1163,148 @@ export const WhiteboardCanvas = () => {
     transformer.getLayer()?.batchDraw();
   }, [activeTool, selectedIds, visibleElements]);
 
-  const syncPanFromStage = (event: KonvaEventObject<DragEvent>) => {
-    const stage = event.target.getStage();
-    if (!stage) return;
-    const position = stage.position();
-    setPan({ x: position.x, y: position.y });
-  };
+  const schedulePanUpdate = useCallback(
+    (nextPan: { x: number; y: number }, immediate = false) => {
+      const normalizedPan = {
+        x: Number.isFinite(nextPan.x) ? nextPan.x : 0,
+        y: Number.isFinite(nextPan.y) ? nextPan.y : 0,
+      };
+
+      if (normalizedPan.x === panX && normalizedPan.y === panY) {
+        if (immediate && panAnimationFrameRef.current !== null) {
+          cancelAnimationFrame(panAnimationFrameRef.current);
+          panAnimationFrameRef.current = null;
+        }
+        pendingPanRef.current = null;
+        return;
+      }
+
+      if (immediate) {
+        if (panAnimationFrameRef.current !== null) {
+          cancelAnimationFrame(panAnimationFrameRef.current);
+          panAnimationFrameRef.current = null;
+        }
+        pendingPanRef.current = null;
+        setPan(normalizedPan);
+        return;
+      }
+
+      pendingPanRef.current = normalizedPan;
+      if (panAnimationFrameRef.current !== null) {
+        return;
+      }
+
+      panAnimationFrameRef.current = requestAnimationFrame(() => {
+        if (pendingPanRef.current) {
+          setPan(pendingPanRef.current);
+          pendingPanRef.current = null;
+        }
+        panAnimationFrameRef.current = null;
+      });
+    },
+    [panX, panY, setPan]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (panAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(panAnimationFrameRef.current);
+        panAnimationFrameRef.current = null;
+      }
+    };
+  }, []);
+
+  const syncPanFromStage = useCallback(
+    (event: KonvaEventObject<DragEvent>) => {
+      const stage = event.target.getStage();
+      if (!stage) return;
+      const position = stage.position();
+      schedulePanUpdate({ x: position.x, y: position.y });
+    },
+    [schedulePanUpdate]
+  );
+
+  const syncPanFromStageImmediate = useCallback(
+    (event: KonvaEventObject<DragEvent>) => {
+      const stage = event.target.getStage();
+      if (!stage) return;
+      const position = stage.position();
+      schedulePanUpdate({ x: position.x, y: position.y }, true);
+    },
+    [schedulePanUpdate]
+  );
+
+  const panToMiniMapPoint = useCallback(
+    (pointX: number, pointY: number) => {
+      if (!miniMapData) return;
+
+      const worldX = pointX / miniMapData.scale + miniMapData.offsetX;
+      const worldY = pointY / miniMapData.scale + miniMapData.offsetY;
+
+      const viewportWidth = stageSize.width / safeZoom;
+      const viewportHeight = stageSize.height / safeZoom;
+
+      const nextPanX = -(worldX - viewportWidth / 2) * safeZoom;
+      const nextPanY = -(worldY - viewportHeight / 2) * safeZoom;
+
+      schedulePanUpdate(
+        {
+          x: Number.isFinite(nextPanX) ? nextPanX : panX,
+          y: Number.isFinite(nextPanY) ? nextPanY : panY,
+        },
+        true
+      );
+    },
+    [
+      miniMapData,
+      panX,
+      panY,
+      safeZoom,
+      schedulePanUpdate,
+      stageSize.height,
+      stageSize.width,
+    ]
+  );
+
+  const updatePanFromMiniMap = useCallback(
+    (
+      event: ReactMouseEvent<SVGSVGElement> | ReactTouchEvent<SVGSVGElement>
+    ) => {
+      const coords = getMiniMapCoordinates(event);
+      if (!coords) return;
+      panToMiniMapPoint(coords.x, coords.y);
+    },
+    [getMiniMapCoordinates, panToMiniMapPoint]
+  );
+
+  const handleMiniMapPointerDown = useCallback(
+    (
+      event: ReactMouseEvent<SVGSVGElement> | ReactTouchEvent<SVGSVGElement>
+    ) => {
+      event.preventDefault();
+      event.stopPropagation();
+      miniMapDragRef.current = true;
+      setIsMiniMapInteracting(true);
+      updatePanFromMiniMap(event);
+    },
+    [updatePanFromMiniMap]
+  );
+
+  const handleMiniMapPointerMove = useCallback(
+    (
+      event: ReactMouseEvent<SVGSVGElement> | ReactTouchEvent<SVGSVGElement>
+    ) => {
+      if (!miniMapDragRef.current) return;
+      event.preventDefault();
+      updatePanFromMiniMap(event);
+    },
+    [updatePanFromMiniMap]
+  );
+
+  const endMiniMapInteraction = useCallback(() => {
+    miniMapDragRef.current = false;
+    setIsMiniMapInteracting(false);
+  }, []);
 
   const backgroundConfig = useMemo(() => {
     const baseSize = Math.max(4, 20 * safeZoom);
@@ -2372,7 +2450,7 @@ export const WhiteboardCanvas = () => {
             onDragEnd={(event) => {
               setIsPanning(false);
               setIsMiddleMousePanning(false);
-              syncPanFromStage(event);
+              syncPanFromStageImmediate(event);
             }}
             onMouseLeave={() => {
               if (isErasing) {
