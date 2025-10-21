@@ -136,7 +136,7 @@ export const LeftSidebar = () => {
         if (!hasSelection) {
           const message = TOOL_EMPTY_STATE.select;
           return message ? (
-            <p className="rounded-md border border-dashed border-sidebar-border bg-sidebar/50 p-4 text-sm text-muted-foreground">
+            <p className="rounded-md border border-dashed border-sidebar-border bg-sidebar/50 p-3 text-sm text-muted-foreground">
               {message}
             </p>
           ) : null;
@@ -144,7 +144,7 @@ export const LeftSidebar = () => {
 
         if (!hasTextSelection) {
           return (
-            <p className="rounded-md border border-dashed border-sidebar-border bg-sidebar/50 p-4 text-sm text-muted-foreground">
+            <p className="rounded-md border border-dashed border-sidebar-border bg-sidebar/50 p-3 text-sm text-muted-foreground">
               Select a text element to adjust its formatting.
             </p>
           );
@@ -295,7 +295,7 @@ export const LeftSidebar = () => {
       default: {
         const message = TOOL_EMPTY_STATE[activeTool];
         return message ? (
-          <p className="rounded-md border border-dashed border-sidebar-border bg-sidebar/50 p-4 text-sm text-muted-foreground">
+          <p className="rounded-md border border-dashed border-sidebar-border bg-sidebar/50 p-3 text-sm text-muted-foreground">
             {message}
           </p>
         ) : null;
@@ -307,14 +307,14 @@ export const LeftSidebar = () => {
     <div
       className={cn(
         "floating-panel group relative flex flex-col overflow-hidden transition-[width] duration-300 ease-in-out",
-        isCollapsed ? "w-14" : "w-[256px]"
+        isCollapsed ? "w-12" : "w-[220px]"
       )}
-      style={{ height: "min(700px, calc(100vh - 4.5rem))" }}
+      style={{ height: "min(640px, calc(100vh - 4rem))" }}
     >
       <div
         className={cn(
           "flex items-center border-b border-sidebar-border",
-          isCollapsed ? "justify-center px-0 py-2" : "justify-between px-3 py-2.5"
+          isCollapsed ? "justify-center px-0 py-1.5" : "justify-between px-2.5 py-2"
         )}
       >
         {!isCollapsed ? (
@@ -327,8 +327,8 @@ export const LeftSidebar = () => {
           variant="ghost"
           size="icon"
           className={cn(
-            "h-7 w-7 shrink-0 text-muted-foreground transition-transform",
-            isCollapsed ? "translate-x-0" : "-mx-1"
+            "h-6 w-6 shrink-0 text-muted-foreground transition-transform",
+            isCollapsed ? "translate-x-0" : "-mx-0.5"
           )}
           onClick={() => setIsCollapsed((current) => !current)}
           aria-label={isCollapsed ? "Expand tool settings" : "Collapse tool settings"}
@@ -343,7 +343,7 @@ export const LeftSidebar = () => {
           isCollapsed ? "pointer-events-none opacity-0" : "opacity-100"
         )}
       >
-        <div className="space-y-3 px-2.5 py-3">
+        <div className="space-y-2.5 px-2 py-2.5">
           {renderSections()}
 
           <LayerActions

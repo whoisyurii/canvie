@@ -184,7 +184,7 @@
   }
 
   .top-toolbar {
-    @apply flex items-center gap-1.5 px-2.5 py-1.5;
+    @apply flex items-center gap-1 px-2 py-1;
   }
 
   .toolbar-section {
@@ -192,12 +192,12 @@
   }
 
   .toolbar-separator {
-    @apply mx-0.5 h-7 bg-sidebar-border;
+    @apply mx-0.5 h-6 bg-sidebar-border;
     width: 1px;
   }
 
   .tool-button {
-    @apply h-9 w-9 flex items-center justify-center rounded-lg cursor-pointer transition-all hover:bg-sidebar-accent hover:text-accent-foreground;
+    @apply h-8 w-8 flex items-center justify-center rounded-lg cursor-pointer transition-all hover:bg-sidebar-accent hover:text-accent-foreground;
   }
 
   .tool-button-active,
