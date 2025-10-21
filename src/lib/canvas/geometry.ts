@@ -12,7 +12,7 @@ const computeCurveControlPoint = (
   return { x: midX, y: midY };
 };
 
-export const ensureCurvePoints = (points: number[] | undefined) => {
+export const ensureCurvePoints = (points: number[] | undefined): number[] => {
   if (!points || points.length < 4) {
     return points ? [...points] : [];
   }
@@ -37,7 +37,7 @@ export const ensureCurvePoints = (points: number[] | undefined) => {
   return [startX, startY, controlX, controlY, endX, endY];
 };
 
-export const flattenCurvePoints = (points: number[] | undefined) => {
+export const flattenCurvePoints = (points: number[] | undefined): number[] => {
   if (!points || points.length < 4) {
     return points ? [...points] : [];
   }

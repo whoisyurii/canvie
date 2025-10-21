@@ -300,11 +300,11 @@ export const buildDiagramElements = (
     const endX = toCenter.x - arrowX;
     const endY = toCenter.y - arrowY;
 
-    const basePoints = [startX, startY, endX, endY] as const;
-    const points: number[] =
+    const basePoints: number[] = [startX, startY, endX, endY];
+    const points =
       options.arrowStyle === "curve"
-        ? ensureCurvePoints([...basePoints])
-        : [...basePoints];
+        ? ensureCurvePoints(basePoints)
+        : basePoints;
 
     const arrowElement: CanvasElement = {
       id: nanoid(),
