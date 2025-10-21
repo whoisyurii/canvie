@@ -2387,17 +2387,16 @@ export const WhiteboardCanvas = () => {
           {editingText && editorStyle && (
             <textarea
               ref={textEditorRef}
-              className="pointer-events-auto absolute z-40 resize-none border-none bg-transparent text-slate-800 outline-none caret-slate-800 overflow-hidden"
+              className="pointer-events-auto absolute z-40 resize-none border-none bg-transparent text-slate-800 outline-none caret-slate-800"
               style={{
                 ...editorStyle,
                 lineHeight: `${editorLineHeight * safeZoom}px`,
                 padding: `${12 * safeZoom}px`,
-                whiteSpace: 'pre',
-                overflowWrap: 'normal',
-                wordBreak: 'keep-all',
+                whiteSpace: "pre",
+                overflowWrap: "normal",
+                wordBreak: "keep-all",
                 minWidth: `${TEXT_MIN_WIDTH * safeZoom}px`,
-                width: 'auto',
-                maxWidth: 'none',
+                maxWidth: "none",
               }}
               value={editingText.value}
               onChange={(event) => {
