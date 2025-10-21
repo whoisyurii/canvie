@@ -6,6 +6,8 @@ import {
   type CanvasElement,
   type CornerStyle,
 } from "@/lib/store/useWhiteboardStore";
+import { ensureCurvePoints } from "@/lib/canvas/geometry";
+
 import { type GeminiDiagramKind, type GeminiDiagramResponse } from "./gemini";
 
 const FLOW_NODE_WIDTH = 240;
@@ -290,17 +292,28 @@ export const buildDiagramElements = (
       y: toPlacement.y + toPlacement.height / 2,
     };
 
+    const arrowX = Math.min(fromCenter.x, toCenter.x);
+    const arrowY = Math.min(fromCenter.y, toCenter.y);
+
+    const startX = fromCenter.x - arrowX;
+    const startY = fromCenter.y - arrowY;
+    const endX = toCenter.x - arrowX;
+    const endY = toCenter.y - arrowY;
+
+    const basePoints = [startX, startY, endX, endY] as const;
+    const points: number[] =
+      options.arrowStyle === "curve"
+        ? ensureCurvePoints([...basePoints])
+        : [...basePoints];
+
     const arrowElement: CanvasElement = {
       id: nanoid(),
       type: "arrow",
-      x: Math.min(fromCenter.x, toCenter.x),
-      y: Math.min(fromCenter.y, toCenter.y),
+      x: arrowX,
+      y: arrowY,
       width: Math.abs(toCenter.x - fromCenter.x) || 1,
       height: Math.abs(toCenter.y - fromCenter.y) || 1,
-      points: [
-        { x: fromCenter.x, y: fromCenter.y },
-        { x: toCenter.x, y: toCenter.y },
-      ],
+      points,
       strokeColor: options.strokeColor,
       strokeOpacity: options.strokeOpacity,
       fillColor: options.fillColor,
@@ -311,7 +324,7 @@ export const buildDiagramElements = (
       sloppiness: options.sloppiness,
       arrowType: options.arrowType,
       arrowStyle: options.arrowStyle,
-    } as CanvasElement;
+    };
 
     elements.push(arrowElement);
   });
@@ -322,27 +335,25 @@ export const buildDiagramElements = (
         return;
       }
 
-      const maxTextWidth = element.width - 24;
-      const fontSize = element.fontSize ?? options.textFontSize;
-      const estimatedHeight = estimateTextBoxHeight({
-        text: element.text ?? "",
-        width: maxTextWidth,
-        fontSize,
-        fontFamily: element.fontFamily ?? options.textFontFamily,
-      });
-      const estimatedWidth = estimateTextBoxWidth({
-        text: element.text ?? "",
-        fontSize,
-        fontFamily: element.fontFamily ?? options.textFontFamily,
-      });
+      const elementWidth = element.width ?? 0;
+      const elementHeight = element.height ?? 0;
 
-      if (estimatedHeight + 16 > element.height || estimatedWidth + 24 > element.width) {
+      const maxTextWidth = Math.max(elementWidth - 24, 0);
+      const fontSize = element.fontSize ?? options.textFontSize;
+      const textContent = element.text ?? "";
+      const estimatedHeight = estimateTextBoxHeight(textContent, fontSize);
+      const estimatedWidth = estimateTextBoxWidth(textContent, fontSize);
+
+      if (
+        estimatedHeight + 16 > elementHeight ||
+        estimatedWidth + 24 > elementWidth
+      ) {
         const textElement: CanvasElement = {
           id: nanoid(),
           type: "text",
           x: element.x,
-          y: element.y + element.height + 12,
-          width: Math.max(maxTextWidth, element.width),
+          y: element.y + elementHeight + 12,
+          width: Math.max(maxTextWidth, elementWidth),
           height: estimatedHeight,
           strokeColor: options.strokeColor,
           strokeOpacity: options.strokeOpacity,
@@ -351,7 +362,7 @@ export const buildDiagramElements = (
           strokeWidth: 0,
           strokeStyle: "solid",
           opacity: options.opacity,
-          sloppiness: "neat",
+          sloppiness: options.sloppiness,
           text: element.text ?? "",
           fontFamily: element.fontFamily ?? options.textFontFamily,
           fontSize,
