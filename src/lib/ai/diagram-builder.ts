@@ -301,7 +301,7 @@ export const buildDiagramElements = (
     const endY = toCenter.y - arrowY;
 
     const basePoints = [startX, startY, endX, endY] as const;
-    const points =
+    const points: number[] =
       options.arrowStyle === "curve"
         ? ensureCurvePoints([...basePoints])
         : [...basePoints];
@@ -324,7 +324,7 @@ export const buildDiagramElements = (
       sloppiness: options.sloppiness,
       arrowType: options.arrowType,
       arrowStyle: options.arrowStyle,
-    } as CanvasElement;
+    };
 
     elements.push(arrowElement);
   });
