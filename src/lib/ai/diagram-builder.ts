@@ -9,10 +9,13 @@ import {
 import { ensureCurvePoints } from "@/lib/canvas/geometry";
 
 import { type GeminiDiagramKind, type GeminiDiagramResponse } from "./gemini";
-
-const FLOW_NODE_WIDTH = 240;
-const FLOW_NODE_HEIGHT = 120;
-const FLOW_VERTICAL_SPACING = 90;
+import {
+  FLOWCHART_NODE_HEIGHT,
+  FLOWCHART_NODE_WIDTH,
+  FLOWCHART_VERTICAL_GAP,
+  resolveFlowchartTemplate,
+} from "./patterns/flowchart";
+import type { FlowchartTemplateId } from "./patterns/flowchart";
 
 const MINDMAP_CENTRAL_WIDTH = 260;
 const MINDMAP_CENTRAL_HEIGHT = 140;
@@ -28,6 +31,14 @@ interface DiagramLayoutEntry {
   shape: "rectangle" | "diamond";
   fontSize: number;
   textAlign: CanvasElement["textAlign"];
+}
+
+interface FlowchartLayoutResult {
+  templateId: FlowchartTemplateId;
+  nodes: Map<string, DiagramLayoutEntry>;
+  edgeRoutes: Map<string, { points: Array<{ x: number; y: number }> }>;
+  horizontalSpacing: number;
+  verticalSpacing: number;
 }
 
 export interface DiagramBuildResult {
@@ -51,6 +62,127 @@ const getCanvasCenter = (pan: { x: number; y: number }, zoom: number) => {
 };
 
 const layoutFlowchartNodes = (
+  response: GeminiDiagramResponse,
+  center: { x: number; y: number },
+  baseFontSize: number,
+): FlowchartLayoutResult | null => {
+  if (response.nodes.length === 0) {
+    return null;
+  }
+
+  const match = resolveFlowchartTemplate(response);
+  if (!match) {
+    return null;
+  }
+
+  const columnValues = Array.from(new Set(match.columns.values())).sort((a, b) => a - b);
+  if (columnValues.length === 0) {
+    columnValues.push(0);
+  }
+
+  const columnIndex = new Map<number, number>();
+  columnValues.forEach((value, index) => {
+    columnIndex.set(value, index);
+  });
+
+  const levelValues = Array.from(new Set(match.levels.values()));
+  if (levelValues.length === 0) {
+    levelValues.push(0);
+  }
+  const minLevel = Math.min(...levelValues);
+  const maxLevel = Math.max(...levelValues);
+
+  const columnCount = columnValues.length;
+  const rowCount = maxLevel - minLevel + 1;
+
+  const totalWidth =
+    columnCount * FLOWCHART_NODE_WIDTH + (columnCount - 1) * match.horizontalSpacing;
+  const totalHeight = rowCount * FLOWCHART_NODE_HEIGHT + (rowCount - 1) * match.verticalSpacing;
+
+  const originX = center.x - totalWidth / 2;
+  const originY = center.y - totalHeight / 2;
+
+  const layout = new Map<string, DiagramLayoutEntry>();
+
+  response.nodes.forEach((node) => {
+    const column = columnIndex.get(match.columns.get(node.id) ?? 0) ?? 0;
+    const level = match.levels.get(node.id) ?? 0;
+    const rowIndex = level - minLevel;
+
+    const x = originX + column * (FLOWCHART_NODE_WIDTH + match.horizontalSpacing);
+    const y = originY + rowIndex * (FLOWCHART_NODE_HEIGHT + match.verticalSpacing);
+
+    const normalizedType = node.type.toLowerCase();
+    const shape = match.shapes.get(node.id)
+      ? match.shapes.get(node.id)!
+      : normalizedType.includes("decision")
+        ? "diamond"
+        : "rectangle";
+
+    layout.set(node.id, {
+      x,
+      y,
+      width: FLOWCHART_NODE_WIDTH,
+      height: FLOWCHART_NODE_HEIGHT,
+      shape,
+      fontSize: baseFontSize,
+      textAlign: "center",
+    });
+  });
+
+  const edgeRoutes = new Map<string, { points: Array<{ x: number; y: number }> }>();
+
+  const getCenter = (placement: DiagramLayoutEntry) => ({
+    x: placement.x + placement.width / 2,
+    y: placement.y + placement.height / 2,
+  });
+
+  response.edges.forEach((edge) => {
+    const fromPlacement = layout.get(edge.from);
+    const toPlacement = layout.get(edge.to);
+    if (!fromPlacement || !toPlacement) {
+      return;
+    }
+
+    const fromCenter = getCenter(fromPlacement);
+    const toCenter = getCenter(toPlacement);
+
+    const fromColumn = match.columns.get(edge.from) ?? 0;
+    const toColumn = match.columns.get(edge.to) ?? fromColumn;
+
+    if (fromColumn === toColumn) {
+      edgeRoutes.set(`${edge.from}->${edge.to}`, { points: [fromCenter, toCenter] });
+      return;
+    }
+
+    const fromAnchorY =
+      toCenter.y >= fromCenter.y ? fromPlacement.y + fromPlacement.height : fromPlacement.y;
+    const start = { x: fromCenter.x, y: fromAnchorY };
+
+    const toAnchorY = toCenter.y >= fromCenter.y ? toPlacement.y : toPlacement.y + toPlacement.height;
+    const end = { x: toCenter.x, y: toAnchorY };
+
+    const intermediateY = start.y + (end.y - start.y) / 2;
+    const pathPoints = [
+      start,
+      { x: start.x, y: intermediateY },
+      { x: end.x, y: intermediateY },
+      end,
+    ];
+
+    edgeRoutes.set(`${edge.from}->${edge.to}`, { points: pathPoints });
+  });
+
+  return {
+    templateId: match.templateId,
+    nodes: layout,
+    edgeRoutes,
+    horizontalSpacing: match.horizontalSpacing,
+    verticalSpacing: match.verticalSpacing,
+  };
+};
+
+const fallbackSequentialLayout = (
   nodes: GeminiDiagramResponse["nodes"],
   center: { x: number; y: number },
   baseFontSize: number,
@@ -60,20 +192,21 @@ const layoutFlowchartNodes = (
     return layout;
   }
 
-  const totalHeight = nodes.length * FLOW_NODE_HEIGHT + (nodes.length - 1) * FLOW_VERTICAL_SPACING;
+  const totalHeight =
+    nodes.length * FLOWCHART_NODE_HEIGHT + (nodes.length - 1) * FLOWCHART_VERTICAL_GAP;
   const startY = center.y - totalHeight / 2;
-  const startX = center.x - FLOW_NODE_WIDTH / 2;
+  const startX = center.x - FLOWCHART_NODE_WIDTH / 2;
 
   nodes.forEach((node, index) => {
     const typeLower = node.type.toLowerCase();
     const shape = typeLower.includes("decision") ? "diamond" : "rectangle";
-    const y = startY + index * (FLOW_NODE_HEIGHT + FLOW_VERTICAL_SPACING);
+    const y = startY + index * (FLOWCHART_NODE_HEIGHT + FLOWCHART_VERTICAL_GAP);
 
     layout.set(node.id, {
       x: startX,
       y,
-      width: FLOW_NODE_WIDTH,
-      height: FLOW_NODE_HEIGHT,
+      width: FLOWCHART_NODE_WIDTH,
+      height: FLOWCHART_NODE_HEIGHT,
       shape,
       fontSize: baseFontSize,
       textAlign: "center",
@@ -227,9 +360,11 @@ export const buildDiagramElements = (
   },
 ): DiagramBuildResult => {
   const center = getCanvasCenter(options.pan, options.zoom);
+  const flowchartLayout =
+    kind === "flowchart" ? layoutFlowchartNodes(response, center, options.textFontSize) : null;
   const layout =
     kind === "flowchart"
-      ? layoutFlowchartNodes(response.nodes, center, options.textFontSize)
+      ? flowchartLayout?.nodes ?? fallbackSequentialLayout(response.nodes, center, options.textFontSize)
       : layoutMindMapNodes(response, center, options.textFontSize);
 
   if (layout.size === 0) {
@@ -283,6 +418,46 @@ export const buildDiagramElements = (
       return;
     }
 
+    const key = `${edge.from}->${edge.to}`;
+    const routedPoints = flowchartLayout?.edgeRoutes.get(key)?.points;
+
+    if (routedPoints && routedPoints.length >= 2) {
+      const xs = routedPoints.map((point) => point.x);
+      const ys = routedPoints.map((point) => point.y);
+      const minX = Math.min(...xs);
+      const minY = Math.min(...ys);
+      const maxX = Math.max(...xs);
+      const maxY = Math.max(...ys);
+
+      const normalizedPoints: number[] = [];
+      routedPoints.forEach((point) => {
+        normalizedPoints.push(point.x - minX, point.y - minY);
+      });
+
+      const arrowElement: CanvasElement = {
+        id: nanoid(),
+        type: "arrow",
+        x: minX,
+        y: minY,
+        width: Math.max(maxX - minX, 1),
+        height: Math.max(maxY - minY, 1),
+        points: normalizedPoints,
+        strokeColor: options.strokeColor,
+        strokeOpacity: options.strokeOpacity,
+        fillColor: options.fillColor,
+        fillOpacity: options.fillOpacity,
+        strokeWidth: options.strokeWidth,
+        strokeStyle: options.strokeStyle,
+        opacity: options.opacity,
+        sloppiness: options.sloppiness,
+        arrowType: options.arrowType,
+        arrowStyle: options.arrowStyle,
+      };
+
+      elements.push(arrowElement);
+      return;
+    }
+
     const fromCenter = {
       x: fromPlacement.x + fromPlacement.width / 2,
       y: fromPlacement.y + fromPlacement.height / 2,
@@ -302,7 +477,7 @@ export const buildDiagramElements = (
 
     const basePoints: number[] = [startX, startY, endX, endY];
     const points =
-      options.arrowStyle === "curve"
+      options.arrowStyle === "curve" && basePoints.length === 4
         ? ensureCurvePoints(basePoints)
         : basePoints;
 
