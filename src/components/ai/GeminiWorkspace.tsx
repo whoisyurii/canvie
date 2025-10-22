@@ -596,7 +596,6 @@ export const GeminiWorkspace = ({ open, onOpenChange, onOpenSettings }: GeminiWo
                     <Button
                       type="button"
                       variant="ghost"
-                      size="xs"
                       className="h-7 px-2 text-xs"
                       onClick={() => setTemplateOverrideId(undefined)}
                     >
