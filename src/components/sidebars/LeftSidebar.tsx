@@ -55,6 +55,7 @@ const TOOL_EMPTY_STATE: Record<string, string> = {
   select: "Select an element to view its settings.",
   pan: "Switch to a drawing tool to access its options.",
   eraser: "The eraser does not have configurable settings.",
+  ruler: "Use the ruler to measure distances. Hold Shift + Alt to measure without switching tools.",
 };
 
 export const LeftSidebar = () => {
@@ -292,6 +293,14 @@ export const LeftSidebar = () => {
             <OpacityControl value={opacity} onChange={setOpacity} />
           </>
         );
+      case "ruler": {
+        const message = TOOL_EMPTY_STATE.ruler;
+        return (
+          <p className="rounded-md border border-dashed border-sidebar-border bg-sidebar/50 p-3 text-sm text-muted-foreground">
+            {message}
+          </p>
+        );
+      }
       default: {
         const message = TOOL_EMPTY_STATE[activeTool];
         return message ? (

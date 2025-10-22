@@ -37,6 +37,7 @@ import { UserCursor } from "./UserCursor";
 import { ImageElement, FileElement } from "./elements";
 import { CanvasContextMenu } from "./CanvasContextMenu";
 import { CurrentShapePreview } from "./CurrentShapePreview";
+import { RulerOverlay, type RulerMeasurement } from "./RulerOverlay";
 import {
   MINIMAP_ENABLED,
   PEN_TENSION,
@@ -120,6 +121,10 @@ export const WhiteboardCanvas = () => {
   const lastErasedIdRef = useRef<string | null>(null);
   const pendingPanRef = useRef<{ x: number; y: number } | null>(null);
   const panAnimationFrameRef = useRef<number | null>(null);
+  const rulerShortcutRef = useRef(false);
+  const modifierKeyStateRef = useRef({ shift: false, alt: false });
+  const measurementStartRef = useRef<{ x: number; y: number } | null>(null);
+  const rulerMeasurementRef = useRef<RulerMeasurement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isErasing, setIsErasing] = useState(false);
   const [currentShape, setCurrentShape] = useState<any>(null);
@@ -143,6 +148,10 @@ export const WhiteboardCanvas = () => {
     x: number;
     y: number;
   } | null>(null);
+  const [rulerShortcutActive, setRulerShortcutActive] = useState(false);
+  const [rulerMeasurement, setRulerMeasurement] = useState<RulerMeasurement | null>(
+    null
+  );
   const { handleDrop, handleDragOver, addFilesToCanvas } = useDragDrop();
   const { toast } = useToast();
 
@@ -312,6 +321,39 @@ export const WhiteboardCanvas = () => {
     };
   }, [panX, safeZoom, panY]);
 
+  const clearRulerMeasurement = useCallback(() => {
+    measurementStartRef.current = null;
+    rulerMeasurementRef.current = null;
+    setRulerMeasurement(null);
+  }, []);
+
+  const updateRulerMeasurement = useCallback(
+    (nextPosition: { x: number; y: number }) => {
+      const start = measurementStartRef.current;
+      if (!start) {
+        return;
+      }
+
+      const deltaX = nextPosition.x - start.x;
+      const deltaY = nextPosition.y - start.y;
+      const distance = Math.hypot(deltaX, deltaY);
+      const angle = ((Math.atan2(deltaY, deltaX) * 180) / Math.PI + 360) % 360;
+
+      const measurement: RulerMeasurement = {
+        start,
+        end: nextPosition,
+        deltaX,
+        deltaY,
+        distance,
+        angle,
+      };
+
+      rulerMeasurementRef.current = measurement;
+      setRulerMeasurement(measurement);
+    },
+    [],
+  );
+
   const recordContextMenuPosition = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
       if (!containerRef.current) {
@@ -341,6 +383,14 @@ export const WhiteboardCanvas = () => {
 
     return { x: 0, y: 0 };
   }, [contextMenuPosition, panX, panY, safeZoom]);
+
+  const isRulerMode = activeTool === "ruler" || rulerShortcutActive;
+
+  useEffect(() => {
+    if (!isRulerMode) {
+      clearRulerMeasurement();
+    }
+  }, [clearRulerMeasurement, isRulerMode]);
 
   const createTextElementFromClipboard = useCallback(
     (content: string, position: { x: number; y: number }) => {
@@ -962,6 +1012,77 @@ export const WhiteboardCanvas = () => {
     });
   }, [editingText]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const isEditableTarget = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) {
+        return false;
+      }
+      const tagName = target.tagName?.toLowerCase();
+      return (
+        target.isContentEditable ||
+        tagName === "input" ||
+        tagName === "textarea" ||
+        tagName === "select" ||
+        target.getAttribute("role") === "textbox"
+      );
+    };
+
+    const updateShortcutState = () => {
+      const nextActive =
+        modifierKeyStateRef.current.shift && modifierKeyStateRef.current.alt;
+
+      if (nextActive !== rulerShortcutRef.current) {
+        rulerShortcutRef.current = nextActive;
+        setRulerShortcutActive(nextActive);
+        if (!nextActive) {
+          clearRulerMeasurement();
+        }
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target)) {
+        return;
+      }
+
+      if (event.key === "Shift") {
+        modifierKeyStateRef.current.shift = true;
+        updateShortcutState();
+        return;
+      }
+
+      if (event.key === "Alt") {
+        modifierKeyStateRef.current.alt = true;
+        updateShortcutState();
+      }
+    };
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.key === "Shift") {
+        modifierKeyStateRef.current.shift = false;
+        updateShortcutState();
+        return;
+      }
+
+      if (event.key === "Alt") {
+        modifierKeyStateRef.current.alt = false;
+        updateShortcutState();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [clearRulerMeasurement]);
+
   // QW-1: Delete Key Support & QW-2: Duplicate with Ctrl+D
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -1491,6 +1612,18 @@ export const WhiteboardCanvas = () => {
       return;
     }
 
+    if (isRulerMode && e.evt.button === 0) {
+      const pointer = getCanvasPointerPosition();
+      if (!pointer) {
+        return;
+      }
+
+      measurementStartRef.current = pointer;
+      updateRulerMeasurement(pointer);
+      e.evt.preventDefault();
+      return;
+    }
+
     if (e.evt.altKey && activeTool === "select") {
       const targetId = resolveElementId(e.target as Konva.Node);
       if (targetId) {
@@ -1678,6 +1811,16 @@ export const WhiteboardCanvas = () => {
   };
 
   const handleMouseMove = (e: KonvaEventObject<MouseEvent>) => {
+    if (isRulerMode) {
+      if (measurementStartRef.current) {
+        const pointer = getCanvasPointerPosition();
+        if (pointer) {
+          updateRulerMeasurement(pointer);
+        }
+      }
+      return;
+    }
+
     const marqueeState = marqueeSelectionRef.current;
     if (marqueeState) {
       const pointer = getCanvasPointerPosition();
@@ -1802,6 +1945,10 @@ export const WhiteboardCanvas = () => {
       return;
     }
 
+    if (isRulerMode) {
+      clearRulerMeasurement();
+    }
+
     if (isErasing) {
       setIsErasing(false);
       lastErasedIdRef.current = null;
@@ -1854,6 +2001,10 @@ export const WhiteboardCanvas = () => {
     }
 
     const handlePointerUp = (event: MouseEvent | TouchEvent) => {
+      if (rulerMeasurementRef.current) {
+        clearRulerMeasurement();
+      }
+
       if (!isDrawingRef.current) {
         return;
       }
@@ -1874,7 +2025,7 @@ export const WhiteboardCanvas = () => {
       window.removeEventListener("touchend", handlePointerUp);
       window.removeEventListener("touchcancel", handlePointerUp);
     };
-  }, [finalizeDrawing]);
+  }, [clearRulerMeasurement, finalizeDrawing]);
 
   const applySelectionDrag = useCallback(
     (
@@ -2456,6 +2607,7 @@ export const WhiteboardCanvas = () => {
                 setIsErasing(false);
               }
               lastErasedIdRef.current = null;
+              clearRulerMeasurement();
             }}
           >
             <Layer>
@@ -3235,6 +3387,8 @@ export const WhiteboardCanvas = () => {
                     />
                   );
                 })()}
+
+              <RulerOverlay measurement={rulerMeasurement} zoom={safeZoom} />
 
               {activeTool === "select" &&
                 selectedIds.length > 1 &&

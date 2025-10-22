@@ -14,6 +14,7 @@ const toolShortcuts: Record<string, Tool> = {
   t: "text",
   p: "pen",
   e: "eraser",
+  m: "ruler",
 };
 
 export const useKeyboardShortcuts = () => {
