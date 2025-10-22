@@ -5,10 +5,49 @@ import { z } from "zod";
 
 import { useAiSettings } from "@/hooks/useAiSettings";
 
+const optionalTrimmedString = (value?: string | null) => {
+  if (!value) {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const optionalInteger = z
+  .union([z.number(), z.string()])
+  .optional()
+  .transform((value) => {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    const numeric = typeof value === "string" ? Number.parseInt(value, 10) : value;
+    return Number.isFinite(numeric) ? Math.trunc(numeric) : undefined;
+  });
+
 export const diagramNodeSchema = z.object({
   id: z.string().min(1, "Node id is required"),
   label: z.string().min(1, "Node label is required"),
   type: z.string().min(1, "Node type is required"),
+  role: z
+    .string()
+    .optional()
+    .transform((value) => optionalTrimmedString(value)),
+  templateRole: z
+    .string()
+    .optional()
+    .transform((value) => optionalTrimmedString(value)),
+  quadrant: z
+    .string()
+    .optional()
+    .transform((value) => optionalTrimmedString(value)),
+  lane: z
+    .string()
+    .optional()
+    .transform((value) => optionalTrimmedString(value)),
+  level: optionalInteger,
+  order: optionalInteger,
 });
 
 export const diagramEdgeSchema = z.object({
@@ -23,7 +62,16 @@ export const diagramEdgeSchema = z.object({
     }),
 });
 
+const diagramTemplateSchema = z
+  .object({
+    id: z.string().min(1, "Template id is required"),
+  })
+  .transform((value) => ({
+    id: value.id.trim(),
+  }));
+
 export const diagramResponseSchema = z.object({
+  template: diagramTemplateSchema.optional(),
   nodes: z.array(diagramNodeSchema).min(1, "At least one node must be returned"),
   edges: z.array(diagramEdgeSchema).default([]),
 });
@@ -139,6 +187,7 @@ interface GeminiDiagramRequest {
   model: string;
   prompt: string;
   kind: GeminiDiagramKind;
+  templateId?: string;
 }
 
 export type GeminiChatRole = "user" | "assistant";
@@ -157,17 +206,23 @@ interface GeminiChatRequest {
 
 const toModelRole = (role: GeminiChatRole) => (role === "assistant" ? "model" : "user");
 
-const callGeminiDiagram = async ({ apiKey, model, prompt, kind }: GeminiDiagramRequest) => {
+const callGeminiDiagram = async ({ apiKey, model, prompt, kind, templateId }: GeminiDiagramRequest) => {
   const targetDescription = kind === "flowchart" ? "flowchart" : "mind map";
+  const templateInstruction =
+    templateId && templateId.length > 0
+      ? ` Use the template "${templateId}" when planning the response.`
+      : "";
   const systemInstruction =
     `You are a diagram planner. Always respond with strictly valid JSON describing a ${targetDescription}.` +
     " The payload must match this schema: {\n" +
-    '  "nodes": Array<{ id: string; label: string; type: string }>,\n' +
+    '  "template"?: { id: string },\n' +
+    '  "nodes": Array<{ id: string; label: string; type: string; role?: string; level?: number; order?: number; quadrant?: string; lane?: string }>,\n' +
     '  "edges": Array<{ from: string; to: string; kind: string }>\n' +
     "}.\n" +
     "Nodes should be concise (max 8 words per label)." +
-    " For flowcharts, use type values like start, process, decision, end. For mind maps, use central, branch, detail, etc." +
-    " Use at most 12 nodes.";
+    " For flowcharts, use type values like start, process, decision, end. For mind maps, explicitly note template roles such as central, primary, quadrant, or timeline milestone." +
+    " Use at most 12 nodes." +
+    templateInstruction;
 
   const payload = {
     contents: [
@@ -265,7 +320,15 @@ export const useGeminiDiagram = () => {
   const { geminiApiKey, preferredModel } = useAiSettings();
 
   const generate = useCallback(
-    async ({ prompt, kind }: { prompt: string; kind: GeminiDiagramKind }) => {
+    async ({
+      prompt,
+      kind,
+      templateId,
+    }: {
+      prompt: string;
+      kind: GeminiDiagramKind;
+      templateId?: string;
+    }) => {
       if (!geminiApiKey) {
         throw new GeminiMissingKeyError();
       }
@@ -275,6 +338,7 @@ export const useGeminiDiagram = () => {
         model: preferredModel,
         prompt,
         kind,
+        templateId,
       });
     },
     [geminiApiKey, preferredModel],
