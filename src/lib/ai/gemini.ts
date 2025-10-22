@@ -26,6 +26,25 @@ const optionalInteger = z
     return Number.isFinite(numeric) ? Math.trunc(numeric) : undefined;
   });
 
+type TemplateKindValue = "mind-map" | "flowchart";
+
+const normalizeTemplateKind = (value?: string | null): TemplateKindValue | undefined => {
+  const trimmed = optionalTrimmedString(value);
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const normalized = trimmed.toLowerCase().replace(/\s+/g, "-");
+  if (normalized === "mind-map" || normalized === "mindmap") {
+    return "mind-map";
+  }
+  if (normalized === "flowchart" || normalized === "flow-chart") {
+    return "flowchart";
+  }
+
+  return undefined;
+};
+
 export const diagramNodeSchema = z.object({
   id: z.string().min(1, "Node id is required"),
   label: z.string().min(1, "Node label is required"),
@@ -65,9 +84,13 @@ export const diagramEdgeSchema = z.object({
 const diagramTemplateSchema = z
   .object({
     id: z.string().min(1, "Template id is required"),
+    label: z.string().optional(),
+    kind: z.string().optional(),
   })
   .transform((value) => ({
     id: value.id.trim(),
+    label: optionalTrimmedString(value.label),
+    kind: normalizeTemplateKind(value.kind),
   }));
 
 export const diagramResponseSchema = z.object({
@@ -77,7 +100,7 @@ export const diagramResponseSchema = z.object({
 });
 
 export type GeminiDiagramResponse = z.infer<typeof diagramResponseSchema>;
-export type GeminiDiagramKind = "mind-map" | "flowchart";
+export type GeminiDiagramKind = TemplateKindValue;
 
 const API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
@@ -210,18 +233,19 @@ const callGeminiDiagram = async ({ apiKey, model, prompt, kind, templateId }: Ge
   const targetDescription = kind === "flowchart" ? "flowchart" : "mind map";
   const templateInstruction =
     templateId && templateId.length > 0
-      ? ` Use the template "${templateId}" when planning the response.`
-      : "";
+      ? ` Use the template "${templateId}" when planning the response and echo it under template.id.`
+      : " When you infer a template, include its identifier in template.id and add a concise template.label.";
   const systemInstruction =
     `You are a diagram planner. Always respond with strictly valid JSON describing a ${targetDescription}.` +
     " The payload must match this schema: {\n" +
-    '  "template"?: { id: string },\n' +
+    '  "template"?: { id: string; label?: string; kind?: "mind-map" | "flowchart" },\n' +
     '  "nodes": Array<{ id: string; label: string; type: string; role?: string; level?: number; order?: number; quadrant?: string; lane?: string }>,\n' +
     '  "edges": Array<{ from: string; to: string; kind: string }>\n' +
     "}.\n" +
     "Nodes should be concise (max 8 words per label)." +
     " For flowcharts, use type values like start, process, decision, end. For mind maps, explicitly note template roles such as central, primary, quadrant, or timeline milestone." +
     " Use at most 12 nodes." +
+    " Always include template.id and add template.label when it helps clarify the layout." +
     templateInstruction;
 
   const payload = {
