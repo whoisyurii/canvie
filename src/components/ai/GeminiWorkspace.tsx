@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { nanoid } from "nanoid";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -28,6 +29,11 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { ToastAction } from "@/components/ui/toast";
 import { useToast } from "@/hooks/use-toast";
+import {
+  classifyDiagramPrompt,
+  findDiagramTemplateById,
+  getDiagramTemplatesByKind,
+} from "@/lib/ai/diagram-templates";
 import {
   GeminiMissingKeyError,
   GeminiResponseError,
@@ -86,11 +92,71 @@ export const GeminiWorkspace = ({ open, onOpenChange, onOpenSettings }: GeminiWo
   const [mode, setMode] = useState<"chat" | "diagram">("chat");
   const [diagramKind, setDiagramKind] = useState<GeminiDiagramKind>("mind-map");
   const [diagramPrompt, setDiagramPrompt] = useState("");
+  const [templateOverrideId, setTemplateOverrideId] = useState<string | undefined>(undefined);
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
 
+  const templateOptions = useMemo(() => getDiagramTemplatesByKind(diagramKind), [diagramKind]);
+  const classification = useMemo(
+    () => classifyDiagramPrompt(diagramPrompt, { kind: diagramKind }),
+    [diagramPrompt, diagramKind],
+  );
+  const autoTemplateId = classification.best?.template.id;
+  const fallbackTemplateId = templateOptions[0]?.id;
+  const selectedTemplateId = templateOverrideId ?? autoTemplateId ?? fallbackTemplateId;
+  const selectedTemplate = useMemo(() => findDiagramTemplateById(selectedTemplateId), [selectedTemplateId]);
+  const recommendedTemplateIds = useMemo(() => {
+    if (!classification.suggestions || classification.suggestions.length === 0) {
+      return new Set<string>();
+    }
+    const positiveMatches = classification.suggestions.filter((match) => match.score > 0);
+    const topMatches = positiveMatches.slice(0, 2);
+    return new Set(topMatches.map((match) => match.template.id));
+  }, [classification.suggestions]);
+  const templateStatusMessage = useMemo(() => {
+    if (!selectedTemplate) {
+      return "Select a template so Gemini knows how to arrange the diagram.";
+    }
+
+    if (templateOverrideId) {
+      return `Using the ${selectedTemplate.label} template (manual selection).`;
+    }
+
+    const bestMatch = classification.best;
+    if (bestMatch) {
+      const uniqueMatches = Array.from(new Set(bestMatch.matches));
+      const snippet =
+        uniqueMatches.length > 0
+          ? uniqueMatches
+              .slice(0, 3)
+              .map((match) => `“${match}”`)
+              .join(", ")
+          : undefined;
+
+      if (bestMatch.reason === "explicit") {
+        return snippet
+          ? `Detected ${snippet} in your prompt, so we'll follow the ${selectedTemplate.label} template.`
+          : `We'll follow the ${selectedTemplate.label} template you mentioned.`;
+      }
+
+      return snippet
+        ? `We'll start with the ${selectedTemplate.label} template based on ${snippet}.`
+        : `We'll start with the ${selectedTemplate.label} template suggested by your prompt.`;
+    }
+
+    return "Pick the layout that fits best—we'll use it when sending this prompt.";
+  }, [classification.best, selectedTemplate, templateOverrideId]);
+
   const diagramMutation = useMutation({
-    mutationFn: async ({ prompt, kind }: { prompt: string; kind: GeminiDiagramKind }) => {
-      return generate({ prompt, kind });
+    mutationFn: async ({
+      prompt,
+      kind,
+      templateId,
+    }: {
+      prompt: string;
+      kind: GeminiDiagramKind;
+      templateId?: string;
+    }) => {
+      return generate({ prompt, kind, templateId });
     },
     onSuccess: (data, variables) => {
       const store = useWhiteboardStore.getState();
@@ -124,10 +190,20 @@ export const GeminiWorkspace = ({ open, onOpenChange, onOpenSettings }: GeminiWo
 
       insertDiagramElements(build.elements, build.selectionIds);
 
+      const responseTemplateId = data.template?.id ?? variables.templateId;
+      const responseTemplateLabel =
+        data.template?.label ??
+        findDiagramTemplateById(responseTemplateId)?.label ??
+        responseTemplateId ??
+        undefined;
+
       const summary = [
         `${build.nodeCount} node${build.nodeCount === 1 ? "" : "s"}`,
         `${build.edgeCount} connection${build.edgeCount === 1 ? "" : "s"}`,
       ];
+      if (responseTemplateLabel) {
+        summary.unshift(`Template: ${responseTemplateLabel}`);
+      }
       if (build.summaryLabels.length > 0) {
         summary.push(build.summaryLabels.join(" • "));
       }
@@ -148,6 +224,7 @@ export const GeminiWorkspace = ({ open, onOpenChange, onOpenSettings }: GeminiWo
       });
 
       setDiagramPrompt("");
+      setTemplateOverrideId(undefined);
       setMode("chat");
       onOpenChange(false);
     },
@@ -189,9 +266,14 @@ export const GeminiWorkspace = ({ open, onOpenChange, onOpenSettings }: GeminiWo
     if (!open) {
       setMode("chat");
       setDiagramPrompt("");
+      setTemplateOverrideId(undefined);
       resetDiagramMutation();
     }
   }, [open, resetDiagramMutation]);
+
+  useEffect(() => {
+    setTemplateOverrideId(undefined);
+  }, [diagramKind]);
 
   const conversation = useMemo<GeminiChatMessage[]>(
     () =>
@@ -288,8 +370,11 @@ export const GeminiWorkspace = ({ open, onOpenChange, onOpenSettings }: GeminiWo
     if (!hasDiagramKey) {
       return true;
     }
+    if (!selectedTemplate) {
+      return true;
+    }
     return diagramMutation.isPending || diagramPrompt.trim().length === 0;
-  }, [diagramMutation.isPending, diagramPrompt, hasDiagramKey]);
+  }, [diagramMutation.isPending, diagramPrompt, hasDiagramKey, selectedTemplate]);
 
   const handleDiagramSubmit = () => {
     const trimmed = diagramPrompt.trim();
@@ -301,7 +386,15 @@ export const GeminiWorkspace = ({ open, onOpenChange, onOpenSettings }: GeminiWo
       return;
     }
 
-    diagramMutation.mutate({ prompt: trimmed, kind: diagramKind });
+    if (!selectedTemplate) {
+      toast({
+        title: "Pick a template",
+        description: "Choose how Gemini should structure the diagram before generating.",
+      });
+      return;
+    }
+
+    diagramMutation.mutate({ prompt: trimmed, kind: diagramKind, templateId: selectedTemplate.id });
   };
 
   return (
@@ -315,7 +408,7 @@ export const GeminiWorkspace = ({ open, onOpenChange, onOpenSettings }: GeminiWo
                   <Sparkles className="h-5 w-5 text-primary" /> Gemini workspace
                 </SheetTitle>
                 <SheetDescription className="text-sm text-muted-foreground">
-                  Chat with Gemini or draft diagrams, then send the results straight to the canvas.
+                  Chat with Gemini or draft diagrams—we'll suggest templates and send the results straight to the canvas.
                 </SheetDescription>
               </div>
               <div className="flex items-center gap-2">
@@ -487,6 +580,57 @@ export const GeminiWorkspace = ({ open, onOpenChange, onOpenSettings }: GeminiWo
                           <div className="flex items-center gap-2 text-sm font-semibold">
                             <Icon className="h-4 w-4 text-primary" />
                             {option.label}
+                          </div>
+                          <p className="text-xs text-muted-foreground">{option.description}</p>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </RadioGroup>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-sm font-medium">Template</Label>
+                  {templateOverrideId ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setTemplateOverrideId(undefined)}
+                    >
+                      Use suggestion
+                    </Button>
+                  ) : null}
+                </div>
+                <p className="text-xs text-muted-foreground">{templateStatusMessage}</p>
+                <RadioGroup
+                  value={selectedTemplateId ?? ""}
+                  onValueChange={(value) => setTemplateOverrideId(value)}
+                  className="grid gap-3 md:grid-cols-2"
+                >
+                  {templateOptions.map((option) => {
+                    const optionId = `diagram-template-${option.id.replace(/[^a-z0-9-]+/gi, "-")}`;
+                    const isActive = selectedTemplateId === option.id;
+                    const isRecommended = recommendedTemplateIds.has(option.id);
+                    return (
+                      <label
+                        key={option.id}
+                        htmlFor={optionId}
+                        className={cn(
+                          "flex cursor-pointer items-start gap-3 rounded-lg border bg-card p-3 transition hover:border-primary/50",
+                          isActive ? "border-primary shadow-sm" : "border-border",
+                        )}
+                      >
+                        <RadioGroupItem id={optionId} value={option.id} className="mt-1" />
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                            {option.label}
+                            {isRecommended ? (
+                              <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">
+                                Suggested
+                              </Badge>
+                            ) : null}
                           </div>
                           <p className="text-xs text-muted-foreground">{option.description}</p>
                         </div>
