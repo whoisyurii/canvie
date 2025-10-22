@@ -360,7 +360,8 @@ const classifyTimelineTemplate = (
       subRole = "end";
     }
 
-    const order = node.order ?? node.level;
+    const fallbackOrder = hints.filter((hint) => hint.templateRole === "timeline-anchor").length;
+    const order = node.order ?? node.level ?? fallbackOrder;
     if (order === undefined) {
       throw new GeminiResponseError(
         `Timeline mind map nodes must provide an order or level to determine their horizontal position. Node "${node.label}" is missing this metadata.`,
