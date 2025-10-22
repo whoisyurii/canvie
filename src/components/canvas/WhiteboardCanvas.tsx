@@ -100,12 +100,16 @@ type EditingTextState = {
   id: string;
   x: number;
   y: number;
+  anchor: "top-left" | "center";
+  rotation: number;
   value: string;
   initialValue: string;
   width: number;
   fontSize: number;
   fontFamily: string;
   alignment: TextAlignment;
+  lockWidth: boolean;
+  persistWidth: boolean;
 };
 
 export const WhiteboardCanvas = () => {
@@ -707,20 +711,57 @@ export const WhiteboardCanvas = () => {
       const fontSize = element.fontSize ?? textFontSize;
       const fontFamily = element.fontFamily ?? textFontFamily;
       const alignment = element.textAlign ?? textAlign;
-      const width =
+
+      let width =
         options?.width ??
         element.width ??
         estimateTextBoxWidth(value || initialValue, fontSize);
+      let x = element.x;
+      let y = element.y;
+      let anchor: EditingTextState["anchor"] = "top-left";
+      const rotation = typeof element.rotation === "number" ? element.rotation : 0;
+      let lockWidth = false;
+      let persistWidth = element.type === "text";
+
+      if (element.type === "rectangle" || element.type === "diamond") {
+        const bounds = normalizeRectBounds(
+          element.x,
+          element.y,
+          element.width ?? 0,
+          element.height ?? 0
+        );
+        const shapeWidth = bounds.maxX - bounds.minX;
+        const shapeHeight = bounds.maxY - bounds.minY;
+        const padding = element.type === "rectangle" ? 16 : 18;
+        const availableWidth = Math.max(0, shapeWidth - padding * 2);
+        const centerX = bounds.minX + shapeWidth / 2;
+        const centerY = bounds.minY + shapeHeight / 2;
+
+        if (availableWidth > 0) {
+          width = availableWidth;
+          lockWidth = true;
+        }
+
+        x = centerX;
+        y = centerY;
+        anchor = "center";
+        persistWidth = false;
+      }
+
       const editingState: EditingTextState = {
         id: element.id,
-        x: element.x,
-        y: element.y,
+        x,
+        y,
+        anchor,
+        rotation,
         value,
         initialValue,
         width,
         fontSize,
         fontFamily,
         alignment,
+        lockWidth,
+        persistWidth,
       };
       setSelectedIds([element.id]);
       setEditingText(editingState);
@@ -757,13 +798,18 @@ export const WhiteboardCanvas = () => {
         return;
       }
 
-      updateElement(current.id, {
+      const updates: Partial<CanvasElement> = {
         text: trimmed,
         fontSize: current.fontSize,
         fontFamily: current.fontFamily,
         textAlign: current.alignment,
-        width: current.width,
-      });
+      };
+
+      if (current.persistWidth) {
+        updates.width = current.width;
+      }
+
+      updateElement(current.id, updates);
     },
     [deleteElement, updateElement]
   );
@@ -2380,16 +2426,33 @@ export const WhiteboardCanvas = () => {
   const editorLineHeight = editingText
     ? getLineHeight(editingText.fontSize)
     : 0;
-  const editorStyle = editingText
-    ? {
-        left: panX + editingText.x * safeZoom,
-        top: panY + editingText.y * safeZoom,
-        width: editingText.width * safeZoom,
-        height: editorHeight * safeZoom,
-        fontSize: editingText.fontSize * safeZoom,
-        fontFamily: getFontFamilyCss(editingText.fontFamily),
-        textAlign: editingText.alignment,
-      }
+  const editorStyle: CSSProperties | undefined = editingText
+    ? (() => {
+        const baseLeft = panX + editingText.x * safeZoom;
+        const baseTop = panY + editingText.y * safeZoom;
+        const transforms: string[] = [];
+
+        if (editingText.anchor === "center") {
+          transforms.push("translate(-50%, -50%)");
+        }
+
+        if (editingText.rotation) {
+          transforms.push(`rotate(${editingText.rotation}deg)`);
+        }
+
+        return {
+          left: baseLeft,
+          top: baseTop,
+          width: editingText.width * safeZoom,
+          height: editorHeight * safeZoom,
+          fontSize: editingText.fontSize * safeZoom,
+          fontFamily: getFontFamilyCss(editingText.fontFamily),
+          textAlign: editingText.alignment,
+          transform: transforms.length > 0 ? transforms.join(" ") : undefined,
+          transformOrigin:
+            editingText.anchor === "center" ? "center center" : "top left",
+        } satisfies CSSProperties;
+      })()
     : undefined;
 
   const updateCurveHandlePosition = useCallback(
@@ -2536,7 +2599,9 @@ export const WhiteboardCanvas = () => {
                 whiteSpace: "pre",
                 overflowWrap: "normal",
                 wordBreak: "keep-all",
-                minWidth: `${TEXT_MIN_WIDTH * safeZoom}px`,
+                minWidth: editingText.lockWidth
+                  ? undefined
+                  : `${TEXT_MIN_WIDTH * safeZoom}px`,
                 maxWidth: "none",
               }}
               value={editingText.value}
@@ -2545,11 +2610,10 @@ export const WhiteboardCanvas = () => {
                 setEditingText((current) => {
                   if (!current) return current;
                   const newWidth = estimateTextBoxWidth(value, current.fontSize);
-                  const newHeight = estimateTextBoxHeight(value, current.fontSize);
                   return {
                     ...current,
                     value,
-                    width: newWidth,
+                    width: current.lockWidth ? current.width : newWidth,
                   };
                 });
               }}
@@ -2635,17 +2699,26 @@ export const WhiteboardCanvas = () => {
                     element.height,
                     element.cornerRadius
                   );
-                  const rectWidth = Math.abs(element.width ?? 0);
-                  const rectHeight = Math.abs(element.height ?? 0);
+                  const rectBounds = normalizeRectBounds(
+                    element.x,
+                    element.y,
+                    element.width ?? 0,
+                    element.height ?? 0
+                  );
+                  const rectWidth = rectBounds.maxX - rectBounds.minX;
+                  const rectHeight = rectBounds.maxY - rectBounds.minY;
+                  const rectX = rectBounds.minX;
+                  const rectY = rectBounds.minY;
                   const hasLabel = Boolean(element.text?.trim());
                   const labelFontSize = element.fontSize ?? textFontSize;
                   const labelLineHeight = labelFontSize
                     ? getLineHeight(labelFontSize) / labelFontSize
                     : 1.4;
-                  const labelWidth = Math.max(40, rectWidth - 32);
-                  const labelHeight = Math.max(28, rectHeight - 32);
-                  const labelX = element.x + Math.max(0, (rectWidth - labelWidth) / 2);
-                  const labelY = element.y + Math.max(0, (rectHeight - labelHeight) / 2);
+                  const labelPadding = 16;
+                  const labelWidth = Math.max(0, rectWidth - labelPadding * 2);
+                  const labelHeight = Math.max(0, rectHeight - labelPadding * 2);
+                  const labelCenterX = rectX + rectWidth / 2;
+                  const labelCenterY = rectY + rectHeight / 2;
                   const rectOutlinePoints = getRectangleOutlinePoints(
                     element.width ?? 0,
                     element.height ?? 0,
@@ -2708,11 +2781,15 @@ export const WhiteboardCanvas = () => {
                           {...highlightProps}
                         />
                       ))}
-                      {hasLabel && rectWidth > 0 && rectHeight > 0 && (
+                      {hasLabel &&
+                        rectWidth > 0 &&
+                        rectHeight > 0 &&
+                        labelWidth > 0 &&
+                        labelHeight > 0 && (
                         <KonvaText
                           key={`${element.id}-label`}
-                          x={labelX}
-                          y={labelY}
+                          x={labelCenterX}
+                          y={labelCenterY}
                           width={labelWidth}
                           height={labelHeight}
                           text={element.text ?? ""}
@@ -2723,6 +2800,11 @@ export const WhiteboardCanvas = () => {
                           verticalAlign="middle"
                           fill={getColorWithOpacity(element.strokeColor, element.strokeOpacity)}
                           opacity={element.opacity}
+                          offsetX={labelWidth / 2}
+                          offsetY={labelHeight / 2}
+                          rotation={element.rotation ?? 0}
+                          padding={8}
+                          wrap="word"
                           listening={false}
                         />
                       )}
@@ -2735,17 +2817,24 @@ export const WhiteboardCanvas = () => {
                     element.width ?? 0,
                     element.height ?? 0
                   );
-                  const diamondWidth = Math.abs(element.width ?? 0);
-                  const diamondHeight = Math.abs(element.height ?? 0);
+                  const diamondBounds = normalizeRectBounds(
+                    element.x,
+                    element.y,
+                    element.width ?? 0,
+                    element.height ?? 0
+                  );
+                  const diamondWidth = diamondBounds.maxX - diamondBounds.minX;
+                  const diamondHeight = diamondBounds.maxY - diamondBounds.minY;
                   const hasLabel = Boolean(element.text?.trim());
                   const labelFontSize = element.fontSize ?? textFontSize;
                   const labelLineHeight = labelFontSize
                     ? getLineHeight(labelFontSize) / labelFontSize
                     : 1.4;
-                  const labelWidth = Math.max(40, diamondWidth - 36);
-                  const labelHeight = Math.max(28, diamondHeight - 36);
-                  const labelX = element.x + Math.max(0, (diamondWidth - labelWidth) / 2);
-                  const labelY = element.y + Math.max(0, (diamondHeight - labelHeight) / 2);
+                  const labelPadding = 18;
+                  const labelWidth = Math.max(0, diamondWidth - labelPadding * 2);
+                  const labelHeight = Math.max(0, diamondHeight - labelPadding * 2);
+                  const labelCenterX = diamondBounds.minX + diamondWidth / 2;
+                  const labelCenterY = diamondBounds.minY + diamondHeight / 2;
                   const diamondSloppyLayers = createSloppyStrokeLayers(
                     diamond.points,
                     {
@@ -2802,11 +2891,15 @@ export const WhiteboardCanvas = () => {
                           {...highlightProps}
                         />
                       ))}
-                      {hasLabel && diamondWidth > 0 && diamondHeight > 0 && (
+                      {hasLabel &&
+                        diamondWidth > 0 &&
+                        diamondHeight > 0 &&
+                        labelWidth > 0 &&
+                        labelHeight > 0 && (
                         <KonvaText
                           key={`${element.id}-label`}
-                          x={labelX}
-                          y={labelY}
+                          x={labelCenterX}
+                          y={labelCenterY}
                           width={labelWidth}
                           height={labelHeight}
                           text={element.text ?? ""}
@@ -2817,6 +2910,11 @@ export const WhiteboardCanvas = () => {
                           verticalAlign="middle"
                           fill={getColorWithOpacity(element.strokeColor, element.strokeOpacity)}
                           opacity={element.opacity}
+                          offsetX={labelWidth / 2}
+                          offsetY={labelHeight / 2}
+                          rotation={element.rotation ?? 0}
+                          padding={8}
+                          wrap="word"
                           listening={false}
                         />
                       )}
