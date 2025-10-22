@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { Group, Label, Line, Tag, Text as KonvaText } from "react-konva";
+import { Group, Line, Text as KonvaText } from "react-konva";
 import Konva from "konva";
 
 export type RulerMeasurement = {
@@ -19,48 +19,34 @@ type MeasurementLabelProps = {
 };
 
 const MeasurementLabel = ({ x, y, text, zoom }: MeasurementLabelProps) => {
-  const labelRef = useRef<Konva.Label>(null);
+  const textRef = useRef<Konva.Text>(null);
   const scale = 1 / Math.max(zoom, 0.0001);
   const fontSize = Math.max(12 * scale, 10);
-  const padding = Math.max(6 * scale, 4);
-  const cornerRadius = Math.max(6 * scale, 3);
-  const strokeWidth = Math.max(scale, 0.75);
+  const padding = Math.max(4 * scale, 2);
 
   useEffect(() => {
-    const label = labelRef.current;
-    if (!label) return;
-    const textNode = label.getText();
-    const tagNode = label.getTag();
+    const textNode = textRef.current;
     if (!textNode) return;
 
     const width = textNode.width();
     const height = textNode.height();
 
-    label.offsetX(width / 2);
-    label.offsetY(height / 2);
-
-    if (tagNode) {
-      tagNode.offsetX(width / 2);
-      tagNode.offsetY(height / 2);
-    }
+    textNode.offsetX(width / 2);
+    textNode.offsetY(height / 2);
   }, [text, zoom]);
 
   return (
-    <Label x={x} y={y} listening={false} ref={labelRef}>
-      <Tag
-        fill="rgba(14, 165, 233, 0.16)"
-        stroke="#0284c7"
-        strokeWidth={strokeWidth}
-        cornerRadius={cornerRadius}
-      />
+    <Group x={x} y={y} listening={false}>
       <KonvaText
+        ref={textRef}
         text={text}
         fontSize={fontSize}
-        fill="#0f172a"
+        fontStyle="600"
+        fill="#0369a1"
         padding={padding}
         align="center"
       />
-    </Label>
+    </Group>
   );
 };
 
