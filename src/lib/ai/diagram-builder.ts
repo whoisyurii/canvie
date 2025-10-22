@@ -8,7 +8,11 @@ import {
 } from "@/lib/store/useWhiteboardStore";
 import { ensureCurvePoints } from "@/lib/canvas/geometry";
 
-import { type GeminiDiagramKind, type GeminiDiagramResponse } from "./gemini";
+import {
+  GeminiResponseError,
+  type GeminiDiagramKind,
+  type GeminiDiagramResponse,
+} from "./gemini";
 import {
   FLOWCHART_NODE_HEIGHT,
   FLOWCHART_NODE_WIDTH,
@@ -16,6 +20,7 @@ import {
   resolveFlowchartTemplate,
 } from "./patterns/flowchart";
 import type { FlowchartTemplateId } from "./patterns/flowchart";
+import { classifyMindMapNodes } from "./patterns/mind-map";
 
 const MINDMAP_CENTRAL_WIDTH = 260;
 const MINDMAP_CENTRAL_HEIGHT = 140;
@@ -216,6 +221,30 @@ const fallbackSequentialLayout = (
   return layout;
 };
 
+const RADIAL_SECONDARY_FONT_STEP = -2;
+const QUADRANT_PRIMARY_DISTANCE = MINDMAP_RADIAL_SPACING;
+const QUADRANT_DETAIL_DISTANCE = MINDMAP_RADIAL_SPACING * 1.6;
+const QUADRANT_DETAIL_STACK = MINDMAP_BRANCH_HEIGHT + 40;
+const TIMELINE_HORIZONTAL_STEP = 320;
+const TIMELINE_LANE_OFFSET = MINDMAP_RADIAL_SPACING / 1.6;
+const TIMELINE_DETAIL_STACK = MINDMAP_BRANCH_HEIGHT + 40;
+
+const compareMindMapNodes = (
+  a: ReturnType<typeof classifyMindMapNodes>["nodes"][number],
+  b: ReturnType<typeof classifyMindMapNodes>["nodes"][number],
+) => {
+  if (a.order !== undefined && b.order !== undefined && a.order !== b.order) {
+    return a.order - b.order;
+  }
+  if (a.order !== undefined && b.order === undefined) {
+    return -1;
+  }
+  if (a.order === undefined && b.order !== undefined) {
+    return 1;
+  }
+  return a.label.localeCompare(b.label);
+};
+
 const layoutMindMapNodes = (
   response: GeminiDiagramResponse,
   center: { x: number; y: number },
@@ -226,104 +255,151 @@ const layoutMindMapNodes = (
     return layout;
   }
 
-  const normalized = response.nodes.map((node) => ({
-    ...node,
-    type: node.type.toLowerCase(),
-  }));
+  const classification = classifyMindMapNodes(response);
 
-  const centralNode =
-    normalized.find((node) =>
-      ["central", "center", "main", "root", "core"].some((token) => node.type.includes(token)),
-    ) ?? normalized[0];
-
-  layout.set(centralNode.id, {
+  const centerPlacement = {
     x: center.x - MINDMAP_CENTRAL_WIDTH / 2,
     y: center.y - MINDMAP_CENTRAL_HEIGHT / 2,
     width: MINDMAP_CENTRAL_WIDTH,
     height: MINDMAP_CENTRAL_HEIGHT,
-    shape: "rectangle",
+    shape: "rectangle" as const,
     fontSize: baseFontSize + 4,
-    textAlign: "center",
-  });
+    textAlign: "center" as const,
+  } satisfies DiagramLayoutEntry;
 
-  const adjacency = new Map<string, Set<string>>();
-  response.edges.forEach((edge) => {
-    if (!adjacency.has(edge.from)) adjacency.set(edge.from, new Set());
-    if (!adjacency.has(edge.to)) adjacency.set(edge.to, new Set());
-    adjacency.get(edge.from)?.add(edge.to);
-    adjacency.get(edge.to)?.add(edge.from);
-  });
+  const centralNode = classification.nodes.find((node) => node.templateRole === "central");
+  if (centralNode) {
+    layout.set(centralNode.id, centerPlacement);
+  }
 
-  const visited = new Set<string>([centralNode.id]);
-  const queue: Array<{ id: string; depth: number }> = [{ id: centralNode.id, depth: 0 }];
-  const depthMap = new Map<string, number>([[centralNode.id, 0]]);
-
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (!current) continue;
-
-    const neighbors = adjacency.get(current.id);
-    if (!neighbors) continue;
-
-    neighbors.forEach((neighbor) => {
-      if (visited.has(neighbor)) {
+  if (classification.templateId === "mindmap.radial") {
+    const byLevel = new Map<number, typeof classification.nodes>();
+    classification.nodes.forEach((node) => {
+      if (node.templateRole === "central") {
         return;
       }
-      visited.add(neighbor);
-      const depth = current.depth + 1;
-      depthMap.set(neighbor, depth);
-      queue.push({ id: neighbor, depth });
+      if (!byLevel.has(node.level)) {
+        byLevel.set(node.level, []);
+      }
+      byLevel.get(node.level)!.push(node);
     });
-  }
 
-  const depthLayers = new Map<number, string[]>();
-  depthMap.forEach((depth, id) => {
-    if (!depthLayers.has(depth)) {
-      depthLayers.set(depth, []);
-    }
-    depthLayers.get(depth)?.push(id);
-  });
-
-  const depthKeys = Array.from(depthLayers.keys());
-  const maxDepth = depthKeys.length > 0 ? Math.max(...depthKeys) : 0;
-
-  for (let depth = 1; depth <= maxDepth; depth += 1) {
-    const nodeIds = depthLayers.get(depth) ?? [];
-    const count = nodeIds.length;
-    if (count === 0) {
-      continue;
-    }
-
-    const radius = MINDMAP_RADIAL_SPACING * depth;
-    nodeIds.forEach((id, index) => {
-      const angle = (index / count) * Math.PI * 2 - Math.PI / 2;
-      const x = center.x + Math.cos(angle) * radius - MINDMAP_BRANCH_WIDTH / 2;
-      const y = center.y + Math.sin(angle) * radius - MINDMAP_BRANCH_HEIGHT / 2;
-      layout.set(id, {
-        x,
-        y,
-        width: MINDMAP_BRANCH_WIDTH,
-        height: MINDMAP_BRANCH_HEIGHT,
-        shape: "rectangle",
-        fontSize: baseFontSize,
-        textAlign: "center",
+    const levels = Array.from(byLevel.keys()).sort((a, b) => a - b);
+    levels.forEach((level) => {
+      const nodes = byLevel.get(level)!;
+      nodes.sort(compareMindMapNodes);
+      const radius = MINDMAP_RADIAL_SPACING * Math.max(1, level);
+      nodes.forEach((node, index) => {
+        const angle = (index / nodes.length) * Math.PI * 2 - Math.PI / 2;
+        const x = center.x + Math.cos(angle) * radius - MINDMAP_BRANCH_WIDTH / 2;
+        const y = center.y + Math.sin(angle) * radius - MINDMAP_BRANCH_HEIGHT / 2;
+        const fontSize =
+          node.templateRole === "radial-secondary" && level >= 2
+            ? Math.max(12, baseFontSize + RADIAL_SECONDARY_FONT_STEP)
+            : baseFontSize;
+        layout.set(node.id, {
+          x,
+          y,
+          width: MINDMAP_BRANCH_WIDTH,
+          height: MINDMAP_BRANCH_HEIGHT,
+          shape: "rectangle",
+          fontSize,
+          textAlign: "center",
+        });
       });
     });
+
+    return layout;
   }
 
-  response.nodes.forEach((node) => {
-    if (layout.has(node.id)) {
-      return;
-    }
-    // Place disconnected or leftover nodes on an outer ring.
-    const fallbackDepth = maxDepth + 1;
-    const siblings = Array.from(layout.values()).filter((entry) => entry.height === MINDMAP_BRANCH_HEIGHT);
-    const offsetIndex = siblings.length + layout.size;
-    const radius = MINDMAP_RADIAL_SPACING * Math.max(1, fallbackDepth);
-    const angle = (offsetIndex / Math.max(1, response.nodes.length)) * Math.PI * 2 - Math.PI / 2;
-    const x = center.x + Math.cos(angle) * radius - MINDMAP_BRANCH_WIDTH / 2;
-    const y = center.y + Math.sin(angle) * radius - MINDMAP_BRANCH_HEIGHT / 2;
-    layout.set(node.id, {
+  if (classification.templateId === "mindmap.quadrant") {
+    const angleByQuadrant = {
+      north: -Math.PI / 2,
+      east: 0,
+      south: Math.PI / 2,
+      west: Math.PI,
+    } as const;
+
+    const primaryByQuadrant = new Map<"north" | "east" | "south" | "west", typeof classification.nodes>();
+    const detailByQuadrant = new Map<"north" | "east" | "south" | "west", typeof classification.nodes>();
+
+    classification.nodes.forEach((node) => {
+      if (node.templateRole === "central") {
+        return;
+      }
+      if (!node.quadrant) {
+        throw new GeminiResponseError(`Quadrant template node "${node.label}" is missing quadrant metadata.`);
+      }
+      const bucket = node.templateRole === "quadrant-anchor" ? primaryByQuadrant : detailByQuadrant;
+      if (!bucket.has(node.quadrant)) {
+        bucket.set(node.quadrant, []);
+      }
+      bucket.get(node.quadrant)!.push(node);
+    });
+
+    (Object.keys(angleByQuadrant) as Array<keyof typeof angleByQuadrant>).forEach((quadrant) => {
+      const primaryNodes = primaryByQuadrant.get(quadrant) ?? [];
+      const detailNodes = detailByQuadrant.get(quadrant) ?? [];
+      const angle = angleByQuadrant[quadrant];
+
+      primaryNodes
+        .sort(compareMindMapNodes)
+        .forEach((node, index) => {
+          const distance = QUADRANT_PRIMARY_DISTANCE + index * 60;
+          const x = center.x + Math.cos(angle) * distance - MINDMAP_BRANCH_WIDTH / 2;
+          const y = center.y + Math.sin(angle) * distance - MINDMAP_BRANCH_HEIGHT / 2;
+          layout.set(node.id, {
+            x,
+            y,
+            width: MINDMAP_BRANCH_WIDTH,
+            height: MINDMAP_BRANCH_HEIGHT,
+            shape: "rectangle",
+            fontSize: baseFontSize,
+            textAlign: "center",
+          });
+        });
+
+      detailNodes
+        .sort(compareMindMapNodes)
+        .forEach((node, index) => {
+          const distance = QUADRANT_DETAIL_DISTANCE + index * QUADRANT_DETAIL_STACK;
+          const x = center.x + Math.cos(angle) * distance - MINDMAP_BRANCH_WIDTH / 2;
+          const y = center.y + Math.sin(angle) * distance - MINDMAP_BRANCH_HEIGHT / 2;
+          layout.set(node.id, {
+            x,
+            y,
+            width: MINDMAP_BRANCH_WIDTH,
+            height: MINDMAP_BRANCH_HEIGHT,
+            shape: "rectangle",
+            fontSize: baseFontSize - 2,
+            textAlign: "center",
+          });
+        });
+    });
+
+    return layout;
+  }
+
+  // timeline
+  const anchors = classification.nodes.filter((node) => node.templateRole === "timeline-anchor");
+  const details = classification.nodes.filter((node) => node.templateRole === "timeline-detail");
+
+  if (anchors.length === 0) {
+    throw new GeminiResponseError("Timeline mind map requires at least one anchor node.");
+  }
+
+  anchors.sort(compareMindMapNodes);
+
+  const axisWidth = (anchors.length - 1) * TIMELINE_HORIZONTAL_STEP;
+  const axisStart = center.x - axisWidth / 2;
+  const anchorCenters = new Map<string, { x: number; y: number }>();
+
+  anchors.forEach((anchor, index) => {
+    const centerX = axisStart + index * TIMELINE_HORIZONTAL_STEP;
+    const x = centerX - MINDMAP_BRANCH_WIDTH / 2;
+    const y = center.y - MINDMAP_BRANCH_HEIGHT / 2;
+
+    layout.set(anchor.id, {
       x,
       y,
       width: MINDMAP_BRANCH_WIDTH,
@@ -331,6 +407,65 @@ const layoutMindMapNodes = (
       shape: "rectangle",
       fontSize: baseFontSize,
       textAlign: "center",
+    });
+
+    anchorCenters.set(anchor.id, { x: centerX, y: center.y });
+  });
+
+  if (centralNode && !layout.has(centralNode.id)) {
+    layout.set(centralNode.id, centerPlacement);
+  }
+
+  const anchorIds = new Set(anchors.map((anchor) => anchor.id));
+  const detailAssignments = new Map<string, string>();
+  const detailIds = new Set(details.map((detail) => detail.id));
+
+  response.edges.forEach((edge) => {
+    if (anchorIds.has(edge.from) && detailIds.has(edge.to)) {
+      detailAssignments.set(edge.to, edge.from);
+    }
+    if (anchorIds.has(edge.to) && detailIds.has(edge.from)) {
+      detailAssignments.set(edge.from, edge.to);
+    }
+  });
+
+  const groupedDetails = new Map<string, { upper: typeof details; lower: typeof details }>();
+
+  details.forEach((detail) => {
+    const parentId = detailAssignments.get(detail.id) ?? anchors[0]?.id;
+    if (!parentId) {
+      throw new GeminiResponseError(`Timeline detail "${detail.label}" could not be associated with an anchor node.`);
+    }
+
+    const lane = detail.lane ?? "upper";
+    if (!groupedDetails.has(parentId)) {
+      groupedDetails.set(parentId, { upper: [], lower: [] });
+    }
+    groupedDetails.get(parentId)![lane === "upper" ? "upper" : "lower"].push(detail);
+  });
+
+  groupedDetails.forEach((lanes, parentId) => {
+    const parentCenter = anchorCenters.get(parentId);
+    if (!parentCenter) {
+      throw new GeminiResponseError(`Timeline detail references unknown anchor "${parentId}".`);
+    }
+
+    (Object.entries(lanes) as Array<["upper" | "lower", typeof details]>).forEach(([lane, items]) => {
+      const laneOffset = lane === "upper" ? -TIMELINE_LANE_OFFSET : TIMELINE_LANE_OFFSET;
+      items.sort(compareMindMapNodes).forEach((detail, index) => {
+        const y = parentCenter.y + laneOffset - MINDMAP_BRANCH_HEIGHT / 2 + index * TIMELINE_DETAIL_STACK;
+        const x = parentCenter.x - MINDMAP_BRANCH_WIDTH / 2;
+
+        layout.set(detail.id, {
+          x,
+          y,
+          width: MINDMAP_BRANCH_WIDTH,
+          height: MINDMAP_BRANCH_HEIGHT,
+          shape: "rectangle",
+          fontSize: Math.max(12, baseFontSize - 2),
+          textAlign: "center",
+        });
+      });
     });
   });
 
