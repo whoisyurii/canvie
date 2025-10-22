@@ -19,6 +19,7 @@ import {
   Trash2,
   Focus,
   Sparkles,
+  Ruler,
 } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useWhiteboardStore, Tool } from "@/lib/store/useWhiteboardStore";
@@ -76,6 +77,7 @@ const TOOL_DEFINITIONS: Record<Tool, ToolbarTool> = {
   ellipse: { id: "ellipse", icon: Circle, label: "Ellipse", hotkey: "O" },
   line: { id: "line", icon: Minus, label: "Line", hotkey: "L" },
   arrow: { id: "arrow", icon: ArrowRight, label: "Arrow", hotkey: "A" },
+  ruler: { id: "ruler", icon: Ruler, label: "Ruler", hotkey: "M" },
 };
 
 const renderToolButton = (
@@ -392,6 +394,10 @@ export const TopToolbar = () => {
             onSelect: setActiveTool,
           })}
           {renderToolButton(TOOL_DEFINITIONS.line, {
+            activeTool,
+            onSelect: setActiveTool,
+          })}
+          {renderToolButton(TOOL_DEFINITIONS.ruler, {
             activeTool,
             onSelect: setActiveTool,
           })}

@@ -12,7 +12,8 @@ export type Tool =
   | "line"
   | "text"
   | "pen"
-  | "eraser";
+  | "eraser"
+  | "ruler";
 
 export type StrokeStyle = "solid" | "dashed" | "dotted";
 export type Sloppiness = "smooth" | "normal" | "rough";
@@ -183,6 +184,7 @@ type ToolSettingDefaults = {
 const TOOL_DEFAULTS: Record<Tool, ToolSettingDefaults> = {
   select: {},
   pan: {},
+  ruler: {},
   rectangle: {
     strokeColor: "#1f2937",
     strokeOpacity: 1,
@@ -402,7 +404,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   // Tools
   activeTool: "select",
   setActiveTool: (tool) => {
-    const defaults = TOOL_DEFAULTS[tool];
+    const defaults = TOOL_DEFAULTS[tool] ?? {};
     set({
       activeTool: tool,
       ...defaults,
