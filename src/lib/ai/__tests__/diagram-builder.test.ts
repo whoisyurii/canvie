@@ -270,6 +270,28 @@ describe("diagram builder mind map templates", () => {
     expect(noteBelowCenter.y).toBeGreaterThan(endCenter.y);
   });
 
+  it("falls back to response order for timeline anchors missing metadata", () => {
+    const response = {
+      template: { id: "mindmap.timeline" },
+      nodes: [
+        { id: "a", label: "First", type: "timeline milestone" },
+        { id: "b", label: "Second", type: "timeline milestone" },
+        { id: "c", label: "Third", type: "timeline milestone" },
+      ],
+      edges: [],
+    } satisfies Parameters<typeof buildDiagramElements>[0];
+
+    const result = buildDiagramElements(response, "mind-map", defaultOptions);
+    const shapes = result.elements.slice(0, response.nodes.length);
+
+    const first = getCenter(shapes[0]!);
+    const second = getCenter(shapes[1]!);
+    const third = getCenter(shapes[2]!);
+
+    expect(first.x).toBeLessThan(second.x);
+    expect(second.x).toBeLessThan(third.x);
+  });
+
   it("throws a descriptive error when role metadata is missing", () => {
     const response = {
       template: { id: "mindmap.radial" },
