@@ -100,12 +100,16 @@ type EditingTextState = {
   id: string;
   x: number;
   y: number;
+  anchor: "top-left" | "center";
+  rotation: number;
   value: string;
   initialValue: string;
   width: number;
   fontSize: number;
   fontFamily: string;
   alignment: TextAlignment;
+  lockWidth: boolean;
+  persistWidth: boolean;
 };
 
 export const WhiteboardCanvas = () => {
@@ -707,20 +711,57 @@ export const WhiteboardCanvas = () => {
       const fontSize = element.fontSize ?? textFontSize;
       const fontFamily = element.fontFamily ?? textFontFamily;
       const alignment = element.textAlign ?? textAlign;
-      const width =
+
+      let width =
         options?.width ??
         element.width ??
         estimateTextBoxWidth(value || initialValue, fontSize);
+      let x = element.x;
+      let y = element.y;
+      let anchor: EditingTextState["anchor"] = "top-left";
+      const rotation = typeof element.rotation === "number" ? element.rotation : 0;
+      let lockWidth = false;
+      let persistWidth = element.type === "text";
+
+      if (element.type === "rectangle" || element.type === "diamond") {
+        const bounds = normalizeRectBounds(
+          element.x,
+          element.y,
+          element.width ?? 0,
+          element.height ?? 0
+        );
+        const shapeWidth = bounds.maxX - bounds.minX;
+        const shapeHeight = bounds.maxY - bounds.minY;
+        const padding = element.type === "rectangle" ? 16 : 18;
+        const availableWidth = Math.max(0, shapeWidth - padding * 2);
+        const centerX = bounds.minX + shapeWidth / 2;
+        const centerY = bounds.minY + shapeHeight / 2;
+
+        if (availableWidth > 0) {
+          width = availableWidth;
+          lockWidth = true;
+        }
+
+        x = centerX;
+        y = centerY;
+        anchor = "center";
+        persistWidth = false;
+      }
+
       const editingState: EditingTextState = {
         id: element.id,
-        x: element.x,
-        y: element.y,
+        x,
+        y,
+        anchor,
+        rotation,
         value,
         initialValue,
         width,
         fontSize,
         fontFamily,
         alignment,
+        lockWidth,
+        persistWidth,
       };
       setSelectedIds([element.id]);
       setEditingText(editingState);
@@ -757,13 +798,18 @@ export const WhiteboardCanvas = () => {
         return;
       }
 
-      updateElement(current.id, {
+      const updates: Partial<CanvasElement> = {
         text: trimmed,
         fontSize: current.fontSize,
         fontFamily: current.fontFamily,
         textAlign: current.alignment,
-        width: current.width,
-      });
+      };
+
+      if (current.persistWidth) {
+        updates.width = current.width;
+      }
+
+      updateElement(current.id, updates);
     },
     [deleteElement, updateElement]
   );
@@ -2380,16 +2426,33 @@ export const WhiteboardCanvas = () => {
   const editorLineHeight = editingText
     ? getLineHeight(editingText.fontSize)
     : 0;
-  const editorStyle = editingText
-    ? {
-        left: panX + editingText.x * safeZoom,
-        top: panY + editingText.y * safeZoom,
-        width: editingText.width * safeZoom,
-        height: editorHeight * safeZoom,
-        fontSize: editingText.fontSize * safeZoom,
-        fontFamily: getFontFamilyCss(editingText.fontFamily),
-        textAlign: editingText.alignment,
-      }
+  const editorStyle: CSSProperties | undefined = editingText
+    ? (() => {
+        const baseLeft = panX + editingText.x * safeZoom;
+        const baseTop = panY + editingText.y * safeZoom;
+        const transforms: string[] = [];
+
+        if (editingText.anchor === "center") {
+          transforms.push("translate(-50%, -50%)");
+        }
+
+        if (editingText.rotation) {
+          transforms.push(`rotate(${editingText.rotation}deg)`);
+        }
+
+        return {
+          left: baseLeft,
+          top: baseTop,
+          width: editingText.width * safeZoom,
+          height: editorHeight * safeZoom,
+          fontSize: editingText.fontSize * safeZoom,
+          fontFamily: getFontFamilyCss(editingText.fontFamily),
+          textAlign: editingText.alignment,
+          transform: transforms.length > 0 ? transforms.join(" ") : undefined,
+          transformOrigin:
+            editingText.anchor === "center" ? "center center" : "top left",
+        } satisfies CSSProperties;
+      })()
     : undefined;
 
   const updateCurveHandlePosition = useCallback(
@@ -2536,7 +2599,9 @@ export const WhiteboardCanvas = () => {
                 whiteSpace: "pre",
                 overflowWrap: "normal",
                 wordBreak: "keep-all",
-                minWidth: `${TEXT_MIN_WIDTH * safeZoom}px`,
+                minWidth: editingText.lockWidth
+                  ? undefined
+                  : `${TEXT_MIN_WIDTH * safeZoom}px`,
                 maxWidth: "none",
               }}
               value={editingText.value}
@@ -2545,11 +2610,10 @@ export const WhiteboardCanvas = () => {
                 setEditingText((current) => {
                   if (!current) return current;
                   const newWidth = estimateTextBoxWidth(value, current.fontSize);
-                  const newHeight = estimateTextBoxHeight(value, current.fontSize);
                   return {
                     ...current,
                     value,
-                    width: newWidth,
+                    width: current.lockWidth ? current.width : newWidth,
                   };
                 });
               }}
