@@ -121,8 +121,6 @@ export const WhiteboardCanvas = () => {
   const lastErasedIdRef = useRef<string | null>(null);
   const pendingPanRef = useRef<{ x: number; y: number } | null>(null);
   const panAnimationFrameRef = useRef<number | null>(null);
-  const rulerShortcutRef = useRef(false);
-  const modifierKeyStateRef = useRef({ shift: false, alt: false });
   const measurementStartRef = useRef<{ x: number; y: number } | null>(null);
   const rulerMeasurementRef = useRef<RulerMeasurement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -148,7 +146,6 @@ export const WhiteboardCanvas = () => {
     x: number;
     y: number;
   } | null>(null);
-  const [rulerShortcutActive, setRulerShortcutActive] = useState(false);
   const [rulerMeasurement, setRulerMeasurement] = useState<RulerMeasurement | null>(
     null
   );
@@ -384,7 +381,7 @@ export const WhiteboardCanvas = () => {
     return { x: 0, y: 0 };
   }, [contextMenuPosition, panX, panY, safeZoom]);
 
-  const isRulerMode = activeTool === "ruler" || rulerShortcutActive;
+  const isRulerMode = activeTool === "ruler";
 
   useEffect(() => {
     if (!isRulerMode) {
@@ -1031,46 +1028,31 @@ export const WhiteboardCanvas = () => {
       );
     };
 
-    const updateShortcutState = () => {
-      const nextActive =
-        modifierKeyStateRef.current.shift && modifierKeyStateRef.current.alt;
-
-      if (nextActive !== rulerShortcutRef.current) {
-        rulerShortcutRef.current = nextActive;
-        setRulerShortcutActive(nextActive);
-        if (!nextActive) {
-          clearRulerMeasurement();
-        }
-      }
-    };
-
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Shift" || event.repeat || !isRulerMode) {
+        return;
+      }
+
       if (isEditableTarget(event.target)) {
         return;
       }
 
-      if (event.key === "Shift") {
-        modifierKeyStateRef.current.shift = true;
-        updateShortcutState();
+      const pointer = getCanvasPointerPosition();
+      if (!pointer) {
         return;
       }
 
-      if (event.key === "Alt") {
-        modifierKeyStateRef.current.alt = true;
-        updateShortcutState();
-      }
+      measurementStartRef.current = pointer;
+      updateRulerMeasurement(pointer);
     };
 
     const handleKeyUp = (event: KeyboardEvent) => {
-      if (event.key === "Shift") {
-        modifierKeyStateRef.current.shift = false;
-        updateShortcutState();
+      if (event.key !== "Shift") {
         return;
       }
 
-      if (event.key === "Alt") {
-        modifierKeyStateRef.current.alt = false;
-        updateShortcutState();
+      if (measurementStartRef.current) {
+        clearRulerMeasurement();
       }
     };
 
@@ -1081,7 +1063,12 @@ export const WhiteboardCanvas = () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [clearRulerMeasurement]);
+  }, [
+    clearRulerMeasurement,
+    getCanvasPointerPosition,
+    isRulerMode,
+    updateRulerMeasurement,
+  ]);
 
   // QW-1: Delete Key Support & QW-2: Duplicate with Ctrl+D
   useEffect(() => {
@@ -1612,15 +1599,10 @@ export const WhiteboardCanvas = () => {
       return;
     }
 
-    if (isRulerMode && e.evt.button === 0) {
-      const pointer = getCanvasPointerPosition();
-      if (!pointer) {
-        return;
+    if (isRulerMode) {
+      if (e.evt.button === 0) {
+        e.evt.preventDefault();
       }
-
-      measurementStartRef.current = pointer;
-      updateRulerMeasurement(pointer);
-      e.evt.preventDefault();
       return;
     }
 
@@ -1812,11 +1794,19 @@ export const WhiteboardCanvas = () => {
 
   const handleMouseMove = (e: KonvaEventObject<MouseEvent>) => {
     if (isRulerMode) {
+      const pointer = getCanvasPointerPosition();
+      if (!pointer) {
+        return;
+      }
+
+      if (!measurementStartRef.current && e.evt.shiftKey) {
+        measurementStartRef.current = pointer;
+        updateRulerMeasurement(pointer);
+        return;
+      }
+
       if (measurementStartRef.current) {
-        const pointer = getCanvasPointerPosition();
-        if (pointer) {
-          updateRulerMeasurement(pointer);
-        }
+        updateRulerMeasurement(pointer);
       }
       return;
     }
