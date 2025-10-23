@@ -217,4 +217,12 @@
     animation: cursor-float var(--drift-duration, 12s) ease-in-out infinite;
     animation-delay: var(--drift-delay, 0s);
   }
+
+  .scrollbar-hidden {
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
 }
