@@ -80,6 +80,20 @@ const TOOL_DEFINITIONS: Record<Tool, ToolbarTool> = {
   ruler: { id: "ruler", icon: Ruler, label: "Ruler", hotkey: "M" },
 };
 
+const TOOL_DESCRIPTIONS: Record<Tool, string> = {
+  select: "Click elements to select and drag them into place.",
+  pan: "Hold and drag anywhere on the canvas to move your view.",
+  rectangle: "Click and drag to draw rectangles with rounded corners.",
+  diamond: "Click and drag to draw diamonds for flow diagrams.",
+  ellipse: "Click and drag to draw ellipses and circles.",
+  arrow: "Click and drag from the start point to draw an arrow.",
+  line: "Click and drag from the start point to draw a straight line.",
+  text: "Click on the canvas and start typing to add text.",
+  pen: "Click and drag freely to sketch with the pen tool.",
+  eraser: "Click on items to remove them from the canvas.",
+  ruler: "Measure distances by clicking and dragging across the canvas. Press Shift to show measurements.",
+};
+
 const renderToolButton = (
   tool: ToolbarTool,
   params: { activeTool: Tool; onSelect: (tool: Tool) => void },
@@ -355,14 +369,18 @@ export const TopToolbar = () => {
     });
   }, [deleteSelection, hasSelection, toast]);
 
+  const activeToolDescription =
+    TOOL_DESCRIPTIONS[activeTool] ?? "Select a tool to see how it works.";
+
   return (
     <TooltipProvider>
-      <div className="floating-panel top-toolbar">
-        <div className="toolbar-section">
-          {renderToolButton(TOOL_DEFINITIONS.select, {
-            activeTool,
-            onSelect: setActiveTool,
-          })}
+      <div className="top-toolbar-wrapper">
+        <div className="floating-panel top-toolbar">
+          <div className="toolbar-section">
+            {renderToolButton(TOOL_DEFINITIONS.select, {
+              activeTool,
+              onSelect: setActiveTool,
+            })}
           {renderToolButton(TOOL_DEFINITIONS.pan, {
             activeTool,
             onSelect: setActiveTool,
@@ -595,6 +613,10 @@ export const TopToolbar = () => {
           onOpenSettings={() => setIsGeminiSettingsOpen(true)}
         />
         <GeminiSettingsDialog open={isGeminiSettingsOpen} onOpenChange={setIsGeminiSettingsOpen} />
+        </div>
+        <p className="top-toolbar-helper" role="status" aria-live="polite">
+          {activeToolDescription}
+        </p>
       </div>
     </TooltipProvider>
   );
