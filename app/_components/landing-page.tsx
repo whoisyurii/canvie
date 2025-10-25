@@ -7,6 +7,8 @@ import { Layers, MousePointer2, Sparkles, Users, Wand2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { liftedSurfaceBase } from "@/lib/lifted-ui";
+import { cn } from "@/lib/utils";
 
 const adjectives = [
   "Aurora",
@@ -165,41 +167,48 @@ export default function LandingPage() {
             Open a fresh canvas in seconds and start sketching ideas together. Spin up rooms, share a link, and begin drawing instantly—no accounts or friction.
           </p>
 
-          <div className="mt-10 flex w-full max-w-xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-center">
-            <div className="relative">
-              <Button
-                size="lg"
-                onClick={createRoom}
-                className="h-12 min-w-[12rem] text-base"
-              >
-                <Sparkles className="mr-2 h-5 w-5" />
-                Create new room
-              </Button>
-              <AnimatedCursor name={cursorNames[3]} {...ctaCursorConfig} />
-            </div>
-
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                joinRoom();
-              }}
-              className="flex w-full flex-col gap-3 sm:flex-row"
+          <div className="mt-10 flex w-full justify-center">
+            <div
+              className={cn(
+                liftedSurfaceBase,
+                "flex w-full max-w-xl flex-col gap-3 rounded-2xl border border-border/60 bg-card/90 p-3 shadow-[0_22px_45px_-24px_rgba(15,23,42,0.55)] backdrop-blur-sm sm:flex-row sm:items-center sm:gap-4",
+              )}
             >
-              <Input
-                placeholder="Paste a room link or code"
-                value={roomId}
-                onChange={(event) => setRoomId(event.target.value)}
-                className="h-12 flex-1"
-              />
-              <Button
-                type="submit"
-                size="lg"
-                disabled={!roomId.trim()}
-                className="h-12 sm:min-w-[8rem]"
+              <div className="relative sm:w-auto">
+                <Button
+                  size="lg"
+                  onClick={createRoom}
+                  className="h-12 w-full min-w-[12rem] rounded-xl border border-border/60 bg-primary/90 px-6 text-base shadow-[0_20px_42px_-22px_rgba(15,23,42,0.65)] transition-transform hover:-translate-y-0.5 hover:bg-primary focus-visible:-translate-y-0.5 sm:w-auto"
+                >
+                  <Sparkles className="mr-2 h-5 w-5" />
+                  Create new room
+                </Button>
+                <AnimatedCursor name={cursorNames[3]} {...ctaCursorConfig} />
+              </div>
+
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  joinRoom();
+                }}
+                className="flex w-full flex-col gap-3 sm:flex-1 sm:flex-row sm:items-center"
               >
-                Join room
-              </Button>
-            </form>
+                <Input
+                  placeholder="Paste a room link or code"
+                  value={roomId}
+                  onChange={(event) => setRoomId(event.target.value)}
+                  className="h-12 flex-1 rounded-xl border border-border/60 bg-background/80 px-4 text-base shadow-[0_18px_38px_-24px_rgba(15,23,42,0.55)] backdrop-blur placeholder:text-muted-foreground/80 focus-visible:ring-ring/70 focus-visible:ring-offset-0 sm:text-base"
+                />
+                <Button
+                  type="submit"
+                  size="lg"
+                  disabled={!roomId.trim()}
+                  className="h-12 w-full rounded-xl border border-border/60 bg-secondary/90 px-6 text-base shadow-[0_18px_40px_-24px_rgba(15,23,42,0.6)] transition-transform hover:-translate-y-0.5 hover:bg-secondary focus-visible:-translate-y-0.5 sm:w-auto sm:min-w-[8rem]"
+                >
+                  Join room
+                </Button>
+              </form>
+            </div>
           </div>
         </div>
 
