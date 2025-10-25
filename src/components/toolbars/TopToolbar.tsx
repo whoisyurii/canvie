@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState, type ChangeEvent } from "react";
+import { useRouter } from "next/navigation";
 import {
   MousePointer2,
   Hand,
@@ -20,6 +21,7 @@ import {
   Focus,
   Sparkles,
   Ruler,
+  LogOut,
 } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useWhiteboardStore, Tool } from "@/lib/store/useWhiteboardStore";
@@ -119,6 +121,7 @@ const renderToolButton = (
 );
 
 export const TopToolbar = () => {
+  const router = useRouter();
   const {
     activeTool,
     setActiveTool,
@@ -369,6 +372,10 @@ export const TopToolbar = () => {
     });
   }, [deleteSelection, hasSelection, toast]);
 
+  const handleLeaveRoom = useCallback(() => {
+    router.push("/");
+  }, [router]);
+
   const activeToolDescription =
     TOOL_DESCRIPTIONS[activeTool] ?? "Select a tool to see how it works.";
 
@@ -585,6 +592,14 @@ export const TopToolbar = () => {
               }}
             >
               <Focus className="mr-2 h-4 w-4" /> Reset view
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                handleLeaveRoom();
+              }}
+            >
+              <LogOut className="mr-2 h-4 w-4" /> Leave room
             </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={(event) => {
