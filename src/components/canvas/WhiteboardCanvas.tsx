@@ -8,10 +8,8 @@ import {
   useCallback,
   Fragment,
   type MouseEvent as ReactMouseEvent,
-  type TouchEvent as ReactTouchEvent,
   type CSSProperties,
 } from "react";
-import { createPortal } from "react-dom";
 import {
   Stage,
   Layer,
@@ -38,7 +36,6 @@ import { CanvasContextMenu } from "./CanvasContextMenu";
 import { CurrentShapePreview } from "./CurrentShapePreview";
 import { RulerOverlay, type RulerMeasurement } from "./RulerOverlay";
 import {
-  MINIMAP_ENABLED,
   PEN_TENSION,
   STROKE_BACKGROUND_PADDING,
   getSafeCornerRadius,
@@ -88,7 +85,9 @@ export const WhiteboardCanvas = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
-  const miniMapDragRef = useRef(false);
+  const textEditorRef = useRef<HTMLTextAreaElement>(null);
+  const editingTextRef = useRef<EditingTextState | null>(null);
+  const skipNextPointerRef = useRef(false);
   const marqueeSelectionRef = useRef<MarqueeSelectionState | null>(null);
   const selectionDragStateRef = useRef<SelectionDragState | null>(null);
   const lastErasedIdRef = useRef<string | null>(null);
@@ -107,10 +106,7 @@ export const WhiteboardCanvas = () => {
     width: 0,
     height: 0,
   }));
-  const [isMiniMapInteracting, setIsMiniMapInteracting] = useState(false);
-  const [miniMapContainer, setMiniMapContainer] = useState<HTMLElement | null>(
-    null
-  );
+  const [editingText, setEditingText] = useState<EditingTextState | null>(null);
   const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(
     null
   );
@@ -123,19 +119,6 @@ export const WhiteboardCanvas = () => {
   );
   const { handleDrop, handleDragOver, addFilesToCanvas } = useDragDrop();
   const { toast } = useToast();
-
-  useEffect(() => {
-    if (!MINIMAP_ENABLED) {
-      return;
-    }
-
-    if (typeof document === "undefined") {
-      return;
-    }
-
-    const node = document.getElementById("right-sidebar-minimap");
-    setMiniMapContainer(node ?? null);
-  }, []);
 
   const {
     activeTool,
@@ -461,129 +444,25 @@ export const WhiteboardCanvas = () => {
     [beginTextEditing, elements, openFilePreview]
   );
 
-  const getMiniMapCoordinates = useCallback(
-    (
-      event: ReactMouseEvent<SVGSVGElement> | ReactTouchEvent<SVGSVGElement>
-    ) => {
-      const rect = event.currentTarget.getBoundingClientRect();
-      if ("touches" in event) {
-        const touch = event.touches[0];
-        if (!touch) return null;
-        return {
-          x: touch.clientX - rect.left,
-          y: touch.clientY - rect.top,
-        };
-      }
-      return {
-        x: event.clientX - rect.left,
-        y: event.clientY - rect.top,
-      };
-    },
-    []
-  );
+  useEffect(() => {
+    editingTextRef.current = editingText;
+  }, [editingText]);
 
-  const miniMapData = useMemo(() => {
-    if (!MINIMAP_ENABLED) {
-      return null;
+  useEffect(() => {
+    if (!editingText) {
+      return;
     }
 
-    if (stageSize.width === 0 || stageSize.height === 0) {
-      return null;
+    const textarea = textEditorRef.current;
+    if (!textarea) {
+      return;
     }
 
-    const viewportMinX = -panX / safeZoom;
-    const viewportMinY = -panY / safeZoom;
-    const viewportWidth = stageSize.width / safeZoom;
-    const viewportHeight = stageSize.height / safeZoom;
-    const mapWidth = 220;
-    const mapHeight = 160;
-
-    if (elements.length === 0) {
-      const anchorCenterX = viewportWidth / 2;
-      const anchorCenterY = viewportHeight / 2;
-      const defaultHalfWidth = viewportWidth * 2;
-      const defaultHalfHeight = viewportHeight * 2;
-      const minX = anchorCenterX - defaultHalfWidth;
-      const minY = anchorCenterY - defaultHalfHeight;
-      const maxX = anchorCenterX + defaultHalfWidth;
-      const maxY = anchorCenterY + defaultHalfHeight;
-
-      const worldWidth = Math.max(1, maxX - minX);
-      const worldHeight = Math.max(1, maxY - minY);
-      const scale = Math.min(mapWidth / worldWidth, mapHeight / worldHeight);
-
-      return {
-        mapWidth,
-        mapHeight,
-        scale,
-        offsetX: minX,
-        offsetY: minY,
-        viewport: {
-          minX: viewportMinX,
-          minY: viewportMinY,
-          width: viewportWidth,
-          height: viewportHeight,
-        },
-      };
-    }
-
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-
-    elements.forEach((element) => {
-      const bounds = getElementBounds(element);
-      minX = Math.min(minX, bounds.minX);
-      minY = Math.min(minY, bounds.minY);
-      maxX = Math.max(maxX, bounds.maxX);
-      maxY = Math.max(maxY, bounds.maxY);
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
     });
-
-    if (
-      !Number.isFinite(minX) ||
-      !Number.isFinite(minY) ||
-      !Number.isFinite(maxX) ||
-      !Number.isFinite(maxY)
-    ) {
-      minX = viewportMinX;
-      minY = viewportMinY;
-      maxX = viewportMinX + viewportWidth;
-      maxY = viewportMinY + viewportHeight;
-    }
-
-    const padding = 80;
-    minX -= padding;
-    minY -= padding;
-    maxX += padding;
-    maxY += padding;
-
-    const viewportMaxX = viewportMinX + viewportWidth;
-    const viewportMaxY = viewportMinY + viewportHeight;
-
-    minX = Math.min(minX, viewportMinX);
-    minY = Math.min(minY, viewportMinY);
-    maxX = Math.max(maxX, viewportMaxX);
-    maxY = Math.max(maxY, viewportMaxY);
-
-    const worldWidth = Math.max(1, maxX - minX);
-    const worldHeight = Math.max(1, maxY - minY);
-    const scale = Math.min(mapWidth / worldWidth, mapHeight / worldHeight);
-
-    return {
-      mapWidth,
-      mapHeight,
-      scale,
-      offsetX: minX,
-      offsetY: minY,
-      viewport: {
-        minX: viewportMinX,
-        minY: viewportMinY,
-        width: viewportWidth,
-        height: viewportHeight,
-      },
-    };
-  }, [elements, panX, panY, safeZoom, stageSize.height, stageSize.width]);
+  }, [editingText]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -950,78 +829,6 @@ export const WhiteboardCanvas = () => {
     [schedulePanUpdate]
   );
 
-  const panToMiniMapPoint = useCallback(
-    (pointX: number, pointY: number) => {
-      if (!miniMapData) return;
-
-      const worldX = pointX / miniMapData.scale + miniMapData.offsetX;
-      const worldY = pointY / miniMapData.scale + miniMapData.offsetY;
-
-      const viewportWidth = stageSize.width / safeZoom;
-      const viewportHeight = stageSize.height / safeZoom;
-
-      const nextPanX = -(worldX - viewportWidth / 2) * safeZoom;
-      const nextPanY = -(worldY - viewportHeight / 2) * safeZoom;
-
-      schedulePanUpdate(
-        {
-          x: Number.isFinite(nextPanX) ? nextPanX : panX,
-          y: Number.isFinite(nextPanY) ? nextPanY : panY,
-        },
-        true
-      );
-    },
-    [
-      miniMapData,
-      panX,
-      panY,
-      safeZoom,
-      schedulePanUpdate,
-      stageSize.height,
-      stageSize.width,
-    ]
-  );
-
-  const updatePanFromMiniMap = useCallback(
-    (
-      event: ReactMouseEvent<SVGSVGElement> | ReactTouchEvent<SVGSVGElement>
-    ) => {
-      const coords = getMiniMapCoordinates(event);
-      if (!coords) return;
-      panToMiniMapPoint(coords.x, coords.y);
-    },
-    [getMiniMapCoordinates, panToMiniMapPoint]
-  );
-
-  const handleMiniMapPointerDown = useCallback(
-    (
-      event: ReactMouseEvent<SVGSVGElement> | ReactTouchEvent<SVGSVGElement>
-    ) => {
-      event.preventDefault();
-      event.stopPropagation();
-      miniMapDragRef.current = true;
-      setIsMiniMapInteracting(true);
-      updatePanFromMiniMap(event);
-    },
-    [updatePanFromMiniMap]
-  );
-
-  const handleMiniMapPointerMove = useCallback(
-    (
-      event: ReactMouseEvent<SVGSVGElement> | ReactTouchEvent<SVGSVGElement>
-    ) => {
-      if (!miniMapDragRef.current) return;
-      event.preventDefault();
-      updatePanFromMiniMap(event);
-    },
-    [updatePanFromMiniMap]
-  );
-
-  const endMiniMapInteraction = useCallback(() => {
-    miniMapDragRef.current = false;
-    setIsMiniMapInteracting(false);
-  }, []);
-
   const backgroundConfig = useMemo(() => {
     const baseSize = Math.max(4, 20 * safeZoom);
     const basePosition = `${panX}px ${panY}px`;
@@ -1075,113 +882,6 @@ export const WhiteboardCanvas = () => {
     : activeTool === "select"
     ? "cursor-default"
     : "cursor-crosshair";
-
-  const miniMapContent =
-    MINIMAP_ENABLED && miniMapData ? (
-      <div
-        className={cn(
-          "pointer-events-auto w-full rounded-xl border border-slate-200/80 bg-white/80 p-3 backdrop-blur transition-shadow",
-          isMiniMapInteracting
-            ? "shadow-xl ring-1 ring-sky-200/70"
-            : "shadow-lg"
-        )}
-      >
-        <svg
-          width={miniMapData.mapWidth}
-          height={miniMapData.mapHeight}
-          className={cn(
-            "block h-auto w-full max-h-[200px] select-none sm:max-h-[240px]",
-            isMiniMapInteracting ? "cursor-grabbing" : "cursor-pointer"
-          )}
-          viewBox={`0 0 ${miniMapData.mapWidth} ${miniMapData.mapHeight}`}
-          aria-hidden="true"
-          onMouseDown={handleMiniMapPointerDown}
-          onMouseMove={handleMiniMapPointerMove}
-          onMouseUp={(event) => {
-            event.preventDefault();
-            endMiniMapInteraction();
-          }}
-          onMouseLeave={endMiniMapInteraction}
-          onTouchStart={handleMiniMapPointerDown}
-          onTouchMove={handleMiniMapPointerMove}
-          onTouchEnd={(event) => {
-            event.preventDefault();
-            endMiniMapInteraction();
-          }}
-          onTouchCancel={endMiniMapInteraction}
-        >
-          <rect
-            x={0}
-            y={0}
-            width={miniMapData.mapWidth}
-            height={miniMapData.mapHeight}
-            fill="#f8fafc"
-            stroke="rgba(148, 163, 184, 0.45)"
-            strokeWidth={1}
-            rx={12}
-            ry={12}
-          />
-          {elements.map((element) => {
-            const bounds = getElementBounds(element);
-            const x = (bounds.minX - miniMapData.offsetX) * miniMapData.scale;
-            const y = (bounds.minY - miniMapData.offsetY) * miniMapData.scale;
-            const width = Math.max(
-              2,
-              (bounds.maxX - bounds.minX) * miniMapData.scale
-            );
-            const height = Math.max(
-              2,
-              (bounds.maxY - bounds.minY) * miniMapData.scale
-            );
-
-            return (
-              <rect
-                key={`mini-${element.id}`}
-                x={x}
-                y={y}
-                width={width}
-                height={height}
-                fill="rgba(148, 163, 184, 0.35)"
-                stroke="rgba(148, 163, 184, 0.55)"
-                strokeWidth={1}
-                rx={width < 6 ? 1.5 : 3}
-                ry={height < 6 ? 1.5 : 3}
-              />
-            );
-          })}
-          {(() => {
-            const viewportX =
-              (miniMapData.viewport.minX - miniMapData.offsetX) *
-              miniMapData.scale;
-            const viewportY =
-              (miniMapData.viewport.minY - miniMapData.offsetY) *
-              miniMapData.scale;
-            const viewportWidth = Math.max(
-              4,
-              miniMapData.viewport.width * miniMapData.scale
-            );
-            const viewportHeight = Math.max(
-              4,
-              miniMapData.viewport.height * miniMapData.scale
-            );
-
-            return (
-              <rect
-                x={viewportX}
-                y={viewportY}
-                width={viewportWidth}
-                height={viewportHeight}
-                fill="rgba(14, 165, 233, 0.1)"
-                stroke="#0284c7"
-                strokeWidth={1.5}
-                rx={6}
-                ry={6}
-              />
-            );
-          })()}
-        </svg>
-      </div>
-    ) : null;
 
   const handleMouseDown = (e: KonvaEventObject<MouseEvent>) => {
     const stage = stageRef.current;
@@ -3163,15 +2863,6 @@ export const WhiteboardCanvas = () => {
               ))}
             </Layer>
           </Stage>
-
-          {miniMapContent &&
-            (miniMapContainer ? (
-              createPortal(miniMapContent, miniMapContainer)
-            ) : (
-              <div className="pointer-events-none absolute bottom-6 left-6 z-30 w-max max-w-[200px] sm:max-w-[240px] [&>*]:pointer-events-auto">
-                {miniMapContent}
-              </div>
-            ))}
         </div>
     </CanvasContextMenu>
   );

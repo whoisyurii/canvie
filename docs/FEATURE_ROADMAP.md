@@ -22,7 +22,7 @@
 | Export to PNG/SVG | ✅ | ✅ | **At Parity** | - |
 | **Our Advantages** |
 | File attachments | ✅ | ❌ | **✨ Ahead** | Maintain |
-| Minimap navigation | ✅ | ❌ | **✨ Ahead** | Maintain |
+| Minimap navigation | ❌ | ❌ | **🚧 Deferred** | - |
 | Multiple pen backgrounds | ✅ | ❌ | **✨ Ahead** | Maintain |
 | **Missing Features (High Priority)** |
 | Smart/sticky connectors | ❌ | ✅ | **⚠️ Behind** | P1 |
@@ -421,7 +421,7 @@ Add recent colors and better color picker UI.
 
 ### **Unique Value Props**
 - ✅ File attachments
-- ✅ Minimap
+- ❌ Minimap
 - ⏳ AI features (planned)
 - ⏳ Live data (planned)
 
