@@ -44,6 +44,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -148,6 +158,7 @@ export const TopToolbar = () => {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isGeminiWorkspaceOpen, setIsGeminiWorkspaceOpen] = useState(false);
   const [isGeminiSettingsOpen, setIsGeminiSettingsOpen] = useState(false);
+  const [isLeaveRoomDialogOpen, setIsLeaveRoomDialogOpen] = useState(false);
   const { geminiApiKey } = useAiSettings();
   const hasGeminiKey = Boolean(geminiApiKey);
   const hasSelection = selectedIds.length > 0;
@@ -596,14 +607,6 @@ export const TopToolbar = () => {
             <DropdownMenuItem
               onSelect={(event) => {
                 event.preventDefault();
-                handleLeaveRoom();
-              }}
-            >
-              <LogOut className="mr-2 h-4 w-4" /> Leave room
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={(event) => {
-                event.preventDefault();
                 handleClearCanvas();
               }}
               disabled={!hasElements}
@@ -620,6 +623,15 @@ export const TopToolbar = () => {
               />
               Clear canvas
             </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                setIsLeaveRoomDialogOpen(true);
+              }}
+              className="text-destructive focus:text-destructive"
+            >
+              <LogOut className="mr-2 h-4 w-4 text-destructive" /> Leave room
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <GeminiWorkspace
@@ -628,6 +640,31 @@ export const TopToolbar = () => {
           onOpenSettings={() => setIsGeminiSettingsOpen(true)}
         />
         <GeminiSettingsDialog open={isGeminiSettingsOpen} onOpenChange={setIsGeminiSettingsOpen} />
+        <AlertDialog open={isLeaveRoomDialogOpen} onOpenChange={setIsLeaveRoomDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Leave this room?</AlertDialogTitle>
+              <AlertDialogDescription>
+                You'll exit the current collaboration session. You can rejoin later if you
+                return to this room.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setIsLeaveRoomDialogOpen(false)}>
+                Stay in room
+              </AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => {
+                  setIsLeaveRoomDialogOpen(false);
+                  handleLeaveRoom();
+                }}
+              >
+                Leave room
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         </div>
         <p className="top-toolbar-helper" role="status" aria-live="polite">
           {activeToolDescription}
