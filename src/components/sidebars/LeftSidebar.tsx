@@ -312,54 +312,69 @@ export const LeftSidebar = () => {
     }
   };
 
-  if (isCollapsed) {
-    return (
-      <Button
-        variant="ghost"
-        size="icon"
-        className="floating-panel flex h-10 w-10 items-center justify-center rounded-full hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-        onClick={() => setIsCollapsed(false)}
-        aria-label="Expand tool settings"
-        aria-expanded="false"
-      >
-        <ChevronRight className="h-4 w-4" />
-      </Button>
-    );
-  }
+  const sidebarHeight = "min(640px, calc(100vh - 4rem))";
 
   return (
     <div
-      className="floating-panel group relative flex w-[220px] flex-col overflow-hidden transition-[width] duration-300 ease-in-out"
-      style={{ height: "min(640px, calc(100vh - 4rem))" }}
+      className={cn(
+        "group/sidebar relative overflow-visible transition-[width] duration-300 ease-in-out",
+        isCollapsed ? "w-0" : "w-[220px]",
+      )}
+      style={{ height: sidebarHeight }}
+      data-state={isCollapsed ? "collapsed" : "expanded"}
     >
-      <div className="flex items-center justify-between border-b border-sidebar-border px-2.5 py-2">
-        <div>
-          <h3 className="text-sm font-semibold text-sidebar-foreground">Tool Settings</h3>
-          <p className="text-xs text-muted-foreground">Fine-tune the active tool without leaving the canvas.</p>
+      <div
+        className={cn(
+          "floating-panel group absolute inset-0 flex h-full w-full flex-col overflow-hidden transition-all duration-300 ease-in-out",
+          isCollapsed ? "pointer-events-none -translate-x-4 opacity-0" : "translate-x-0 opacity-100",
+        )}
+        aria-hidden={isCollapsed}
+      >
+        <div className="flex items-center justify-between border-b border-sidebar-border px-2.5 py-2">
+          <div>
+            <h3 className="text-sm font-semibold text-sidebar-foreground">Tool Settings</h3>
+            <p className="text-xs text-muted-foreground">Fine-tune the active tool without leaving the canvas.</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="-mx-0.5 h-6 w-6 shrink-0 text-muted-foreground transition-transform"
+            onClick={() => setIsCollapsed(true)}
+            aria-label="Collapse tool settings"
+            aria-expanded="true"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="-mx-0.5 h-6 w-6 shrink-0 text-muted-foreground transition-transform"
-          onClick={() => setIsCollapsed(true)}
-          aria-label="Collapse tool settings"
-          aria-expanded="true"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
+
+        <ScrollArea className="flex-1">
+          <div className="space-y-2.5 px-2 py-2.5">
+            {renderSections()}
+
+            <LayerActions
+              disabled={!hasSelection}
+              onBringToFront={bringToFront}
+              onSendToBack={sendToBack}
+            />
+          </div>
+        </ScrollArea>
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="space-y-2.5 px-2 py-2.5">
-          {renderSections()}
-
-          <LayerActions
-            disabled={!hasSelection}
-            onBringToFront={bringToFront}
-            onSendToBack={sendToBack}
-          />
-        </div>
-      </ScrollArea>
+      <Button
+        variant="ghost"
+        size="icon"
+        className={cn(
+          "floating-panel absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-full transition-all duration-300 ease-in-out hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+          isCollapsed ? "translate-x-0 opacity-100" : "pointer-events-none -translate-x-4 opacity-0",
+        )}
+        onClick={() => setIsCollapsed(false)}
+        aria-label="Expand tool settings"
+        aria-expanded={!isCollapsed}
+        tabIndex={isCollapsed ? 0 : -1}
+        aria-hidden={!isCollapsed}
+      >
+        <ChevronRight className="h-4 w-4" />
+      </Button>
     </div>
   );
 };
