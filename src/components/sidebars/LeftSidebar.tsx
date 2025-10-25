@@ -22,7 +22,7 @@ import { TextAlignment, useWhiteboardStore } from "@/lib/store/useWhiteboardStor
 import { cn } from "@/lib/utils";
 
 const STROKE_COLORS = [
-  "#1f2937",
+  "#000000",
   "#e03131",
   "#f97316",
   "#f59f00",
