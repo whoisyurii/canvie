@@ -156,7 +156,7 @@ export default function LandingPage() {
       </div>
 
       <div className="relative z-10 mx-auto flex h-full w-full max-w-6xl flex-col justify-between px-6 py-12">
-        <div className="flex flex-1 flex-col items-center justify-center text-center">
+        <div className="landing-hero-animate flex flex-1 flex-col items-center justify-center text-center">
           <div className="rounded-full border border-border/40 bg-card/60 px-4 py-2 text-sm font-medium text-muted-foreground backdrop-blur">
             Real-time collaboration, no sign-up required
           </div>
@@ -171,7 +171,7 @@ export default function LandingPage() {
             <div
               className={cn(
                 liftedSurfaceBase,
-                "flex w-full max-w-xl flex-col gap-3 rounded-2xl border border-border/60 bg-card/90 p-3 shadow-[0_22px_45px_-24px_rgba(15,23,42,0.55)] backdrop-blur-sm sm:flex-row sm:items-center sm:gap-4",
+                "landing-cta-animate flex w-full max-w-xl flex-col gap-3 rounded-2xl border border-border/60 bg-card/90 p-3 shadow-[0_22px_45px_-24px_rgba(15,23,42,0.55)] backdrop-blur-sm sm:flex-row sm:items-center sm:gap-4",
               )}
             >
               <div className="relative sm:w-auto">
