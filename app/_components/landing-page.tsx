@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
+import type { Route } from "next";
 import { nanoid } from "nanoid";
 import { Layers, MousePointer2, Sparkles, Users, Wand2 } from "lucide-react";
 
@@ -112,7 +113,7 @@ export default function LandingPage() {
     };
   }, []);
 
-  const navigateWithTransition = (path: string) => {
+  const navigateWithTransition = (path: Route) => {
     if (isTransitioning) {
       return;
     }
@@ -125,7 +126,7 @@ export default function LandingPage() {
 
   const createRoom = () => {
     const newRoomId = nanoid(10);
-    navigateWithTransition(`/r/${newRoomId}`);
+    navigateWithTransition(`/r/${newRoomId}` as Route);
   };
 
   const joinRoom = () => {
@@ -165,7 +166,7 @@ export default function LandingPage() {
       }
     }
 
-    navigateWithTransition(`/r/${nextRoomId}`);
+    navigateWithTransition(`/r/${nextRoomId}` as Route);
   };
 
   return (
