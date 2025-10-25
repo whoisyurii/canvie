@@ -99,7 +99,7 @@ Use the left sidebar to customize:
 ### Collaboration Features
 
 - **Real-time Cursors**: See where other users are pointing
-- **Participants List**: View all active collaborators in the right sidebar
+- **Participants List**: View all active collaborators alongside the canvas
 - **File Sharing**: Drag and drop files that all users can see
 - **Ephemeral Rooms**: Rooms are temporary and reset after inactivity
 - **Peer-to-Peer Sync**: Canvas changes and presence updates replicate over WebRTC meshes — no centralized state to scale.
