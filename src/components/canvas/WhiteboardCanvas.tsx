@@ -26,7 +26,6 @@ import {
 import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
 import type {
   CanvasElement,
-  TextAlignment,
   CanvasBackground,
 } from "@/lib/store/useWhiteboardStore";
 import { nanoid } from "nanoid";
@@ -71,55 +70,25 @@ import {
   RESIZABLE_ELEMENT_TYPES,
 } from "@/lib/canvas";
 import { useToast } from "@/hooks/use-toast";
-
-type SelectionRect = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
-
-type MarqueeSelectionState = {
-  originX: number;
-  originY: number;
-  additive: boolean;
-  initialSelection: string[];
-  moved: boolean;
-};
-
-type SelectionDragState = {
-  startNodes: Record<string, { x: number; y: number }>;
-  elements: Record<string, CanvasElement>;
-  affectedIds: string[];
-  referenceId: string | null;
-};
+import {
+  type EditingTextState,
+  type SelectionRect,
+  type MarqueeSelectionState,
+  type SelectionDragState,
+} from "./types";
+import { useTextEditing } from "./hooks/useTextEditing";
+import {
+  getClipboardSupport,
+  useClipboardHandlers,
+} from "./hooks/useClipboardHandlers";
 
 const SELECTION_GROUP_ID = "__selection_group__";
-
-type EditingTextState = {
-  id: string;
-  x: number;
-  y: number;
-  anchor: "top-left" | "center";
-  rotation: number;
-  value: string;
-  initialValue: string;
-  width: number;
-  fontSize: number;
-  fontFamily: string;
-  alignment: TextAlignment;
-  lockWidth: boolean;
-  persistWidth: boolean;
-};
 
 export const WhiteboardCanvas = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
-  const textEditorRef = useRef<HTMLTextAreaElement>(null);
-  const editingTextRef = useRef<EditingTextState | null>(null);
   const miniMapDragRef = useRef(false);
-  const skipNextPointerRef = useRef(false);
   const marqueeSelectionRef = useRef<MarqueeSelectionState | null>(null);
   const selectionDragStateRef = useRef<SelectionDragState | null>(null);
   const lastErasedIdRef = useRef<string | null>(null);
@@ -138,7 +107,6 @@ export const WhiteboardCanvas = () => {
     width: 0,
     height: 0,
   }));
-  const [editingText, setEditingText] = useState<EditingTextState | null>(null);
   const [isMiniMapInteracting, setIsMiniMapInteracting] = useState(false);
   const [miniMapContainer, setMiniMapContainer] = useState<HTMLElement | null>(
     null
@@ -208,19 +176,29 @@ export const WhiteboardCanvas = () => {
     openFilePreview,
   } = useWhiteboardStore();
 
+  const {
+    editingText,
+    setEditingText,
+    textEditorRef,
+    editingTextRef,
+    skipNextPointerRef,
+    beginTextEditing,
+    finishEditingText,
+    cancelIfEditing,
+  } = useTextEditing({
+    textFontFamily,
+    textFontSize,
+    textAlign,
+    setSelectedIds,
+    updateElement,
+    deleteElement,
+  });
+
   const panX = pan.x;
   const panY = pan.y;
   const safeZoom = zoom || 1;
-  const clipboard =
-    typeof navigator === "undefined" ? null : navigator.clipboard;
-  const clipboardReadSupported =
-    !!clipboard &&
-    (typeof clipboard.read === "function" ||
-      typeof clipboard.readText === "function");
-  const clipboardWriteSupported =
-    !!clipboard &&
-    typeof clipboard.write === "function" &&
-    typeof ClipboardItem !== "undefined";
+  const { readSupported: clipboardReadSupported, writeSupported: clipboardWriteSupported } =
+    useMemo(() => getClipboardSupport(), []);
 
   useEffect(() => {
     if (activeTool !== "select") {
@@ -361,6 +339,31 @@ export const WhiteboardCanvas = () => {
     return { x: 0, y: 0 };
   }, [contextMenuPosition, panX, panY, safeZoom]);
 
+  const {
+    handlePasteAction,
+    handleCopyAsPng,
+    handleCopyAsSvg,
+    handleSelectAll,
+  } = useClipboardHandlers({
+    stageRef,
+    toast,
+    addElement,
+    setSelectedIds,
+    elements,
+    addFilesToCanvas,
+    getPastePosition,
+    strokeColor,
+    fillColor,
+    fillOpacity,
+    opacity,
+    strokeWidth,
+    strokeStyle,
+    sloppiness,
+    textFontFamily,
+    textFontSize,
+    textAlign,
+  });
+
   const isRulerMode = activeTool === "ruler";
 
   useEffect(() => {
@@ -368,264 +371,6 @@ export const WhiteboardCanvas = () => {
       clearRulerMeasurement();
     }
   }, [clearRulerMeasurement, isRulerMode]);
-
-  const createTextElementFromClipboard = useCallback(
-    (content: string, position: { x: number; y: number }) => {
-      const trimmed = content.trim();
-      if (!trimmed) {
-        return;
-      }
-
-      const width = estimateTextBoxWidth(trimmed, textFontSize);
-      const height = estimateTextBoxHeight(trimmed, textFontSize);
-      const textElement: CanvasElement = {
-        id: nanoid(),
-        type: "text",
-        x: position.x,
-        y: position.y,
-        text: trimmed,
-        strokeColor,
-        fillColor,
-        fillOpacity,
-        strokeWidth,
-        strokeStyle,
-        opacity,
-        sloppiness,
-        fontFamily: textFontFamily,
-        fontSize: textFontSize,
-        textAlign,
-        width,
-        height,
-      };
-
-      addElement(textElement);
-      setSelectedIds([textElement.id]);
-    },
-    [
-      addElement,
-      fillColor,
-      fillOpacity,
-      opacity,
-      setSelectedIds,
-      sloppiness,
-      strokeColor,
-      strokeStyle,
-      strokeWidth,
-      textAlign,
-      textFontFamily,
-      textFontSize,
-    ]
-  );
-
-  const handlePasteAction = useCallback(async () => {
-    if (typeof navigator === "undefined") {
-      toast({
-        variant: "destructive",
-        title: "Clipboard unavailable",
-        description: "Clipboard is not accessible in this environment.",
-      });
-      return;
-    }
-
-    const clipboardApi = navigator.clipboard;
-    if (!clipboardApi || (!clipboardApi.read && !clipboardApi.readText)) {
-      toast({
-        variant: "destructive",
-        title: "Clipboard unavailable",
-        description: "Your browser does not support clipboard access.",
-      });
-      return;
-    }
-
-    const position = getPastePosition();
-
-    try {
-      if (clipboardApi.read) {
-        const items = await clipboardApi.read();
-        const files: File[] = [];
-        let textContent: string | null = null;
-        const timestamp = Date.now();
-
-        for (const item of items) {
-          for (const type of item.types) {
-            if (type.startsWith("image/") || type === "application/pdf") {
-              const blob = await item.getType(type);
-              const extension = type.split("/")[1] ?? "bin";
-              const fileName = `pasted-${timestamp}-${files.length}.${extension}`;
-              files.push(new File([blob], fileName, { type }));
-            } else if (type === "text/plain" && textContent === null) {
-              const blob = await item.getType(type);
-              textContent = await blob.text();
-            }
-          }
-        }
-
-        if (files.length > 0) {
-          await addFilesToCanvas(files, position);
-          toast({
-            title: "Pasted from clipboard",
-            description:
-              files.length > 1
-                ? `${files.length} items were added to the canvas.`
-                : "Clipboard item was added to the canvas.",
-          });
-          return;
-        }
-
-        if (textContent && textContent.trim()) {
-          createTextElementFromClipboard(textContent, position);
-          toast({
-            title: "Text pasted",
-            description: "Clipboard text was added to the canvas.",
-          });
-          return;
-        }
-      }
-
-      if (clipboardApi.readText) {
-        const text = await clipboardApi.readText();
-        if (text && text.trim()) {
-          createTextElementFromClipboard(text, position);
-          toast({
-            title: "Text pasted",
-            description: "Clipboard text was added to the canvas.",
-          });
-          return;
-        }
-      }
-
-      toast({
-        variant: "destructive",
-        title: "Nothing to paste",
-        description: "Clipboard does not contain supported content.",
-      });
-    } catch (error) {
-      console.error(error);
-      toast({
-        variant: "destructive",
-        title: "Paste failed",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Unable to paste clipboard content.",
-      });
-    }
-  }, [
-    addFilesToCanvas,
-    createTextElementFromClipboard,
-    getPastePosition,
-    toast,
-  ]);
-
-  const handleCopyAsPng = useCallback(async () => {
-    const stage = stageRef.current;
-    if (!stage) {
-      toast({
-        variant: "destructive",
-        title: "Unable to copy",
-        description: "Canvas is not ready yet.",
-      });
-      return;
-    }
-
-    if (typeof navigator === "undefined" || !navigator.clipboard?.write) {
-      toast({
-        variant: "destructive",
-        title: "Clipboard unavailable",
-        description: "Your browser cannot copy images to the clipboard.",
-      });
-      return;
-    }
-
-    if (typeof ClipboardItem === "undefined") {
-      toast({
-        variant: "destructive",
-        title: "Clipboard unavailable",
-        description: "Clipboard images are not supported in this browser.",
-      });
-      return;
-    }
-
-    try {
-      const dataUrl = stage.toDataURL({ pixelRatio: 2 });
-      const response = await fetch(dataUrl);
-      const blob = await response.blob();
-      const clipboardItem = new ClipboardItem({
-        [blob.type || "image/png"]: blob,
-      });
-      await navigator.clipboard.write([clipboardItem]);
-      toast({
-        title: "Copied canvas",
-        description: "Canvas copied to clipboard as PNG.",
-      });
-    } catch (error) {
-      console.error(error);
-      toast({
-        variant: "destructive",
-        title: "Failed to copy PNG",
-        description:
-          error instanceof Error ? error.message : "Unable to copy as PNG.",
-      });
-    }
-  }, [toast]);
-
-  const handleCopyAsSvg = useCallback(async () => {
-    const stage = stageRef.current;
-    if (!stage) {
-      toast({
-        variant: "destructive",
-        title: "Unable to copy",
-        description: "Canvas is not ready yet.",
-      });
-      return;
-    }
-
-    if (typeof navigator === "undefined" || !navigator.clipboard?.write) {
-      toast({
-        variant: "destructive",
-        title: "Clipboard unavailable",
-        description: "Your browser cannot copy SVG content to the clipboard.",
-      });
-      return;
-    }
-
-    if (typeof ClipboardItem === "undefined") {
-      toast({
-        variant: "destructive",
-        title: "Clipboard unavailable",
-        description: "Clipboard SVGs are not supported in this browser.",
-      });
-      return;
-    }
-
-    try {
-      const svg = stage.toSVG();
-      const blob = new Blob([svg], { type: "image/svg+xml" });
-      const clipboardItem = new ClipboardItem({ "image/svg+xml": blob });
-      await navigator.clipboard.write([clipboardItem]);
-      toast({
-        title: "Copied canvas",
-        description: "Canvas copied to clipboard as SVG.",
-      });
-    } catch (error) {
-      console.error(error);
-      toast({
-        variant: "destructive",
-        title: "Failed to copy SVG",
-        description:
-          error instanceof Error ? error.message : "Unable to copy as SVG.",
-      });
-    }
-  }, [toast]);
-
-  const handleSelectAll = useCallback(() => {
-    if (!elements.length) {
-      return;
-    }
-
-    const ids = elements.map((element) => element.id);
-    setSelectedIds(ids);
-  }, [elements, setSelectedIds]);
 
   const eraseNode = useCallback(
     (node: Konva.Node | null) => {
@@ -677,124 +422,6 @@ export const WhiteboardCanvas = () => {
     const intersection = stage.getIntersection(pointer);
     eraseNode(intersection ?? null);
   }, [eraseNode]);
-
-  const beginTextEditing = useCallback(
-    (element: CanvasElement, options?: { value?: string; width?: number }) => {
-      const initialValue = element.text ?? "";
-      const value = options?.value ?? initialValue;
-      const fontSize = element.fontSize ?? textFontSize;
-      const fontFamily = element.fontFamily ?? textFontFamily;
-      const alignment = element.textAlign ?? textAlign;
-
-      let width =
-        options?.width ??
-        element.width ??
-        estimateTextBoxWidth(value || initialValue, fontSize);
-      let x = element.x;
-      let y = element.y;
-      let anchor: EditingTextState["anchor"] = "top-left";
-      const rotation = typeof element.rotation === "number" ? element.rotation : 0;
-      let lockWidth = false;
-      let persistWidth = element.type === "text";
-
-      if (element.type === "rectangle" || element.type === "diamond") {
-        const bounds = normalizeRectBounds(
-          element.x,
-          element.y,
-          element.width ?? 0,
-          element.height ?? 0
-        );
-        const shapeWidth = bounds.maxX - bounds.minX;
-        const shapeHeight = bounds.maxY - bounds.minY;
-        const padding = element.type === "rectangle" ? 16 : 18;
-        const availableWidth = Math.max(0, shapeWidth - padding * 2);
-        const centerX = bounds.minX + shapeWidth / 2;
-        const centerY = bounds.minY + shapeHeight / 2;
-
-        if (availableWidth > 0) {
-          width = availableWidth;
-          lockWidth = true;
-        }
-
-        x = centerX;
-        y = centerY;
-        anchor = "center";
-        persistWidth = false;
-      }
-
-      const editingState: EditingTextState = {
-        id: element.id,
-        x,
-        y,
-        anchor,
-        rotation,
-        value,
-        initialValue,
-        width,
-        fontSize,
-        fontFamily,
-        alignment,
-        lockWidth,
-        persistWidth,
-      };
-      setSelectedIds([element.id]);
-      setEditingText(editingState);
-    },
-    [setSelectedIds, textAlign, textFontFamily, textFontSize]
-  );
-
-  const finishEditingText = useCallback(
-    (options?: { cancel?: boolean; skipNextPointer?: boolean }) => {
-      const current = editingTextRef.current;
-      if (!current) {
-        return;
-      }
-
-      editingTextRef.current = null;
-      setEditingText(null);
-
-      if (options?.skipNextPointer) {
-        skipNextPointerRef.current = true;
-      }
-
-      if (options?.cancel) {
-        if (current.initialValue) {
-          updateElement(current.id, { text: current.initialValue });
-        } else {
-          deleteElement(current.id);
-        }
-        return;
-      }
-
-      const trimmed = current.value.trim();
-      if (!trimmed) {
-        deleteElement(current.id);
-        return;
-      }
-
-      const updates: Partial<CanvasElement> = {
-        text: trimmed,
-        fontSize: current.fontSize,
-        fontFamily: current.fontFamily,
-        textAlign: current.alignment,
-      };
-
-      if (current.persistWidth) {
-        updates.width = current.width;
-      }
-
-      updateElement(current.id, updates);
-    },
-    [deleteElement, updateElement]
-  );
-
-  const cancelIfEditing = useCallback(() => {
-    if (editingTextRef.current) {
-      finishEditingText();
-      return true;
-    }
-    return false;
-  }, [finishEditingText]);
 
   const handleStageDoublePointer = useCallback(
     (event: KonvaEventObject<Event>) => {
@@ -854,26 +481,6 @@ export const WhiteboardCanvas = () => {
     },
     []
   );
-
-  useEffect(() => {
-    editingTextRef.current = editingText;
-  }, [editingText]);
-
-  useEffect(() => {
-    if (!editingText) {
-      return;
-    }
-
-    const textarea = textEditorRef.current;
-    if (!textarea) {
-      return;
-    }
-
-    requestAnimationFrame(() => {
-      textarea.focus();
-      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-    });
-  }, [editingText]);
 
   const miniMapData = useMemo(() => {
     if (!MINIMAP_ENABLED) {
@@ -1011,26 +618,6 @@ export const WhiteboardCanvas = () => {
   }, []);
 
   useEffect(() => {
-    editingTextRef.current = editingText;
-  }, [editingText]);
-
-  useEffect(() => {
-    if (!editingText) {
-      return;
-    }
-
-    const textarea = textEditorRef.current;
-    if (!textarea) {
-      return;
-    }
-
-    requestAnimationFrame(() => {
-      textarea.focus();
-      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-    });
-  }, [editingText]);
-
-  useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
@@ -1155,7 +742,7 @@ export const WhiteboardCanvas = () => {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [selectedIds, elements, addElement, setSelectedIds]);
+  }, [selectedIds, elements, addElement, setSelectedIds, editingTextRef]);
 
   const renderBounds = useMemo(() => {
     if (stageSize.width === 0 || stageSize.height === 0) {
