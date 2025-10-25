@@ -62,7 +62,7 @@ export type CanvasElementsLayerProps = {
   users: User[];
   pan: { x: number; y: number };
   zoom: number;
-  transformerRef: RefObject<Konva.Transformer>;
+  transformerRef: RefObject<Konva.Transformer | null>;
 };
 
 export const CanvasElementsLayer = ({
