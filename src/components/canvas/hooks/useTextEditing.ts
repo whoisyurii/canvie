@@ -30,7 +30,7 @@ export type UseTextEditingParams = {
 export type UseTextEditingResult = {
   editingText: EditingTextState | null;
   setEditingText: Dispatch<SetStateAction<EditingTextState | null>>;
-  textEditorRef: RefObject<HTMLTextAreaElement>;
+  textEditorRef: RefObject<HTMLTextAreaElement | null>;
   editingTextRef: MutableRefObject<EditingTextState | null>;
   skipNextPointerRef: MutableRefObject<boolean>;
   beginTextEditing: (
@@ -51,7 +51,7 @@ export const useTextEditing = ({
   updateElement,
   deleteElement,
 }: UseTextEditingParams): UseTextEditingResult => {
-  const textEditorRef = useRef<HTMLTextAreaElement>(null);
+  const textEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const editingTextRef = useRef<EditingTextState | null>(null);
   const skipNextPointerRef = useRef(false);
   const [editingText, setEditingText] = useState<EditingTextState | null>(null);

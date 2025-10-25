@@ -14,6 +14,7 @@ import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
 import type {
   CanvasElement,
   CanvasBackground,
+  TextAlignment,
 } from "@/lib/store/useWhiteboardStore";
 import { nanoid } from "nanoid";
 import Konva from "konva";
@@ -38,7 +39,6 @@ import {
 } from "@/lib/canvas";
 import { useToast } from "@/hooks/use-toast";
 import {
-  type EditingTextState,
   type SelectionRect,
   type MarqueeSelectionState,
   type SelectionDragState,

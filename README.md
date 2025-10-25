@@ -120,10 +120,6 @@ Additional notes:
 - WebRTC meshes work best with up to ~6 participants. Larger rooms may see degraded performance on slower networks.
 - In development mode a “Collaboration Debug” panel appears in the bottom-left corner showing transport status, peer counts, and message activity.
 
-### Deploying to Vercel
-
-Vercel remains a simple way to host the static build if you do not need private signaling. Follow the existing steps above to deploy the UI while continuing to rely on public signaling servers.
-
 ## Cloudflare Pages + Durable Objects Deployment
 
 Cloudflare Pages hosts the static Next.js build, while a Workers script plus Durable Object powers the WebRTC signaling layer. The Worker exposes `/health` for quick checks and `/signaling` for WebSocket upgrades. Peers are routed to room-specific Durable Object instances based on the room id embedded in the request.
@@ -166,10 +162,7 @@ Prefer a single command? `npm run dev` uses `npm-run-all` to execute both `dev:c
    ```
    The Worker (`cloudflare/signaling.ts`) binds the `SignalingRoom` Durable Object described in `wrangler.toml`.
 3. **Publish the static bundle to Pages**
-   ```bash
-   npm run deploy:pages
-   ```
-   Ensure the Pages project inherits the same environment variables defined in `wrangler.toml` so the browser loads the private signaling host by default.
+   Deploy through your connected Cloudflare Pages project or use `wrangler pages deploy` with the generated `.vercel/output/static` directory. Ensure the Pages project inherits the same environment variables defined in `wrangler.toml` so the browser loads the private signaling host by default.
 
 ### Production environment variables
 

@@ -13,8 +13,7 @@
     "lint": "next lint",
     "test": "vitest run",
     "deploy:worker": "wrangler deploy",
-    "deploy:pages": "wrangler pages deploy .vercel/output/static",
-    "deploy": "npm run build:next && npm run deploy:worker && npm run deploy:pages"
+    "deploy": "npm run build:next && npm run deploy:worker"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
