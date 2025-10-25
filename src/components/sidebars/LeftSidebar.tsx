@@ -312,46 +312,44 @@ export const LeftSidebar = () => {
     }
   };
 
+  if (isCollapsed) {
+    return (
+      <Button
+        variant="ghost"
+        size="icon"
+        className="floating-panel flex h-10 w-10 items-center justify-center rounded-full hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        onClick={() => setIsCollapsed(false)}
+        aria-label="Expand tool settings"
+        aria-expanded="false"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </Button>
+    );
+  }
+
   return (
     <div
-      className={cn(
-        "floating-panel group relative flex flex-col overflow-hidden transition-[width] duration-300 ease-in-out",
-        isCollapsed ? "w-12" : "w-[220px]"
-      )}
+      className="floating-panel group relative flex w-[220px] flex-col overflow-hidden transition-[width] duration-300 ease-in-out"
       style={{ height: "min(640px, calc(100vh - 4rem))" }}
     >
-      <div
-        className={cn(
-          "flex items-center border-b border-sidebar-border",
-          isCollapsed ? "justify-center px-0 py-1.5" : "justify-between px-2.5 py-2"
-        )}
-      >
-        {!isCollapsed ? (
-          <div>
-            <h3 className="text-sm font-semibold text-sidebar-foreground">Tool Settings</h3>
-            <p className="text-xs text-muted-foreground">Fine-tune the active tool without leaving the canvas.</p>
-          </div>
-        ) : null}
+      <div className="flex items-center justify-between border-b border-sidebar-border px-2.5 py-2">
+        <div>
+          <h3 className="text-sm font-semibold text-sidebar-foreground">Tool Settings</h3>
+          <p className="text-xs text-muted-foreground">Fine-tune the active tool without leaving the canvas.</p>
+        </div>
         <Button
           variant="ghost"
           size="icon"
-          className={cn(
-            "h-6 w-6 shrink-0 text-muted-foreground transition-transform",
-            isCollapsed ? "translate-x-0" : "-mx-0.5"
-          )}
-          onClick={() => setIsCollapsed((current) => !current)}
-          aria-label={isCollapsed ? "Expand tool settings" : "Collapse tool settings"}
+          className="-mx-0.5 h-6 w-6 shrink-0 text-muted-foreground transition-transform"
+          onClick={() => setIsCollapsed(true)}
+          aria-label="Collapse tool settings"
+          aria-expanded="true"
         >
-          {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          <ChevronLeft className="h-4 w-4" />
         </Button>
       </div>
 
-      <ScrollArea
-        className={cn(
-          "flex-1 transition-opacity duration-200 ease-in-out",
-          isCollapsed ? "pointer-events-none opacity-0" : "opacity-100"
-        )}
-      >
+      <ScrollArea className="flex-1">
         <div className="space-y-2.5 px-2 py-2.5">
           {renderSections()}
 
