@@ -44,14 +44,14 @@
     /* Convex palette */
     --convex-sand-1: 0 0% 100%;
     --convex-sand-2: 0 0% 96%;
-    --convex-sand-3: 60 14% 90%;
-    --convex-sand-4: 60 14% 85%;
-    --convex-stone-8: 60 3% 35%;
-    --convex-stone-9: 60 3% 50%;
-    --convex-stone-11: 60 3% 27%;
-    --convex-stone-12: 0 0% 95%;
-    --convex-amber-8: 24 34% 60%;
-    --convex-amber-9: 60 14% 37%;
+    --convex-sand-3: 60 18% 91%;
+    --convex-sand-4: 60 16% 86%;
+    --convex-stone-8: 42 26% 69%;
+    --convex-stone-9: 44 20% 52%;
+    --convex-stone-11: 44 27% 86%;
+    --convex-stone-12: 44 20% 20%;
+    --convex-amber-8: 42 30% 79%;
+    --convex-amber-9: 44 22% 72%;
     --convex-crimson-9: 0 84% 60%;
     --convex-crimson-1: 0 0% 98%;
 
@@ -64,13 +64,13 @@
     --color-highlight: var(--convex-amber-8);
 
     --background: var(--convex-sand-2);
-    --foreground: var(--convex-stone-11);
+    --foreground: var(--convex-stone-12);
 
     --card: var(--convex-sand-1);
-    --card-foreground: var(--convex-stone-11);
+    --card-foreground: var(--convex-stone-12);
 
     --popover: var(--convex-sand-1);
-    --popover-foreground: var(--convex-stone-11);
+    --popover-foreground: var(--convex-stone-12);
 
     --primary: var(--convex-stone-11);
     --primary-foreground: var(--convex-stone-12);
