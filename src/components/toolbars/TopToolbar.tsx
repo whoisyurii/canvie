@@ -349,9 +349,8 @@ export const TopToolbar = () => {
 
       setIsUploadOpen(false);
       event.target.value = "";
-      setActiveTool("select");
     },
-    [processFile, setActiveTool, toast]
+    [processFile, toast]
   );
 
   const handleClearCanvas = useCallback(() => {

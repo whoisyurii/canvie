@@ -205,7 +205,6 @@ export const WhiteboardCanvas = () => {
     bringForward,
     sendToBack,
     sendBackward,
-    setActiveTool,
     openFilePreview,
   } = useWhiteboardStore();
 
@@ -229,10 +228,6 @@ export const WhiteboardCanvas = () => {
       setSelectionRect(null);
     }
   }, [activeTool]);
-
-  const switchToSelectionTool = useCallback(() => {
-    setActiveTool("select");
-  }, [setActiveTool]);
 
   useEffect(() => {
     if (activeTool !== "eraser") {
@@ -405,7 +400,6 @@ export const WhiteboardCanvas = () => {
 
       addElement(textElement);
       setSelectedIds([textElement.id]);
-      switchToSelectionTool();
     },
     [
       addElement,
@@ -420,7 +414,6 @@ export const WhiteboardCanvas = () => {
       textAlign,
       textFontFamily,
       textFontSize,
-      switchToSelectionTool,
     ]
   );
 
@@ -1759,7 +1752,6 @@ export const WhiteboardCanvas = () => {
       beginTextEditing(newText, {
         width: estimateTextBoxWidth("", textFontSize),
       });
-      switchToSelectionTool();
       return;
     }
 
@@ -1957,13 +1949,12 @@ export const WhiteboardCanvas = () => {
     const shape = currentShapeRef.current;
     if (shape) {
       addElement(shape);
-      switchToSelectionTool();
       currentShapeRef.current = null;
       setCurrentShape(null);
     }
     setIsDrawing(false);
     isDrawingRef.current = false;
-  }, [addElement, switchToSelectionTool]);
+  }, [addElement]);
 
   const handleMouseUp = (e: KonvaEventObject<MouseEvent>) => {
     if (e.evt.button === 1 && isMiddleMousePanning) {
