@@ -9,7 +9,7 @@ import { CurrentShapePreview } from "./CurrentShapePreview";
 import { FileElement, ImageElement } from "./elements";
 import { RulerOverlay, type RulerMeasurement } from "./RulerOverlay";
 import { UserCursor } from "./UserCursor";
-import type { CanvasElement, TextAlignment } from "@/lib/store/useWhiteboardStore";
+import type { CanvasElement, TextAlignment, User } from "@/lib/store/useWhiteboardStore";
 import { getColorWithOpacity } from "@/lib/color";
 import {
   createSloppyStrokeLayers,
@@ -59,7 +59,7 @@ export type CanvasElementsLayerProps = {
     handleIndex: number,
   ) => void;
   currentShape: CanvasElement | null;
-  users: Array<{ id: string }>;
+  users: User[];
   pan: { x: number; y: number };
   zoom: number;
   transformerRef: RefObject<Konva.Transformer>;
