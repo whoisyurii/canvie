@@ -30,15 +30,8 @@ export type UploadPosition = {
 };
 
 export const useDragDrop = () => {
-  const {
-    addElement,
-    addFile,
-    currentUser,
-    pan,
-    zoom,
-    collaboration,
-    setActiveTool,
-  } = useWhiteboardStore();
+  const { addElement, addFile, currentUser, pan, zoom, collaboration } =
+    useWhiteboardStore();
   const { toast } = useToast();
   const fileSyncManager = collaboration?.fileSyncManager as FileSyncManager | null;
 
@@ -135,7 +128,6 @@ export const useDragDrop = () => {
               fileName,
               fileType,
             });
-            setActiveTool("select");
           };
           img.onerror = () => {
             console.error(`Failed to load image file: ${fileName}`);
@@ -157,7 +149,6 @@ export const useDragDrop = () => {
               fileName,
               fileType,
             });
-            setActiveTool("select");
           };
           img.src = tempUrl;
         } else if (fileType === "application/pdf") {
@@ -181,7 +172,6 @@ export const useDragDrop = () => {
               pdfPage: 1,
               thumbnailUrl,
             });
-            setActiveTool("select");
           };
 
           if (thumbnailUrl) {
@@ -219,7 +209,6 @@ export const useDragDrop = () => {
                 opacity: 1,
                 fileName,
               });
-              setActiveTool("select");
             };
             reader.readAsText(file);
           }
@@ -237,7 +226,6 @@ export const useDragDrop = () => {
       currentUser?.name,
       fileSyncManager,
       getCenteredPosition,
-      setActiveTool,
       toast,
     ],
   );
