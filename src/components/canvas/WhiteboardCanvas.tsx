@@ -161,31 +161,12 @@ export const WhiteboardCanvas = () => {
       return;
     }
 
-    const updateContainer = () => {
-      if (typeof document === "undefined") return;
-      const node = document.getElementById("right-sidebar-minimap");
-      setMiniMapContainer((current) => (current === node ? current : node));
-    };
-
-    updateContainer();
-
-    if (typeof MutationObserver === "undefined") {
+    if (typeof document === "undefined") {
       return;
     }
 
-    const sidebarRoot = document.getElementById("right-sidebar-root");
-    const observerTarget = sidebarRoot ?? document.body;
-
-    if (!observerTarget) {
-      return;
-    }
-
-    const observer = new MutationObserver(updateContainer);
-    observer.observe(observerTarget, { childList: true, subtree: true });
-
-    return () => {
-      observer.disconnect();
-    };
+    const node = document.getElementById("right-sidebar-minimap");
+    setMiniMapContainer(node ?? null);
   }, []);
 
   const {
