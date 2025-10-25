@@ -1629,6 +1629,14 @@ export const WhiteboardCanvas = () => {
     if (isRulerMode) {
       if (e.evt.button === 0) {
         e.evt.preventDefault();
+
+        if (!e.evt.shiftKey) {
+          const pointer = getCanvasPointerPosition();
+          if (pointer) {
+            measurementStartRef.current = pointer;
+            updateRulerMeasurement(pointer);
+          }
+        }
       }
       return;
     }
