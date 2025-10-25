@@ -56,6 +56,7 @@ export interface CanvasElement {
   fileName?: string;
   fileType?: string;
   thumbnailUrl?: string;
+  pdfPage?: number;
   selected?: boolean;
   cornerRadius?: number;
   penBackground?: string;
@@ -94,6 +95,7 @@ export type FilePreviewState = {
   ownerName?: string;
   sourceElementId?: string;
   thumbnailUrl?: string;
+  initialPage?: number;
 };
 
 const getElementCenter = (element: CanvasElement) => {
@@ -340,6 +342,7 @@ interface WhiteboardState {
   elements: CanvasElement[];
   addElement: (element: CanvasElement) => void;
   updateElement: (id: string, updates: Partial<CanvasElement>) => void;
+  setFileElementPage: (id: string, page: number) => void;
   deleteElement: (id: string) => void;
   bringToFront: () => void;
   bringForward: () => void;
@@ -624,6 +627,15 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
     set((state) => ({
       elements: state.elements.map((el) => (el.id === id ? { ...el, ...updates } : el)),
     }));
+  },
+  setFileElementPage: (id, page) => {
+    const safePage = Math.max(1, Math.round(page));
+    const currentElement = get().elements.find((element) => element.id === id);
+    if (currentElement?.pdfPage === safePage) {
+      return;
+    }
+
+    get().updateElement(id, { pdfPage: safePage });
   },
   deleteElement: (id) => {
     const collaboration = get().collaboration;
@@ -1183,6 +1195,8 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       sourceElementId: metadata?.sourceElementId ?? relatedElement?.id,
       thumbnailUrl:
         metadata?.thumbnailUrl ?? sharedFile?.thumbnailUrl ?? relatedElement?.thumbnailUrl,
+      initialPage:
+        metadata?.initialPage ?? relatedElement?.pdfPage ?? 1,
     };
 
     set({ filePreview: resolvedMetadata });
