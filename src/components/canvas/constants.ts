@@ -1,8 +1,6 @@
 /**
  * Shared constants and utilities for canvas rendering.
  */
-export const MINIMAP_ENABLED = false;
-
 export const PEN_TENSION = 0.75;
 
 export const STROKE_BACKGROUND_PADDING = 12;
