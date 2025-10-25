@@ -70,6 +70,9 @@ type ViewerStatus = "idle" | "loading" | "ready" | "error";
 export const PdfViewerDialog = () => {
   const filePreview = useWhiteboardStore((state) => state.filePreview);
   const closeFilePreview = useWhiteboardStore((state) => state.closeFilePreview);
+  const setFileElementPage = useWhiteboardStore(
+    (state) => state.setFileElementPage,
+  );
   const fileSyncManager = useWhiteboardStore(
     (state) => state.collaboration?.fileSyncManager ?? null
   );
@@ -149,12 +152,16 @@ export const PdfViewerDialog = () => {
       return;
     }
 
+    const initialPage = Math.max(
+      1,
+      Math.round(filePreview.initialPage ?? 1),
+    );
     let cancelled = false;
     setStatus("loading");
     setError(null);
     setIsRendering(false);
     setPageCount(0);
-    setCurrentPage(1);
+    setCurrentPage(initialPage);
 
     const loadDocument = async () => {
       try {
@@ -313,6 +320,28 @@ export const PdfViewerDialog = () => {
     }
     window.open(objectUrl, "_blank", "noopener,noreferrer");
   }, [objectUrl]);
+
+  useEffect(() => {
+    if (status !== "ready" || pageCount <= 0) {
+      return;
+    }
+    setCurrentPage((page) => {
+      const safePage = Math.min(Math.max(page, 1), pageCount);
+      return safePage === page ? page : safePage;
+    });
+  }, [pageCount, status]);
+
+  useEffect(() => {
+    if (status !== "ready") {
+      return;
+    }
+    const sourceElementId = filePreview?.sourceElementId;
+    if (!sourceElementId) {
+      return;
+    }
+    const safePage = Math.max(1, Math.round(currentPage));
+    setFileElementPage(sourceElementId, safePage);
+  }, [currentPage, filePreview?.sourceElementId, setFileElementPage, status]);
 
   const isFirstPage = currentPage <= 1;
   const isLastPage = pageCount > 0 && currentPage >= pageCount;

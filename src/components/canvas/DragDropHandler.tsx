@@ -178,6 +178,7 @@ export const useDragDrop = () => {
               fileUrl: fileId, // Use file ID instead of blob URL
               fileName,
               fileType,
+              pdfPage: 1,
               thumbnailUrl,
             });
             setActiveTool("select");

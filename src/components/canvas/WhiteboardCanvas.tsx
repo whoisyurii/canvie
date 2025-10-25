@@ -826,6 +826,7 @@ export const WhiteboardCanvas = () => {
               type: element.fileType,
               sourceElementId: element.id,
               thumbnailUrl: element.thumbnailUrl,
+              initialPage: element.pdfPage,
             });
           }
           return;

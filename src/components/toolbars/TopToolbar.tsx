@@ -267,6 +267,7 @@ export const TopToolbar = () => {
             fileUrl: fileId,
             fileName,
             fileType,
+            pdfPage: 1,
             thumbnailUrl,
           });
         };

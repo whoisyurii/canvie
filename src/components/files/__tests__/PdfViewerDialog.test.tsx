@@ -60,37 +60,67 @@ describe("PdfViewerDialog", () => {
     render(<PdfViewerDialog />);
 
     act(() => {
+      useWhiteboardStore.setState({
+        elements: [
+          {
+            id: "file-1",
+            type: "file",
+            x: 0,
+            y: 0,
+            width: 200,
+            height: 240,
+            strokeColor: "#000000",
+            strokeOpacity: 1,
+            strokeWidth: 2,
+            strokeStyle: "solid",
+            opacity: 1,
+            fileUrl: "file-1",
+            fileType: "application/pdf",
+            pdfPage: 2,
+          },
+        ],
+      });
       useWhiteboardStore.getState().openFilePreview("file-1", {
         name: "Preview.pdf",
         type: "application/pdf",
+        sourceElementId: "file-1",
+        initialPage: 2,
       });
     });
 
     await screen.findByText("Preparing preview…");
-    await screen.findByText("Page 1 of 3");
+    await screen.findByText("Page 2 of 3");
 
     expect(ensureFileMock).toHaveBeenCalledWith("file-1");
     expect(pdfMocks.getDocument).toHaveBeenCalledTimes(1);
-    expect(pdfMocks.getPage).toHaveBeenCalledWith(1);
+    expect(pdfMocks.getPage).toHaveBeenCalledWith(2);
 
     const previousButton = screen.getByRole("button", { name: /Previous/i });
     const nextButton = screen.getByRole("button", { name: /Next/i });
 
-    expect(previousButton).toBeDisabled();
+    await waitFor(() =>
+      expect(useWhiteboardStore.getState().elements[0].pdfPage).toBe(2)
+    );
+    expect(previousButton).not.toBeDisabled();
     expect(nextButton).not.toBeDisabled();
 
     await user.click(nextButton);
-    await waitFor(() => expect(screen.getByText("Page 2 of 3")).toBeInTheDocument());
-    expect(pdfMocks.getPage).toHaveBeenCalledWith(2);
-
-    await user.click(nextButton);
-    await waitFor(() => expect(screen.getByText("Page 3 of 3")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Page 3 of 3")).toBeInTheDocument()
+    );
     expect(pdfMocks.getPage).toHaveBeenCalledWith(3);
+    await waitFor(() =>
+      expect(useWhiteboardStore.getState().elements[0].pdfPage).toBe(3)
+    );
     expect(nextButton).toBeDisabled();
 
     await user.click(previousButton);
-    await waitFor(() => expect(screen.getByText("Page 2 of 3")).toBeInTheDocument());
-    expect(previousButton).not.toBeDisabled();
+    await waitFor(() =>
+      expect(screen.getByText("Page 2 of 3")).toBeInTheDocument()
+    );
+    await waitFor(() =>
+      expect(useWhiteboardStore.getState().elements[0].pdfPage).toBe(2)
+    );
   });
 });
 
