@@ -5,6 +5,7 @@ import { estimateTextBoxHeight, estimateTextBoxWidth } from "@/lib/canvas";
 import type {
   CanvasElement,
   TextAlignment,
+  Sloppiness,
 } from "@/lib/store/useWhiteboardStore";
 import type { useToast } from "@/hooks/use-toast";
 
@@ -13,7 +14,7 @@ const ensureClipboard = () => typeof navigator !== "undefined" && navigator.clip
 type ToastFunction = ReturnType<typeof useToast>["toast"];
 
 type UseClipboardHandlersParams = {
-  stageRef: RefObject<Konva.Stage>;
+  stageRef: RefObject<Konva.Stage | null>;
   toast: ToastFunction;
   addElement: (element: CanvasElement) => void;
   setSelectedIds: (ids: string[]) => void;
@@ -29,7 +30,7 @@ type UseClipboardHandlersParams = {
   opacity: number;
   strokeWidth: number;
   strokeStyle: CanvasElement["strokeStyle"];
-  sloppiness: number;
+  sloppiness: Sloppiness;
   textFontFamily: string;
   textFontSize: number;
   textAlign: TextAlignment;

@@ -25,6 +25,7 @@ import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
 import type {
   CanvasElement,
   CanvasBackground,
+  TextAlignment,
 } from "@/lib/store/useWhiteboardStore";
 import { nanoid } from "nanoid";
 import Konva from "konva";
@@ -68,7 +69,6 @@ import {
 } from "@/lib/canvas";
 import { useToast } from "@/hooks/use-toast";
 import {
-  type EditingTextState,
   type SelectionRect,
   type MarqueeSelectionState,
   type SelectionDragState,
@@ -85,9 +85,6 @@ export const WhiteboardCanvas = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
-  const textEditorRef = useRef<HTMLTextAreaElement>(null);
-  const editingTextRef = useRef<EditingTextState | null>(null);
-  const skipNextPointerRef = useRef(false);
   const marqueeSelectionRef = useRef<MarqueeSelectionState | null>(null);
   const selectionDragStateRef = useRef<SelectionDragState | null>(null);
   const lastErasedIdRef = useRef<string | null>(null);
@@ -106,7 +103,6 @@ export const WhiteboardCanvas = () => {
     width: 0,
     height: 0,
   }));
-  const [editingText, setEditingText] = useState<EditingTextState | null>(null);
   const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(
     null
   );
