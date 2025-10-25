@@ -7,7 +7,9 @@ type StageSize = {
   height: number;
 };
 
-export const useStageSize = (containerRef: RefObject<HTMLDivElement>) => {
+export const useStageSize = (
+  containerRef: RefObject<HTMLDivElement | null>
+) => {
   const [stageSize, setStageSize] = useState<StageSize>({ width: 0, height: 0 });
 
   useEffect(() => {

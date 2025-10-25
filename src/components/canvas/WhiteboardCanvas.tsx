@@ -32,6 +32,7 @@ import {
   estimateTextBoxWidth,
   estimateTextBoxHeight,
   getFontFamilyCss,
+  getLineHeight,
   TEXT_MIN_WIDTH,
   resolveElementId,
   duplicateElement,
