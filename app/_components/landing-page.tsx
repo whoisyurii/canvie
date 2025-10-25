@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { nanoid } from "nanoid";
 import { Layers, MousePointer2, Sparkles, Users, Wand2 } from "lucide-react";
@@ -95,6 +95,8 @@ function generateName(seed: number) {
 
 export default function LandingPage() {
   const [roomId, setRoomId] = useState("");
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const transitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
 
   const cursorNames = useMemo(() => {
@@ -102,9 +104,28 @@ export default function LandingPage() {
     return configs.map((_, index) => generateName(index + 1));
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (transitionTimeoutRef.current) {
+        clearTimeout(transitionTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const navigateWithTransition = (path: string) => {
+    if (isTransitioning) {
+      return;
+    }
+
+    setIsTransitioning(true);
+    transitionTimeoutRef.current = setTimeout(() => {
+      router.push(path);
+    }, 220);
+  };
+
   const createRoom = () => {
     const newRoomId = nanoid(10);
-    router.push(`/r/${newRoomId}`);
+    navigateWithTransition(`/r/${newRoomId}`);
   };
 
   const joinRoom = () => {
@@ -144,11 +165,16 @@ export default function LandingPage() {
       }
     }
 
-    router.push(`/r/${nextRoomId}`);
+    navigateWithTransition(`/r/${nextRoomId}`);
   };
 
   return (
-    <div className="landing-radial-dots relative flex h-svh min-h-svh flex-col overflow-hidden bg-[hsl(var(--bg-board))]">
+    <div
+      className={cn(
+        "landing-radial-dots relative flex h-svh min-h-svh flex-col overflow-hidden bg-[hsl(var(--bg-board))]",
+        isTransitioning && "landing-create-transition pointer-events-none",
+      )}
+    >
       <div className="pointer-events-none absolute inset-0">
         {floatingCursorConfigs.map((config, index) => (
           <AnimatedCursor key={config.position} name={cursorNames[index]} {...config} />
@@ -178,6 +204,7 @@ export default function LandingPage() {
                 <Button
                   size="lg"
                   onClick={createRoom}
+                  disabled={isTransitioning}
                   className="h-12 w-full min-w-[12rem] rounded-xl border border-border/60 bg-primary/90 px-6 text-base shadow-[0_20px_42px_-22px_rgba(15,23,42,0.65)] transition-transform hover:-translate-y-0.5 hover:bg-primary focus-visible:-translate-y-0.5 sm:w-auto"
                 >
                   <Sparkles className="mr-2 h-5 w-5" />
@@ -197,12 +224,13 @@ export default function LandingPage() {
                   placeholder="Paste a room link or code"
                   value={roomId}
                   onChange={(event) => setRoomId(event.target.value)}
+                  disabled={isTransitioning}
                   className="h-12 flex-1 rounded-xl border border-border/60 bg-background/80 px-4 text-base shadow-[0_18px_38px_-24px_rgba(15,23,42,0.55)] backdrop-blur placeholder:text-muted-foreground/80 focus-visible:ring-ring/70 focus-visible:ring-offset-0 sm:text-base"
                 />
                 <Button
                   type="submit"
                   size="lg"
-                  disabled={!roomId.trim()}
+                  disabled={!roomId.trim() || isTransitioning}
                   className="h-12 w-full rounded-xl border border-border/60 bg-secondary/90 px-6 text-base shadow-[0_18px_40px_-24px_rgba(15,23,42,0.6)] transition-transform hover:-translate-y-0.5 hover:bg-secondary focus-visible:-translate-y-0.5 sm:w-auto sm:min-w-[8rem]"
                 >
                   Join room

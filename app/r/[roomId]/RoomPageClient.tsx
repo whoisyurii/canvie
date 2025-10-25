@@ -29,7 +29,7 @@ export function RoomPageClient({ roomId }: RoomPageClientProps) {
 
   return (
     <CollaborationProvider roomId={roomId}>
-      <div className="relative h-screen w-full overflow-x-hidden overflow-y-auto bg-[hsl(var(--bg-board))]">
+      <div className="room-page-enter relative h-screen w-full overflow-x-hidden overflow-y-auto bg-[hsl(var(--bg-board))]">
         <WhiteboardCanvas />
         <PdfViewerDialog />
 
