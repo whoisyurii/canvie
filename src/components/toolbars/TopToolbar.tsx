@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, type ChangeEvent } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   MousePointer2,
@@ -12,7 +12,6 @@ import {
   Type,
   Pencil,
   Eraser,
-  ImagePlus,
   Diamond,
   MoreHorizontal,
   ArrowUp,
@@ -23,11 +22,7 @@ import {
   Ruler,
   LogOut,
 } from "lucide-react";
-import { nanoid } from "nanoid";
 import { useWhiteboardStore, Tool } from "@/lib/store/useWhiteboardStore";
-import { generateFilePreview } from "@/lib/files/preview";
-import { hashFile, storeFile, type FileMetadata } from "@/lib/files/storage";
-import type { FileSyncManager } from "@/lib/collaboration/fileSync";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -53,23 +48,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useAiSettings } from "@/hooks/useAiSettings";
 import { GeminiSettingsDialog } from "@/components/ai/GeminiSettingsDialog";
 import { GeminiWorkspace } from "@/components/ai/GeminiWorkspace";
 import { CollaborationControls } from "./CollaborationControls";
+import { SharedFilesPopover } from "./SharedFilesPopover";
 
 type ToolbarTool = {
   id: Tool;
@@ -135,16 +120,6 @@ export const TopToolbar = () => {
   const {
     activeTool,
     setActiveTool,
-    addElement,
-    addFile,
-    strokeColor,
-    strokeOpacity,
-    strokeWidth,
-    strokeStyle,
-    fillColor,
-    fillOpacity,
-    opacity,
-    currentUser,
     bringToFront,
     sendToBack,
     deleteSelection,
@@ -152,10 +127,8 @@ export const TopToolbar = () => {
     resetView,
     selectedIds,
     elements,
-    collaboration,
   } = useWhiteboardStore();
   const { toast } = useToast();
-  const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isGeminiWorkspaceOpen, setIsGeminiWorkspaceOpen] = useState(false);
   const [isGeminiSettingsOpen, setIsGeminiSettingsOpen] = useState(false);
   const [isLeaveRoomDialogOpen, setIsLeaveRoomDialogOpen] = useState(false);
@@ -163,195 +136,6 @@ export const TopToolbar = () => {
   const hasGeminiKey = Boolean(geminiApiKey);
   const hasSelection = selectedIds.length > 0;
   const hasElements = elements.length > 0;
-  const fileSyncManager = collaboration?.fileSyncManager as FileSyncManager | null;
-
-  const processFile = useCallback(
-    async (file: File) => {
-      if (typeof window === "undefined") {
-        return;
-      }
-
-      const fileId = nanoid();
-      const fileType = file.type || "";
-      const fileName = file.name || "Untitled";
-
-      const fileHash = await hashFile(file);
-      const metadata: FileMetadata = {
-        name: fileName,
-        type: fileType,
-        size: file.size,
-        ownerId: currentUser?.id ?? "local-user",
-        ownerName: currentUser?.name ?? "You",
-      };
-
-      await storeFile(fileId, file, metadata, fileHash);
-      if (fileSyncManager?.notifyLocalFileAdded) {
-        await fileSyncManager.notifyLocalFileAdded(fileId);
-      }
-
-      const tempUrl = URL.createObjectURL(file);
-      let urlRevoked = false;
-      const revokeTempUrl = () => {
-        if (!urlRevoked) {
-          URL.revokeObjectURL(tempUrl);
-          urlRevoked = true;
-        }
-      };
-
-      const generatedThumbnail = await generateFilePreview(file, tempUrl);
-      const thumbnailUrl =
-        generatedThumbnail ?? (fileType.startsWith("image/") ? undefined : undefined);
-
-      addFile({
-        id: fileId,
-        name: fileName,
-        type: fileType,
-        url: fileId,
-        ownerId: metadata.ownerId,
-        ownerName: metadata.ownerName,
-        thumbnailUrl,
-      });
-
-      const baseElement = {
-        id: fileId,
-        x: 240,
-        y: 160,
-        strokeColor,
-        strokeOpacity,
-        strokeWidth,
-        strokeStyle,
-        fillColor,
-        fillOpacity,
-        opacity,
-      };
-
-      if (fileType.startsWith("image/")) {
-        await new Promise<void>((resolve) => {
-          const image = new window.Image();
-          image.onload = () => {
-            const maxDimension = 400;
-            const scale = Math.min(
-              1,
-              maxDimension / Math.max(image.width, image.height),
-            );
-            addElement({
-              ...baseElement,
-              type: "image",
-              width: Math.max(1, Math.round(image.width * scale)),
-              height: Math.max(1, Math.round(image.height * scale)),
-              fileUrl: fileId,
-              fileName,
-              fileType,
-            });
-            revokeTempUrl();
-            resolve();
-          };
-          image.onerror = () => {
-            revokeTempUrl();
-            resolve();
-          };
-          image.src = tempUrl;
-        });
-        return;
-      }
-
-      revokeTempUrl();
-
-      if (fileType === "application/pdf") {
-        const addPdfElement = (width: number, height: number) => {
-          addElement({
-            ...baseElement,
-            type: "file",
-            width,
-            height,
-            fileUrl: fileId,
-            fileName,
-            fileType,
-            pdfPage: 1,
-            thumbnailUrl,
-          });
-        };
-
-        if (thumbnailUrl) {
-          await new Promise<void>((resolve) => {
-            const previewImage = new window.Image();
-            previewImage.onload = () => {
-              const maxDimension = 240;
-              const scale = Math.min(
-                1,
-                maxDimension / Math.max(previewImage.width, previewImage.height),
-              );
-              addPdfElement(
-                Math.max(120, previewImage.width * scale),
-                Math.max(160, previewImage.height * scale),
-              );
-              resolve();
-            };
-            previewImage.onerror = () => {
-              addPdfElement(200, 260);
-              resolve();
-            };
-            previewImage.src = thumbnailUrl;
-          });
-        } else {
-          addPdfElement(200, 260);
-        }
-        return;
-      }
-
-      if (fileType === "text/plain") {
-        await new Promise<void>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (evt) => {
-            const text = (evt.target?.result as string) ?? "";
-            addElement({
-              ...baseElement,
-              type: "text",
-              text: text.slice(0, 200),
-              fileName,
-            });
-            resolve();
-          };
-          reader.onerror = () => resolve();
-          reader.readAsText(file);
-        });
-      }
-    },
-    [
-      addElement,
-      addFile,
-      currentUser?.id,
-      currentUser?.name,
-      fileSyncManager,
-      fillColor,
-      fillOpacity,
-      opacity,
-      strokeOpacity,
-      strokeColor,
-      strokeStyle,
-      strokeWidth,
-    ]
-  );
-
-  const handleFileSelection = useCallback(
-    async (event: ChangeEvent<HTMLInputElement>) => {
-      const files = event.target.files;
-      if (!files?.length) {
-        return;
-      }
-
-      await Promise.all(Array.from(files).map((file) => processFile(file)));
-
-      toast({
-        title: "Files uploaded",
-        description: `${files.length} file${files.length > 1 ? "s" : ""} added to the board`,
-      });
-
-      setIsUploadOpen(false);
-      event.target.value = "";
-    },
-    [processFile, toast]
-  );
 
   const handleClearCanvas = useCallback(() => {
     if (!hasElements) {
@@ -399,120 +183,67 @@ export const TopToolbar = () => {
               activeTool,
               onSelect: setActiveTool,
             })}
-          {renderToolButton(TOOL_DEFINITIONS.pan, {
-            activeTool,
-            onSelect: setActiveTool,
-          })}
-        </div>
+            {renderToolButton(TOOL_DEFINITIONS.pan, {
+              activeTool,
+              onSelect: setActiveTool,
+            })}
+            {renderToolButton(TOOL_DEFINITIONS.ruler, {
+              activeTool,
+              onSelect: setActiveTool,
+            })}
+          </div>
 
-        <Separator orientation="vertical" className="toolbar-separator" />
+          <Separator orientation="vertical" className="toolbar-separator" />
 
-        <div className="toolbar-section">
-          {renderToolButton(TOOL_DEFINITIONS.rectangle, {
-            activeTool,
-            onSelect: setActiveTool,
-          })}
-          {renderToolButton(TOOL_DEFINITIONS.diamond, {
-            activeTool,
-            onSelect: setActiveTool,
-          })}
-          {renderToolButton(TOOL_DEFINITIONS.ellipse, {
-            activeTool,
-            onSelect: setActiveTool,
-          })}
-        </div>
+          <div className="toolbar-section">
+            {renderToolButton(TOOL_DEFINITIONS.rectangle, {
+              activeTool,
+              onSelect: setActiveTool,
+            })}
+            {renderToolButton(TOOL_DEFINITIONS.diamond, {
+              activeTool,
+              onSelect: setActiveTool,
+            })}
+            {renderToolButton(TOOL_DEFINITIONS.ellipse, {
+              activeTool,
+              onSelect: setActiveTool,
+            })}
+          </div>
 
-        <Separator orientation="vertical" className="toolbar-separator" />
+          <Separator orientation="vertical" className="toolbar-separator" />
 
-        <div className="toolbar-section">
-          {renderToolButton(TOOL_DEFINITIONS.arrow, {
-            activeTool,
-            onSelect: setActiveTool,
-          })}
-          {renderToolButton(TOOL_DEFINITIONS.line, {
-            activeTool,
-            onSelect: setActiveTool,
-          })}
-          {renderToolButton(TOOL_DEFINITIONS.ruler, {
-            activeTool,
-            onSelect: setActiveTool,
-          })}
-          {renderToolButton(TOOL_DEFINITIONS.pen, {
-            activeTool,
-            onSelect: setActiveTool,
-          })}
-        </div>
+          <div className="toolbar-section">
+            {renderToolButton(TOOL_DEFINITIONS.arrow, {
+              activeTool,
+              onSelect: setActiveTool,
+            })}
+            {renderToolButton(TOOL_DEFINITIONS.line, {
+              activeTool,
+              onSelect: setActiveTool,
+            })}
+            {renderToolButton(TOOL_DEFINITIONS.pen, {
+              activeTool,
+              onSelect: setActiveTool,
+            })}
+            {renderToolButton(TOOL_DEFINITIONS.eraser, {
+              activeTool,
+              onSelect: setActiveTool,
+            })}
+          </div>
 
-        <Separator orientation="vertical" className="toolbar-separator" />
+          <Separator orientation="vertical" className="toolbar-separator" />
 
-        <div className="toolbar-section">
-          {renderToolButton(TOOL_DEFINITIONS.text, {
-            activeTool,
-            onSelect: setActiveTool,
-          })}
+          <div className="toolbar-section">
+            {renderToolButton(TOOL_DEFINITIONS.text, {
+              activeTool,
+              onSelect: setActiveTool,
+            })}
+            <SharedFilesPopover />
+          </div>
 
-          <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={cn("tool-button", isUploadOpen && "tool-button-active")}
-                  >
-                    <ImagePlus className="h-4 w-4" />
-                  </Button>
-                </DialogTrigger>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>
-                  Insert Image/PDF <kbd className="ml-2 text-xs">(Shift + I)</kbd>
-                </p>
-              </TooltipContent>
-            </Tooltip>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Insert image or PDF</DialogTitle>
-                <DialogDescription>
-                  Upload files to place them on the canvas. Drag & drop also works directly on the
-                  board.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-3 py-2">
-                <div className="space-y-2">
-                  <Label htmlFor="toolbar-upload" className="text-xs font-medium">
-                    Choose files
-                  </Label>
-                  <Input
-                    id="toolbar-upload"
-                    type="file"
-                    accept="image/*,application/pdf"
-                    multiple
-                    onChange={handleFileSelection}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="secondary" onClick={() => setIsUploadOpen(false)}>
-                  Close
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
+          <Separator orientation="vertical" className="toolbar-separator" />
 
-        <Separator orientation="vertical" className="toolbar-separator" />
-
-        <div className="toolbar-section">
-          {renderToolButton(TOOL_DEFINITIONS.eraser, {
-            activeTool,
-            onSelect: setActiveTool,
-          })}
-        </div>
-
-        <Separator orientation="vertical" className="toolbar-separator" />
-
-        <Tooltip>
+          <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
