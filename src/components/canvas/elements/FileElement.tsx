@@ -17,6 +17,7 @@ import type {
   PDFDocumentProxy,
   RenderTask,
 } from "pdfjs-dist/types/src/display/api";
+import type { KonvaEventObject } from "konva/lib/Node";
 
 type HighlightProps = Record<string, unknown> | undefined;
 
@@ -486,11 +487,20 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
       ? "Preview unavailable"
       : (element.fileType ?? "FILE").slice(0, 8).toUpperCase();
 
-  const paginationWidth = Math.max(0, width - padding * 2);
-  const paginationX = padding;
-  const paginationY = padding + previewHeight + paginationGap;
   const paginationSpacing = 8;
   const paginationButtonWidth = paginationHeight;
+  const minIndicatorWidth = 80;
+  const minPaginationWidth =
+    paginationButtonWidth * 2 + paginationSpacing * 2 + minIndicatorWidth;
+  const rawPaginationWidth = isPdf
+    ? Math.max(Math.round(imageWidth), minPaginationWidth)
+    : previewAreaWidth;
+  const paginationWidth = Math.max(
+    0,
+    Math.min(previewAreaWidth, rawPaginationWidth),
+  );
+  const paginationX = padding + (previewAreaWidth - paginationWidth) / 2;
+  const paginationY = padding + previewHeight + paginationGap;
   const indicatorWidth = Math.max(
     0,
     paginationWidth - paginationButtonWidth * 2 - paginationSpacing * 2,
@@ -514,28 +524,53 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
   const nextDisabled =
     !isPaginationInteractive || !pdfPageCount || currentPdfPage >= pdfPageCount;
 
-  const handlePreviousPage = useCallback(() => {
-    if (previousDisabled) {
-      return;
-    }
-    const nextPage = Math.max(1, currentPdfPage - 1);
-    if (nextPage === currentPdfPage) {
-      return;
-    }
-    setFileElementPage(element.id, nextPage);
-  }, [currentPdfPage, element.id, previousDisabled, setFileElementPage]);
+  const handlePreviousPage = useCallback(
+    (event?: KonvaEventObject<Event>) => {
+      if (event) {
+        event.cancelBubble = true;
+      }
+      if (previousDisabled) {
+        return;
+      }
+      const nextPage = Math.max(1, currentPdfPage - 1);
+      if (nextPage === currentPdfPage) {
+        return;
+      }
+      setFileElementPage(element.id, nextPage);
+    },
+    [currentPdfPage, element.id, previousDisabled, setFileElementPage],
+  );
 
-  const handleNextPage = useCallback(() => {
-    if (nextDisabled) {
-      return;
-    }
-    const maxPage = pdfPageCount ?? currentPdfPage;
-    const nextPage = Math.min(maxPage, currentPdfPage + 1);
-    if (nextPage === currentPdfPage) {
-      return;
-    }
-    setFileElementPage(element.id, nextPage);
-  }, [currentPdfPage, element.id, nextDisabled, pdfPageCount, setFileElementPage]);
+  const handleNextPage = useCallback(
+    (event?: KonvaEventObject<Event>) => {
+      if (event) {
+        event.cancelBubble = true;
+      }
+      if (nextDisabled) {
+        return;
+      }
+      const maxPage = pdfPageCount ?? currentPdfPage;
+      const nextPage = Math.min(maxPage, currentPdfPage + 1);
+      if (nextPage === currentPdfPage) {
+        return;
+      }
+      setFileElementPage(element.id, nextPage);
+    },
+    [
+      currentPdfPage,
+      element.id,
+      nextDisabled,
+      pdfPageCount,
+      setFileElementPage,
+    ],
+  );
+
+  const handlePaginationPointerDown = useCallback(
+    (event: KonvaEventObject<Event>) => {
+      event.cancelBubble = true;
+    },
+    [],
+  );
 
   return (
     <Group
@@ -586,13 +621,16 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
           x={paginationX}
           y={paginationY}
           data-testid={`${element.id}-pagination`}
+          onMouseDown={handlePaginationPointerDown}
+          onTouchStart={handlePaginationPointerDown}
+          onPointerDown={handlePaginationPointerDown}
         >
           <Rect
             x={0}
             y={0}
             width={paginationWidth}
             height={paginationHeight}
-            fill="rgba(15, 23, 42, 0.08)"
+            fill="#e2e8f0"
             cornerRadius={8}
             listening={false}
           />
@@ -605,13 +643,16 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
             onTap={handlePreviousPage}
             opacity={previousDisabled ? 0.45 : 1}
             data-testid={`${element.id}-pagination-prev`}
+            onMouseDown={handlePaginationPointerDown}
+            onTouchStart={handlePaginationPointerDown}
+            onPointerDown={handlePaginationPointerDown}
           >
             <Rect
               x={0}
               y={0}
               width={paginationButtonWidth}
               height={paginationHeight}
-              fill="rgba(255, 255, 255, 0.9)"
+              fill="#f8fafc"
               cornerRadius={8}
               listening={false}
             />
@@ -623,7 +664,7 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
               text="‹"
               fontSize={16}
               align="center"
-              fill="#1f2937"
+              fill="#0f172a"
               listening={false}
             />
           </Group>
@@ -636,7 +677,7 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
             text={paginationLabel}
             fontSize={14}
             align="center"
-            fill="#1f2937"
+            fill="#0f172a"
             listening={false}
           />
           <Group
@@ -648,13 +689,16 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
             onTap={handleNextPage}
             opacity={nextDisabled ? 0.45 : 1}
             data-testid={`${element.id}-pagination-next`}
+            onMouseDown={handlePaginationPointerDown}
+            onTouchStart={handlePaginationPointerDown}
+            onPointerDown={handlePaginationPointerDown}
           >
             <Rect
               x={0}
               y={0}
               width={paginationButtonWidth}
               height={paginationHeight}
-              fill="rgba(255, 255, 255, 0.9)"
+              fill="#f8fafc"
               cornerRadius={8}
               listening={false}
             />
@@ -666,7 +710,7 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
               text="›"
               fontSize={16}
               align="center"
-              fill="#1f2937"
+              fill="#0f172a"
               listening={false}
             />
           </Group>
