@@ -113,6 +113,18 @@ export const CollaborationControls = () => {
     return roomId ? `/r/${roomId}` : "";
   }, [roomId, shareUrl]);
 
+  const inviteUrlDisplay = useMemo(() => {
+    if (!inviteUrl) {
+      return inviteUrl;
+    }
+
+    try {
+      return inviteUrl.replace(/^https?:\/\//, "");
+    } catch (error) {
+      return inviteUrl;
+    }
+  }, [inviteUrl]);
+
   const handleInviteOpenChange = (open: boolean) => {
     setInviteOpen(open);
     if (!open) {
@@ -212,7 +224,7 @@ export const CollaborationControls = () => {
                 <p className="text-xs text-muted-foreground">Send this invite link to teammates.</p>
                 <div className="flex items-center gap-1">
                   <code className="flex h-7 min-w-0 flex-1 items-center truncate rounded-md border border-sidebar-border bg-sidebar-accent/40 px-2 text-xs font-mono text-sidebar-foreground">
-                    {inviteUrl || "Generating invite link..."}
+                    {inviteUrlDisplay || "Generating invite link..."}
                   </code>
                   <Button
                     size="sm"
