@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useWhiteboardStore, Tool } from "@/lib/store/useWhiteboardStore";
 
-const toolShortcuts: Record<string, Tool> = {
+const toolShortcutsByKey: Record<string, Tool> = {
   v: "select",
   h: "pan",
   r: "rectangle",
@@ -15,6 +15,20 @@ const toolShortcuts: Record<string, Tool> = {
   p: "pen",
   e: "eraser",
   m: "ruler",
+};
+
+const toolShortcutsByCode: Record<string, Tool> = {
+  KeyV: "select",
+  KeyH: "pan",
+  KeyR: "rectangle",
+  KeyD: "diamond",
+  KeyO: "ellipse",
+  KeyA: "arrow",
+  KeyL: "line",
+  KeyT: "text",
+  KeyP: "pen",
+  KeyE: "eraser",
+  KeyM: "ruler",
 };
 
 export const useKeyboardShortcuts = () => {
@@ -33,17 +47,23 @@ export const useKeyboardShortcuts = () => {
 
       const key = e.key.toLowerCase();
 
-      // Tool shortcuts
-      if (toolShortcuts[key] && !e.ctrlKey && !e.metaKey) {
-        e.preventDefault();
-        setActiveTool(toolShortcuts[key]);
+      if (e.target instanceof HTMLElement && e.target.isContentEditable) {
         return;
       }
 
-      if ((key === "delete" || key === "backspace") && !e.ctrlKey && !e.metaKey) {
-        e.preventDefault();
-        deleteSelection();
-        return;
+      if (!e.ctrlKey && !e.metaKey) {
+        const toolShortcut = toolShortcutsByCode[e.code] ?? toolShortcutsByKey[key];
+        if (toolShortcut) {
+          e.preventDefault();
+          setActiveTool(toolShortcut);
+          return;
+        }
+
+        if (key === "delete" || key === "backspace") {
+          e.preventDefault();
+          deleteSelection();
+          return;
+        }
       }
 
       if ((e.ctrlKey || e.metaKey) && key === "0") {
