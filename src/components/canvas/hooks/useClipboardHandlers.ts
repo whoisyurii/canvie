@@ -34,6 +34,10 @@ type UseClipboardHandlersParams = {
   textFontFamily: string;
   textFontSize: number;
   textAlign: TextAlignment;
+  textBold: boolean;
+  textItalic: boolean;
+  textUnderline: boolean;
+  textStrikethrough: boolean;
 };
 
 type ClipboardHandlers = {
@@ -61,6 +65,10 @@ export const useClipboardHandlers = ({
   textFontFamily,
   textFontSize,
   textAlign,
+  textBold,
+  textItalic,
+  textUnderline,
+  textStrikethrough,
 }: UseClipboardHandlersParams): ClipboardHandlers => {
   const createTextElementFromClipboard = useCallback(
     (content: string, position: { x: number; y: number }) => {
@@ -87,6 +95,10 @@ export const useClipboardHandlers = ({
         fontFamily: textFontFamily,
         fontSize: textFontSize,
         textAlign,
+        isBold: textBold,
+        isItalic: textItalic,
+        isUnderline: textUnderline,
+        isStrikethrough: textStrikethrough,
         width,
         height,
       };
@@ -105,6 +117,10 @@ export const useClipboardHandlers = ({
       strokeStyle,
       strokeWidth,
       textAlign,
+      textBold,
+      textItalic,
+      textStrikethrough,
+      textUnderline,
       textFontFamily,
       textFontSize,
     ],

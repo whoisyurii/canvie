@@ -109,6 +109,10 @@ export const WhiteboardCanvas = () => {
     textFontFamily,
     textFontSize,
     textAlign,
+    textBold,
+    textItalic,
+    textUnderline,
+    textStrikethrough,
     canvasBackground,
     setCanvasBackground,
     pan,
@@ -140,6 +144,11 @@ export const WhiteboardCanvas = () => {
     textFontFamily,
     textFontSize,
     textAlign,
+    textBold,
+    textItalic,
+    textUnderline,
+    textStrikethrough,
+    elements,
     setSelectedIds,
     updateElement,
     deleteElement,
@@ -313,6 +322,10 @@ export const WhiteboardCanvas = () => {
     textFontFamily,
     textFontSize,
     textAlign,
+    textBold,
+    textItalic,
+    textUnderline,
+    textStrikethrough,
   });
 
   const isRulerMode = activeTool === "ruler";
@@ -915,6 +928,10 @@ export const WhiteboardCanvas = () => {
         fontFamily: textFontFamily,
         fontSize: textFontSize,
         textAlign,
+        isBold: textBold,
+        isItalic: textItalic,
+        isUnderline: textUnderline,
+        isStrikethrough: textStrikethrough,
       };
       addElement(newText);
       beginTextEditing(newText, {

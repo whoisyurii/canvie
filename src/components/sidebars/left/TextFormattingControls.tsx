@@ -12,7 +12,15 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TextAlignment } from "@/lib/store/useWhiteboardStore";
-import { AlignCenter, AlignLeft, AlignRight } from "lucide-react";
+import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
+  Bold,
+  Italic,
+  Underline,
+  Strikethrough,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TextFormattingControlsProps {
@@ -22,6 +30,14 @@ interface TextFormattingControlsProps {
   onFontSizeChange: (size: number) => void;
   alignment: TextAlignment;
   onAlignmentChange: (alignment: TextAlignment) => void;
+  bold: boolean;
+  onBoldChange: (bold: boolean) => void;
+  italic: boolean;
+  onItalicChange: (italic: boolean) => void;
+  underline: boolean;
+  onUnderlineChange: (underline: boolean) => void;
+  strikethrough: boolean;
+  onStrikethroughChange: (strikethrough: boolean) => void;
   disabled?: boolean;
 }
 
@@ -56,6 +72,16 @@ const ALIGN_OPTIONS: Array<{ value: TextAlignment; icon: ReactNode; label: strin
   { value: "right", icon: <AlignRight className="h-4 w-4" />, label: "Right" },
 ];
 
+const STYLE_OPTIONS: Array<{
+  value: "bold" | "italic" | "underline" | "strikethrough";
+  icon: ReactNode;
+}> = [
+  { value: "bold", icon: <Bold className="h-4 w-4" /> },
+  { value: "italic", icon: <Italic className="h-4 w-4" /> },
+  { value: "underline", icon: <Underline className="h-4 w-4" /> },
+  { value: "strikethrough", icon: <Strikethrough className="h-4 w-4" /> },
+];
+
 export const TextFormattingControls = ({
   fontFamily,
   onFontFamilyChange,
@@ -63,8 +89,23 @@ export const TextFormattingControls = ({
   onFontSizeChange,
   alignment,
   onAlignmentChange,
+  bold,
+  onBoldChange,
+  italic,
+  onItalicChange,
+  underline,
+  onUnderlineChange,
+  strikethrough,
+  onStrikethroughChange,
   disabled,
 }: TextFormattingControlsProps) => {
+  const selectedStyles = [
+    bold ? "bold" : null,
+    italic ? "italic" : null,
+    underline ? "underline" : null,
+    strikethrough ? "strikethrough" : null,
+  ].filter(Boolean) as Array<"bold" | "italic" | "underline" | "strikethrough">;
+
   return (
     <SidebarSection title="Text" disabled={disabled}>
       <div className="space-y-3">
@@ -135,6 +176,36 @@ export const TextFormattingControls = ({
                   {option.icon}
                   <span className="font-medium">{option.label}</span>
                 </div>
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </div>
+
+        <div className="space-y-1">
+          <span className="text-xs font-semibold uppercase tracking-wide text-sidebar-foreground/80">Style</span>
+          <ToggleGroup
+            type="multiple"
+            value={selectedStyles}
+            onValueChange={(values) => {
+              onBoldChange(values.includes("bold"));
+              onItalicChange(values.includes("italic"));
+              onUnderlineChange(values.includes("underline"));
+              onStrikethroughChange(values.includes("strikethrough"));
+            }}
+            className="grid grid-cols-4 gap-1.5"
+          >
+            {STYLE_OPTIONS.map((option) => (
+              <ToggleGroupItem
+                key={option.value}
+                value={option.value}
+                className={cn(
+                  "group flex h-9 items-center justify-center rounded-md border border-sidebar-border bg-sidebar/60 text-sidebar-foreground/80 transition",
+                  "data-[state=on]:border-accent data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm",
+                  disabled && "cursor-not-allowed opacity-70"
+                )}
+                disabled={disabled}
+              >
+                {option.icon}
               </ToggleGroupItem>
             ))}
           </ToggleGroup>

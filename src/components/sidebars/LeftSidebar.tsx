@@ -91,6 +91,14 @@ export const LeftSidebar = () => {
     setTextFontSize,
     textAlign,
     setTextAlign,
+    textBold,
+    setTextBold,
+    textItalic,
+    setTextItalic,
+    textUnderline,
+    setTextUnderline,
+    textStrikethrough,
+    setTextStrikethrough,
     selectedIds,
     bringToFront,
     sendToBack,
@@ -130,6 +138,38 @@ export const LeftSidebar = () => {
         ? firstAlignment
         : textAlign
     : textAlign;
+  const firstBold = (firstTextElement?.isBold ?? textBold) ?? false;
+  const resolvedBold = hasTextSelection
+    ? selectedTextElements.every(
+        (element) => (element.isBold ?? textBold ?? false) === firstBold,
+      )
+        ? firstBold
+        : textBold ?? false
+    : textBold ?? false;
+  const firstItalic = (firstTextElement?.isItalic ?? textItalic) ?? false;
+  const resolvedItalic = hasTextSelection
+    ? selectedTextElements.every(
+        (element) => (element.isItalic ?? textItalic ?? false) === firstItalic,
+      )
+        ? firstItalic
+        : textItalic ?? false
+    : textItalic ?? false;
+  const firstUnderline = (firstTextElement?.isUnderline ?? textUnderline) ?? false;
+  const resolvedUnderline = hasTextSelection
+    ? selectedTextElements.every(
+        (element) => (element.isUnderline ?? textUnderline ?? false) === firstUnderline,
+      )
+        ? firstUnderline
+        : textUnderline ?? false
+    : textUnderline ?? false;
+  const firstStrikethrough = (firstTextElement?.isStrikethrough ?? textStrikethrough) ?? false;
+  const resolvedStrikethrough = hasTextSelection
+    ? selectedTextElements.every(
+        (element) => (element.isStrikethrough ?? textStrikethrough ?? false) === firstStrikethrough,
+      )
+        ? firstStrikethrough
+        : textStrikethrough ?? false
+    : textStrikethrough ?? false;
 
   const renderSections = () => {
     switch (activeTool) {
@@ -159,6 +199,14 @@ export const LeftSidebar = () => {
             onFontSizeChange={setTextFontSize}
             alignment={resolvedAlignment}
             onAlignmentChange={setTextAlign}
+            bold={resolvedBold}
+            onBoldChange={setTextBold}
+            italic={resolvedItalic}
+            onItalicChange={setTextItalic}
+            underline={resolvedUnderline}
+            onUnderlineChange={setTextUnderline}
+            strikethrough={resolvedStrikethrough}
+            onStrikethroughChange={setTextStrikethrough}
           />
         );
       }
@@ -289,6 +337,14 @@ export const LeftSidebar = () => {
               onFontSizeChange={setTextFontSize}
               alignment={textAlign}
               onAlignmentChange={setTextAlign}
+              bold={textBold}
+              onBoldChange={setTextBold}
+              italic={textItalic}
+              onItalicChange={setTextItalic}
+              underline={textUnderline}
+              onUnderlineChange={setTextUnderline}
+              strikethrough={textStrikethrough}
+              onStrikethroughChange={setTextStrikethrough}
             />
             <OpacityControl value={opacity} onChange={setOpacity} />
           </>

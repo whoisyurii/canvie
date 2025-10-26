@@ -2,7 +2,7 @@
 
 import { forwardRef, type Dispatch, type SetStateAction, type CSSProperties } from "react";
 
-import { estimateTextBoxWidth, TEXT_MIN_WIDTH } from "@/lib/canvas";
+import { estimateTextBoxWidth, getFontFamilyCss, TEXT_MIN_WIDTH } from "@/lib/canvas";
 
 import type { EditingTextState } from "./types";
 
@@ -21,6 +21,14 @@ export const CanvasTextEditor = forwardRef<HTMLTextAreaElement, CanvasTextEditor
       return null;
     }
 
+    const textDecoration = [
+      editingText.isUnderline ? "underline" : null,
+      editingText.isStrikethrough ? "line-through" : null,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
     return (
       <textarea
         ref={ref}
@@ -34,6 +42,12 @@ export const CanvasTextEditor = forwardRef<HTMLTextAreaElement, CanvasTextEditor
           wordBreak: "keep-all",
           minWidth: editingText.lockWidth ? undefined : `${TEXT_MIN_WIDTH * safeZoom}px`,
           maxWidth: "none",
+          fontFamily: getFontFamilyCss(editingText.fontFamily),
+          fontSize: editingText.fontSize * safeZoom,
+          fontWeight: editingText.isBold ? 700 : 400,
+          fontStyle: editingText.isItalic ? "italic" : "normal",
+          textDecoration: textDecoration || undefined,
+          textAlign: editingText.alignment,
         }}
         value={editingText.value}
         onChange={(event) => {

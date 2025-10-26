@@ -34,6 +34,10 @@ export type EditingTextState = {
   fontSize: number;
   fontFamily: string;
   alignment: TextAlignment;
+  isBold: boolean;
+  isItalic: boolean;
+  isUnderline: boolean;
+  isStrikethrough: boolean;
   lockWidth: boolean;
   persistWidth: boolean;
 };

@@ -32,6 +32,39 @@ import type { SelectionRect } from "./types";
 
 type InteractionProps = Record<string, unknown>;
 
+const getElementFontStyle = (element: CanvasElement) => {
+  const isBold = element.isBold;
+  const isItalic = element.isItalic;
+
+  if (isBold && isItalic) {
+    return "bold italic" as const;
+  }
+
+  if (isBold) {
+    return "bold" as const;
+  }
+
+  if (isItalic) {
+    return "italic" as const;
+  }
+
+  return "normal" as const;
+};
+
+const getElementTextDecoration = (element: CanvasElement) => {
+  const decorations: string[] = [];
+
+  if (element.isUnderline) {
+    decorations.push("underline");
+  }
+
+  if (element.isStrikethrough) {
+    decorations.push("line-through");
+  }
+
+  return decorations.length > 0 ? decorations.join(" ") : undefined;
+};
+
 export type CanvasElementsLayerProps = {
   visibleElements: CanvasElement[];
   selectedIds: string[];
@@ -205,6 +238,8 @@ export const CanvasElementsLayer = ({
                   text={element.text ?? ""}
                   fontSize={labelFontSize}
                   fontFamily={getFontFamilyCss(element.fontFamily)}
+                  fontStyle={getElementFontStyle(element)}
+                  textDecoration={getElementTextDecoration(element)}
                   lineHeight={labelLineHeight}
                   align={(element.textAlign as TextAlignment | undefined) ?? "center"}
                   verticalAlign="middle"
@@ -306,6 +341,8 @@ export const CanvasElementsLayer = ({
                     text={element.text ?? ""}
                     fontSize={labelFontSize}
                     fontFamily={getFontFamilyCss(element.fontFamily)}
+                    fontStyle={getElementFontStyle(element)}
+                    textDecoration={getElementTextDecoration(element)}
                     lineHeight={labelLineHeight}
                     align={(element.textAlign as TextAlignment | undefined) ?? "center"}
                     verticalAlign="middle"
@@ -752,6 +789,8 @@ export const CanvasElementsLayer = ({
               text={element.text || ""}
               fontSize={elementFontSize}
               fontFamily={getFontFamilyCss(element.fontFamily)}
+              fontStyle={getElementFontStyle(element)}
+              textDecoration={getElementTextDecoration(element)}
               lineHeight={lineHeightRatio}
               align={(element.textAlign as TextAlignment | undefined) ?? "left"}
               fill={getColorWithOpacity(element.strokeColor, element.strokeOpacity)}
