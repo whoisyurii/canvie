@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { Route } from "next";
 import { nanoid } from "nanoid";
 import { Layers, MousePointer2, Sparkles, Users, Wand2 } from "lucide-react";
@@ -99,6 +99,7 @@ export default function LandingPage() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const transitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
+  const pathname = usePathname();
 
   const cursorNames = useMemo(() => {
     const configs = [...floatingCursorConfigs, ctaCursorConfig];
@@ -112,6 +113,12 @@ export default function LandingPage() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (pathname === "/") {
+      setIsTransitioning(false);
+    }
+  }, [pathname]);
 
   const navigateWithTransition = (path: Route) => {
     if (isTransitioning) {
