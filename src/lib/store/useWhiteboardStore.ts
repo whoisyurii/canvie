@@ -63,6 +63,10 @@ export interface CanvasElement {
   fontFamily?: string;
   fontSize?: number;
   textAlign?: TextAlignment;
+  isBold?: boolean;
+  isItalic?: boolean;
+  isUnderline?: boolean;
+  isStrikethrough?: boolean;
 }
 
 export interface User {
@@ -181,6 +185,10 @@ type ToolSettingDefaults = {
   textFontFamily?: string;
   textFontSize?: number;
   textAlign?: TextAlignment;
+  textBold?: boolean;
+  textItalic?: boolean;
+  textUnderline?: boolean;
+  textStrikethrough?: boolean;
 };
 
 const TOOL_DEFAULTS: Record<Tool, ToolSettingDefaults> = {
@@ -253,6 +261,10 @@ const TOOL_DEFAULTS: Record<Tool, ToolSettingDefaults> = {
     textFontFamily: "Inter",
     textFontSize: 20,
     textAlign: "left",
+    textBold: false,
+    textItalic: false,
+    textUnderline: false,
+    textStrikethrough: false,
   },
   pen: {
     strokeColor: "#1f2937",
@@ -335,6 +347,14 @@ interface WhiteboardState {
   setTextFontSize: (size: number) => void;
   textAlign: TextAlignment;
   setTextAlign: (alignment: TextAlignment) => void;
+  textBold: boolean;
+  setTextBold: (bold: boolean) => void;
+  textItalic: boolean;
+  setTextItalic: (italic: boolean) => void;
+  textUnderline: boolean;
+  setTextUnderline: (underline: boolean) => void;
+  textStrikethrough: boolean;
+  setTextStrikethrough: (strikethrough: boolean) => void;
 
   // Canvas
   canvasBackground: CanvasBackground;
@@ -579,6 +599,86 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
     }
 
     textIds.forEach((id) => state.updateElement(id, { textAlign: alignment }));
+    state.pushHistory();
+  },
+  textBold: false,
+  setTextBold: (bold) => {
+    set({ textBold: bold });
+    const state = get();
+    if (state.activeTool !== "select") {
+      return;
+    }
+
+    const textIds = state.selectedIds.filter((id) => {
+      const element = state.elements.find((el) => el.id === id);
+      return element?.type === "text";
+    });
+
+    if (textIds.length === 0) {
+      return;
+    }
+
+    textIds.forEach((id) => state.updateElement(id, { isBold: bold }));
+    state.pushHistory();
+  },
+  textItalic: false,
+  setTextItalic: (italic) => {
+    set({ textItalic: italic });
+    const state = get();
+    if (state.activeTool !== "select") {
+      return;
+    }
+
+    const textIds = state.selectedIds.filter((id) => {
+      const element = state.elements.find((el) => el.id === id);
+      return element?.type === "text";
+    });
+
+    if (textIds.length === 0) {
+      return;
+    }
+
+    textIds.forEach((id) => state.updateElement(id, { isItalic: italic }));
+    state.pushHistory();
+  },
+  textUnderline: false,
+  setTextUnderline: (underline) => {
+    set({ textUnderline: underline });
+    const state = get();
+    if (state.activeTool !== "select") {
+      return;
+    }
+
+    const textIds = state.selectedIds.filter((id) => {
+      const element = state.elements.find((el) => el.id === id);
+      return element?.type === "text";
+    });
+
+    if (textIds.length === 0) {
+      return;
+    }
+
+    textIds.forEach((id) => state.updateElement(id, { isUnderline: underline }));
+    state.pushHistory();
+  },
+  textStrikethrough: false,
+  setTextStrikethrough: (strikethrough) => {
+    set({ textStrikethrough: strikethrough });
+    const state = get();
+    if (state.activeTool !== "select") {
+      return;
+    }
+
+    const textIds = state.selectedIds.filter((id) => {
+      const element = state.elements.find((el) => el.id === id);
+      return element?.type === "text";
+    });
+
+    if (textIds.length === 0) {
+      return;
+    }
+
+    textIds.forEach((id) => state.updateElement(id, { isStrikethrough: strikethrough }));
     state.pushHistory();
   },
 

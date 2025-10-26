@@ -22,6 +22,11 @@ export type UseTextEditingParams = {
   textFontSize: number;
   textFontFamily: string;
   textAlign: TextAlignment;
+  textBold: boolean;
+  textItalic: boolean;
+  textUnderline: boolean;
+  textStrikethrough: boolean;
+  elements: CanvasElement[];
   setSelectedIds: (ids: string[]) => void;
   updateElement: (id: string, updates: Partial<CanvasElement>) => void;
   deleteElement: (id: string) => void;
@@ -47,6 +52,11 @@ export const useTextEditing = ({
   textFontFamily,
   textFontSize,
   textAlign,
+  textBold,
+  textItalic,
+  textUnderline,
+  textStrikethrough,
+  elements,
   setSelectedIds,
   updateElement,
   deleteElement,
@@ -59,6 +69,46 @@ export const useTextEditing = ({
   useEffect(() => {
     editingTextRef.current = editingText;
   }, [editingText]);
+
+  useEffect(() => {
+    const current = editingTextRef.current;
+    if (!current) {
+      return;
+    }
+
+    const element = elements.find((item) => item.id === current.id);
+    if (!element) {
+      return;
+    }
+
+    setEditingText((previous) => {
+      if (!previous) {
+        return previous;
+      }
+
+      const nextState: EditingTextState = {
+        ...previous,
+        fontFamily: element.fontFamily ?? previous.fontFamily,
+        fontSize: element.fontSize ?? previous.fontSize,
+        alignment: element.textAlign ?? previous.alignment,
+        isBold: element.isBold ?? previous.isBold,
+        isItalic: element.isItalic ?? previous.isItalic,
+        isUnderline: element.isUnderline ?? previous.isUnderline,
+        isStrikethrough: element.isStrikethrough ?? previous.isStrikethrough,
+      };
+
+      const hasChanges =
+        nextState.fontFamily !== previous.fontFamily ||
+        nextState.fontSize !== previous.fontSize ||
+        nextState.alignment !== previous.alignment ||
+        nextState.isBold !== previous.isBold ||
+        nextState.isItalic !== previous.isItalic ||
+        nextState.isUnderline !== previous.isUnderline ||
+        nextState.isStrikethrough !== previous.isStrikethrough;
+
+      return hasChanges ? nextState : previous;
+    });
+  }, [elements, setEditingText]);
 
   useEffect(() => {
     if (!editingText) {
@@ -83,6 +133,10 @@ export const useTextEditing = ({
       const fontSize = element.fontSize ?? textFontSize;
       const fontFamily = element.fontFamily ?? textFontFamily;
       const alignment = element.textAlign ?? textAlign;
+      const isBold = element.isBold ?? textBold;
+      const isItalic = element.isItalic ?? textItalic;
+      const isUnderline = element.isUnderline ?? textUnderline;
+      const isStrikethrough = element.isStrikethrough ?? textStrikethrough;
 
       let width =
         options?.width ??
@@ -132,6 +186,10 @@ export const useTextEditing = ({
         fontSize,
         fontFamily,
         alignment,
+        isBold,
+        isItalic,
+        isUnderline,
+        isStrikethrough,
         lockWidth,
         persistWidth,
       };
@@ -139,7 +197,16 @@ export const useTextEditing = ({
       setSelectedIds([element.id]);
       setEditingText(editingState);
     },
-    [setSelectedIds, textAlign, textFontFamily, textFontSize],
+    [
+      setSelectedIds,
+      textAlign,
+      textBold,
+      textFontFamily,
+      textFontSize,
+      textItalic,
+      textStrikethrough,
+      textUnderline,
+    ],
   );
 
   const finishEditingText = useCallback(
@@ -176,6 +243,10 @@ export const useTextEditing = ({
         fontSize: current.fontSize,
         fontFamily: current.fontFamily,
         textAlign: current.alignment,
+        isBold: current.isBold,
+        isItalic: current.isItalic,
+        isUnderline: current.isUnderline,
+        isStrikethrough: current.isStrikethrough,
       };
 
       if (current.persistWidth) {
