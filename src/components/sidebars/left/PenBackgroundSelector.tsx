@@ -30,22 +30,29 @@ export const PenBackgroundSelector = ({
         <button
           type="button"
           aria-pressed={isTransparent}
+          aria-label="No stroke background"
           disabled={disabled}
           className={cn(
-            "flex h-11 flex-col items-center justify-center rounded-md border text-[11px] font-medium transition",
-            isTransparent
-              ? "border-accent bg-background text-foreground shadow-sm"
-              : "border-sidebar-border bg-sidebar/60 text-sidebar-foreground/80 hover:scale-105",
-            disabled && "cursor-not-allowed opacity-70 hover:scale-100"
+            "group flex flex-col items-center gap-1 text-[11px] font-medium transition",
+            disabled && "cursor-not-allowed opacity-70"
           )}
-          style={{
-            backgroundImage: transparentPattern,
-            backgroundSize: "10px 10px",
-            backgroundPosition: "0 0,5px 5px",
-          }}
           onClick={() => onChange("transparent")}
         >
-          None
+          <span
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-full border transition-transform",
+              isTransparent
+                ? "border-accent ring-2 ring-accent/60"
+                : "border-sidebar-border group-hover:scale-105",
+              disabled && "group-hover:scale-100"
+            )}
+            style={{
+              backgroundImage: transparentPattern,
+              backgroundSize: "10px 10px",
+              backgroundPosition: "0 0,5px 5px",
+            }}
+          />
+          <span>None</span>
         </button>
         {colors.map((color) => {
           const isActive = value === color;
@@ -54,17 +61,26 @@ export const PenBackgroundSelector = ({
               key={color}
               type="button"
               aria-pressed={isActive}
+              aria-label={`Set stroke background to ${color}`}
               disabled={disabled}
               className={cn(
-                "h-11 rounded-md border transition",
-                isActive
-                  ? "border-accent bg-background shadow-sm"
-                  : "border-sidebar-border hover:scale-105",
-                disabled && "cursor-not-allowed opacity-70 hover:scale-100"
+                "group flex flex-col items-center transition",
+                disabled && "cursor-not-allowed opacity-70"
               )}
-              style={{ backgroundColor: color }}
               onClick={() => onChange(color)}
-            />
+            >
+              <span
+                className={cn(
+                  "h-8 w-8 rounded-full border transition-transform",
+                  isActive
+                    ? "border-accent ring-2 ring-accent/60"
+                    : "border-sidebar-border group-hover:scale-105",
+                  disabled && "group-hover:scale-100"
+                )}
+                style={{ backgroundColor: color }}
+              />
+              <span className="sr-only">{color}</span>
+            </button>
           );
         })}
       </div>
