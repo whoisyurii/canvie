@@ -20,8 +20,6 @@ import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
 import type { CanvasBackground, CanvasElement } from "@/lib/store/useWhiteboardStore";
 import { useToast } from "@/hooks/use-toast";
 import {
-  RESIZABLE_ELEMENT_TYPES,
-  TEXT_MIN_WIDTH,
   duplicateElement,
   ensureCurvePoints,
   estimateTextBoxHeight,
@@ -29,8 +27,6 @@ import {
   getElementBounds,
   getFontFamilyCss,
   getLineHeight,
-  isElementWithinSelection,
-  normalizeRectBounds,
   resolveElementId,
   type Bounds,
 } from "@/lib/canvas";
@@ -41,15 +37,12 @@ import type { CanvasElementsLayerProps } from "../CanvasElementsLayer";
 import { useCanvasBackground } from "./useCanvasBackground";
 import { useClipboardHandlers, getClipboardSupport } from "./useClipboardHandlers";
 import { useDragDrop } from "../DragDropHandler";
-import type { RulerMeasurement } from "../RulerOverlay";
 import { useStageSize } from "./useStageSize";
 import { useTextEditing } from "./useTextEditing";
-import type {
-  EditingTextState,
-  MarqueeSelectionState,
-  SelectionDragState,
-  SelectionRect,
-} from "../types";
+import type { EditingTextState } from "../types";
+import { useCanvasPanZoom } from "./useCanvasPanZoom";
+import { useRulerMeasurement } from "./useRulerMeasurement";
+import { useSelectionInteractions } from "./useSelectionInteractions";
 
 const SELECTION_GROUP_ID = "__selection_group__";
 
@@ -108,23 +101,13 @@ export const useWhiteboardCanvas = (): WhiteboardCanvasController => {
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
   const stageSize = useStageSize(containerRef);
-  const marqueeSelectionRef = useRef<MarqueeSelectionState | null>(null);
-  const selectionDragStateRef = useRef<SelectionDragState | null>(null);
   const lastErasedIdRef = useRef<string | null>(null);
-  const pendingPanRef = useRef<{ x: number; y: number } | null>(null);
-  const panAnimationFrameRef = useRef<number | null>(null);
-  const measurementStartRef = useRef<{ x: number; y: number } | null>(null);
-  const rulerMeasurementRef = useRef<RulerMeasurement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isErasing, setIsErasing] = useState(false);
   const [currentShape, setCurrentShape] = useState<CanvasElement | null>(null);
   const currentShapeRef = useRef<CanvasElement | null>(null);
   const isDrawingRef = useRef(false);
-  const [isPanning, setIsPanning] = useState(false);
-  const [isMiddleMousePanning, setIsMiddleMousePanning] = useState(false);
-  const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(null);
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
-  const [rulerMeasurement, setRulerMeasurement] = useState<RulerMeasurement | null>(null);
   const { handleDrop, handleDragOver, addFilesToCanvas } = useDragDrop();
   const { toast } = useToast();
 
@@ -189,6 +172,46 @@ export const useWhiteboardCanvas = (): WhiteboardCanvasController => {
   const panX = pan.x;
   const panY = pan.y;
   const safeZoom = zoom || 1;
+  const {
+    isMiddleMousePanning,
+    stopMiddleMousePan,
+    handlePanMouseDown,
+    handleWheel,
+    stageCursorClass,
+    isPanMode,
+    stageDragHandlers,
+  } = useCanvasPanZoom({
+    stageRef,
+    pan,
+    setPan,
+    safeZoom,
+    activeTool,
+  });
+
+  const getCanvasPointerPosition = useCallback(() => {
+    const stage = stageRef.current;
+    if (!stage) return null;
+    const pos = stage.getPointerPosition();
+    if (!pos) return null;
+    return {
+      x: (pos.x - panX) / safeZoom,
+      y: (pos.y - panY) / safeZoom,
+    };
+  }, [panX, panY, safeZoom, stageRef]);
+
+  const isRulerMode = activeTool === "ruler";
+  const {
+    rulerMeasurement,
+    handlePointerDown: handleRulerPointerDown,
+    handlePointerMove: handleRulerPointerMove,
+    handlePointerUp: handleRulerPointerUp,
+    handleGlobalPointerUp: handleRulerGlobalPointerUp,
+    handleMouseLeave: handleRulerMouseLeave,
+  } = useRulerMeasurement({
+    isRulerMode,
+    getCanvasPointerPosition,
+  });
+
   const { readSupported: clipboardReadSupported, writeSupported: clipboardWriteSupported } =
     useMemo(() => getClipboardSupport(), []);
 
@@ -236,13 +259,6 @@ export const useWhiteboardCanvas = (): WhiteboardCanvasController => {
   );
 
   useEffect(() => {
-    if (activeTool !== "select") {
-      marqueeSelectionRef.current = null;
-      setSelectionRect(null);
-    }
-  }, [activeTool]);
-
-  useEffect(() => {
     if (activeTool !== "eraser") {
       if (isErasing) {
         setIsErasing(false);
@@ -277,71 +293,6 @@ export const useWhiteboardCanvas = (): WhiteboardCanvasController => {
       updateElement(element.id, { points: normalized });
     });
   }, [elements, updateElement]);
-
-  useEffect(() => {
-    const stage = stageRef.current;
-    if (!stage || isPanning) return;
-
-    const position = stage.position();
-    if (position.x !== panX || position.y !== panY) {
-      stage.position({ x: panX, y: panY });
-      stage.batchDraw();
-    }
-  }, [panX, panY, isPanning]);
-
-  useEffect(() => {
-    const stage = stageRef.current;
-    if (!stage) return;
-
-    if (stage.scaleX() !== safeZoom || stage.scaleY() !== safeZoom) {
-      stage.scale({ x: safeZoom, y: safeZoom });
-      stage.batchDraw();
-    }
-  }, [safeZoom]);
-
-  const getCanvasPointerPosition = useCallback(() => {
-    const stage = stageRef.current;
-    if (!stage) return null;
-    const pos = stage.getPointerPosition();
-    if (!pos) return null;
-    return {
-      x: (pos.x - panX) / safeZoom,
-      y: (pos.y - panY) / safeZoom,
-    };
-  }, [panX, safeZoom, panY]);
-
-  const clearRulerMeasurement = useCallback(() => {
-    measurementStartRef.current = null;
-    rulerMeasurementRef.current = null;
-    setRulerMeasurement(null);
-  }, []);
-
-  const updateRulerMeasurement = useCallback(
-    (nextPosition: { x: number; y: number }) => {
-      const start = measurementStartRef.current;
-      if (!start) {
-        return;
-      }
-
-      const deltaX = nextPosition.x - start.x;
-      const deltaY = nextPosition.y - start.y;
-      const distance = Math.hypot(deltaX, deltaY);
-      const angle = ((Math.atan2(deltaY, deltaX) * 180) / Math.PI + 360) % 360;
-
-      const measurement: RulerMeasurement = {
-        start,
-        end: nextPosition,
-        deltaX,
-        deltaY,
-        distance,
-        angle,
-      };
-
-      rulerMeasurementRef.current = measurement;
-      setRulerMeasurement(measurement);
-    },
-    [],
-  );
 
   const recordContextMenuPosition = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
@@ -397,14 +348,6 @@ export const useWhiteboardCanvas = (): WhiteboardCanvasController => {
     textFontSize,
     textAlign,
   });
-
-  const isRulerMode = activeTool === "ruler";
-
-  useEffect(() => {
-    if (!isRulerMode) {
-      clearRulerMeasurement();
-    }
-  }, [clearRulerMeasurement, isRulerMode]);
 
   const eraseNode = useCallback(
     (node: Konva.Node | null) => {
@@ -519,67 +462,6 @@ export const useWhiteboardCanvas = (): WhiteboardCanvasController => {
       return;
     }
 
-    const isEditableTarget = (target: EventTarget | null) => {
-      if (!(target instanceof HTMLElement)) {
-        return false;
-      }
-      const tagName = target.tagName?.toLowerCase();
-      return (
-        target.isContentEditable ||
-        tagName === "input" ||
-        tagName === "textarea" ||
-        tagName === "select" ||
-        target.getAttribute("role") === "textbox"
-      );
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Shift" || event.repeat || !isRulerMode) {
-        return;
-      }
-
-      if (isEditableTarget(event.target)) {
-        return;
-      }
-
-      const pointer = getCanvasPointerPosition();
-      if (!pointer) {
-        return;
-      }
-
-      measurementStartRef.current = pointer;
-      updateRulerMeasurement(pointer);
-    };
-
-    const handleKeyUp = (event: KeyboardEvent) => {
-      if (event.key !== "Shift") {
-        return;
-      }
-
-      if (measurementStartRef.current) {
-        clearRulerMeasurement();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-    };
-  }, [
-    clearRulerMeasurement,
-    getCanvasPointerPosition,
-    isRulerMode,
-    updateRulerMeasurement,
-  ]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
     const handleKeyDown = (event: KeyboardEvent) => {
       if (editingTextRef.current) {
         return;
@@ -678,169 +560,33 @@ export const useWhiteboardCanvas = (): WhiteboardCanvasController => {
       );
     });
   }, [elements, elementBoundsMap, renderBounds]);
-
-  const curveHandleElements = useMemo(() => {
-    if (activeTool !== "select") {
-      return [] as CanvasElement[];
-    }
-
-    return selectedIds
-      .map((id) => elements.find((item) => item.id === id) ?? null)
-      .filter((element): element is CanvasElement => {
-        if (!element) {
-          return false;
-        }
-        if (element.type !== "line" && element.type !== "arrow") {
-          return false;
-        }
-        return element.arrowStyle === "curve";
-      });
-  }, [activeTool, elements, selectedIds]);
-
-  const selectionBounds = useMemo(() => {
-    if (selectedIds.length === 0) {
-      return null;
-    }
-
-    let bounds: Bounds | null = null;
-    selectedIds.forEach((id) => {
-      const element = elements.find((item) => item.id === id);
-      if (!element) {
-        return;
-      }
-
-      const elementBounds = getElementBounds(element);
-      if (!bounds) {
-        bounds = { ...elementBounds };
-      } else {
-        bounds = {
-          minX: Math.min(bounds.minX, elementBounds.minX),
-          minY: Math.min(bounds.minY, elementBounds.minY),
-          maxX: Math.max(bounds.maxX, elementBounds.maxX),
-          maxY: Math.max(bounds.maxY, elementBounds.maxY),
-        };
-      }
-    });
-
-    return bounds;
-  }, [elements, selectedIds]);
-
-  useEffect(() => {
-    const transformer = transformerRef.current;
-    const stage = stageRef.current;
-    if (!transformer || !stage) {
-      return;
-    }
-
-    if (activeTool !== "select" || selectedIds.length === 0) {
-      transformer.nodes([]);
-      transformer.resizeEnabled(true);
-      transformer.keepRatio(false);
-      transformer.getLayer()?.batchDraw();
-      return;
-    }
-
-    const nodes = selectedIds
-      .map((id) => stage.findOne(`#${id}`) as Konva.Node | null)
-      .filter((node): node is Konva.Node => Boolean(node));
-
-    if (nodes.length === 0) {
-      transformer.nodes([]);
-      transformer.resizeEnabled(true);
-      transformer.keepRatio(false);
-      transformer.getLayer()?.batchDraw();
-      return;
-    }
-
-    const selectedElements = selectedIds
-      .map((id) => visibleElements.find((item) => item.id === id) ?? null)
-      .filter((element): element is CanvasElement => Boolean(element));
-
-    const containsNonResizable = selectedElements.some((element) => {
-      return !RESIZABLE_ELEMENT_TYPES.has(element.type);
-    });
-
-    const shouldKeepAspectRatio =
-      selectedElements.length === 1 &&
-      selectedElements[0]?.type === "file" &&
-      selectedElements[0]?.fileType === "application/pdf";
-
-    transformer.resizeEnabled(!containsNonResizable);
-    transformer.keepRatio(shouldKeepAspectRatio);
-    transformer.nodes(nodes);
-    transformer.getLayer()?.batchDraw();
-  }, [activeTool, selectedIds, visibleElements]);
-
-  const schedulePanUpdate = useCallback(
-    (nextPan: { x: number; y: number }, immediate = false) => {
-      const normalizedPan = {
-        x: Number.isFinite(nextPan.x) ? nextPan.x : 0,
-        y: Number.isFinite(nextPan.y) ? nextPan.y : 0,
-      };
-
-      if (normalizedPan.x === panX && normalizedPan.y === panY) {
-        if (immediate && panAnimationFrameRef.current !== null) {
-          cancelAnimationFrame(panAnimationFrameRef.current);
-          panAnimationFrameRef.current = null;
-        }
-        pendingPanRef.current = null;
-        return;
-      }
-
-      if (immediate) {
-        if (panAnimationFrameRef.current !== null) {
-          cancelAnimationFrame(panAnimationFrameRef.current);
-          panAnimationFrameRef.current = null;
-        }
-        pendingPanRef.current = null;
-        setPan(normalizedPan);
-        return;
-      }
-
-      pendingPanRef.current = normalizedPan;
-      if (panAnimationFrameRef.current !== null) {
-        return;
-      }
-
-      panAnimationFrameRef.current = requestAnimationFrame(() => {
-        if (pendingPanRef.current) {
-          setPan(pendingPanRef.current);
-          pendingPanRef.current = null;
-        }
-        panAnimationFrameRef.current = null;
-      });
-    },
-    [panX, panY, setPan],
-  );
-
-  useEffect(() => {
-    return () => {
-      if (panAnimationFrameRef.current !== null) {
-        cancelAnimationFrame(panAnimationFrameRef.current);
-        panAnimationFrameRef.current = null;
-      }
-    };
-  }, []);
-
-  const syncPanFromStage = useCallback(
-    (event: KonvaEventObject<DragEvent>) => {
-      const stage = event.target.getStage();
-      if (!stage) return;
-      const position = stage.position();
-      schedulePanUpdate({ x: position.x, y: position.y });
-    },
-    [schedulePanUpdate],
-  );
-
-  const syncPanFromStageImmediate = useCallback(
-    (event: KonvaEventObject<DragEvent>) => {
-      const stage = event.target.getStage();
-      if (!stage) return;
-      const position = stage.position();
-      schedulePanUpdate({ x: position.x, y: position.y }, true);
-    },
-    [schedulePanUpdate],
-  );
+  const {
+    selectionRect,
+    selectionBounds,
+    curveHandleElements,
+    handleStageMouseDown: handleSelectionMouseDown,
+    handleStageMouseMove: handleSelectionMouseMove,
+    handleStageMouseUp: handleSelectionMouseUp,
+    handleMouseLeave: handleSelectionMouseLeave,
+    getInteractionProps,
+    handleSelectionGroupDragStart,
+    handleSelectionGroupDragMove,
+    handleSelectionGroupDragEnd,
+    handleCurveHandleDragMove,
+    handleCurveHandleDragEnd,
+  } = useSelectionInteractions({
+    activeTool,
+    elements,
+    selectedIds,
+    setSelectedIds,
+    clearSelection,
+    updateElement,
+    pushHistory,
+    stageRef,
+    transformerRef,
+    visibleElements,
+    getCanvasPointerPosition,
+  });
 
   const backgroundConfig = useCanvasBackground(canvasBackground, pan, safeZoom);
   const { className: backgroundClassName, style: backgroundStyle } = backgroundConfig;
@@ -850,26 +596,12 @@ export const useWhiteboardCanvas = (): WhiteboardCanvasController => {
     },
     [setCanvasBackground],
   );
-  const isPanMode = activeTool === "pan" || isMiddleMousePanning;
-
-  const stageCursorClass = isPanMode
-    ? isPanning
-      ? "cursor-grabbing"
-      : "cursor-grab"
-    : activeTool === "select"
-    ? "cursor-default"
-    : "cursor-crosshair";
 
   const handleMouseDown = (e: KonvaEventObject<MouseEvent>) => {
     const stage = stageRef.current;
     if (!stage) return;
 
-    if (e.evt.button === 1) {
-      e.evt.preventDefault();
-      setIsMiddleMousePanning(true);
-      requestAnimationFrame(() => {
-        stage.startDrag();
-      });
+    if (handlePanMouseDown(e)) {
       return;
     }
 
@@ -884,18 +616,7 @@ export const useWhiteboardCanvas = (): WhiteboardCanvasController => {
       return;
     }
 
-    if (isRulerMode) {
-      if (e.evt.button === 0) {
-        e.evt.preventDefault();
-
-        if (!e.evt.shiftKey) {
-          const pointer = getCanvasPointerPosition();
-          if (pointer) {
-            measurementStartRef.current = pointer;
-            updateRulerMeasurement(pointer);
-          }
-        }
-      }
+    if (handleRulerPointerDown(e)) {
       return;
     }
 
@@ -927,52 +648,7 @@ export const useWhiteboardCanvas = (): WhiteboardCanvasController => {
     }
 
     if (activeTool === "select") {
-      const target = e.target as Konva.Node;
-      if (!target) {
-        return;
-      }
-
-      const isTransformerHandle = target.getParent()?.className === "Transformer";
-      if (isTransformerHandle) {
-        return;
-      }
-
-      const targetId = resolveElementId(target);
-      if (!targetId) {
-        const pointer = getCanvasPointerPosition();
-        if (!pointer) return;
-        const additive = e.evt.shiftKey || e.evt.metaKey || e.evt.ctrlKey;
-        marqueeSelectionRef.current = {
-          originX: pointer.x,
-          originY: pointer.y,
-          additive,
-          initialSelection: selectedIds,
-          moved: false,
-        };
-        setSelectionRect({ x: pointer.x, y: pointer.y, width: 0, height: 0 });
-        return;
-      }
-
-      const element = elements.find((item) => item.id === targetId);
-      if (!element) {
-        return;
-      }
-
-      const isMultiSelect = e.evt.shiftKey || e.evt.metaKey || e.evt.ctrlKey;
-      if (isMultiSelect) {
-        const alreadySelected = selectedIds.includes(targetId);
-        const nextSelection = alreadySelected
-          ? selectedIds.filter((id) => id !== targetId)
-          : [...selectedIds, targetId];
-        setSelectedIds(nextSelection);
-      } else {
-        if (!selectedIds.includes(targetId)) {
-          setSelectedIds([targetId]);
-        }
-      }
-
-      setSelectionRect(null);
-      marqueeSelectionRef.current = null;
+      handleSelectionMouseDown(e);
       return;
     }
 
@@ -1058,44 +734,11 @@ export const useWhiteboardCanvas = (): WhiteboardCanvasController => {
   };
 
   const handleMouseMove = (e: KonvaEventObject<MouseEvent>) => {
-    if (isRulerMode) {
-      const pointer = getCanvasPointerPosition();
-      if (!pointer) {
-        return;
-      }
-
-      if (!measurementStartRef.current && e.evt.shiftKey) {
-        measurementStartRef.current = pointer;
-        updateRulerMeasurement(pointer);
-        return;
-      }
-
-      if (measurementStartRef.current) {
-        updateRulerMeasurement(pointer);
-      }
+    if (handleRulerPointerMove(e)) {
       return;
     }
 
-    const marqueeState = marqueeSelectionRef.current;
-    if (marqueeState) {
-      const pointer = getCanvasPointerPosition();
-      if (!pointer) return;
-
-      const width = pointer.x - marqueeState.originX;
-      const height = pointer.y - marqueeState.originY;
-      if (!marqueeState.moved) {
-        const threshold = 3;
-        if (Math.abs(width) > threshold || Math.abs(height) > threshold) {
-          marqueeState.moved = true;
-        }
-      }
-
-      setSelectionRect({
-        x: marqueeState.originX,
-        y: marqueeState.originY,
-        width,
-        height,
-      });
+    if (handleSelectionMouseMove(e)) {
       return;
     }
 
@@ -1195,13 +838,11 @@ export const useWhiteboardCanvas = (): WhiteboardCanvasController => {
 
   const handleMouseUp = (e: KonvaEventObject<MouseEvent>) => {
     if (e.evt.button === 1 && isMiddleMousePanning) {
-      setIsMiddleMousePanning(false);
+      stopMiddleMousePan();
       return;
     }
 
-    if (isRulerMode) {
-      clearRulerMeasurement();
-    }
+    handleRulerPointerUp();
 
     if (isErasing) {
       setIsErasing(false);
@@ -1211,42 +852,7 @@ export const useWhiteboardCanvas = (): WhiteboardCanvasController => {
     if (isDrawingRef.current) {
       finalizeDrawing();
     }
-
-    const marqueeState = marqueeSelectionRef.current;
-    if (marqueeState) {
-      const rect = selectionRect;
-      marqueeSelectionRef.current = null;
-      setSelectionRect(null);
-
-      if (!marqueeState.moved || !rect) {
-        if (!marqueeState.additive) {
-          clearSelection();
-        } else {
-          setSelectedIds(marqueeState.initialSelection);
-        }
-        return;
-      }
-
-      const bounds = normalizeRectBounds(
-        rect.x,
-        rect.y,
-        rect.width,
-        rect.height,
-      );
-      const selectedWithinBounds = elements
-        .filter((element) => isElementWithinSelection(element, bounds))
-        .map((element) => element.id);
-
-      if (marqueeState.additive) {
-        const combined = new Set([
-          ...marqueeState.initialSelection,
-          ...selectedWithinBounds,
-        ]);
-        setSelectedIds(Array.from(combined));
-      } else {
-        setSelectedIds(selectedWithinBounds);
-      }
-    }
+    handleSelectionMouseUp();
   };
 
   useEffect(() => {
@@ -1255,9 +861,7 @@ export const useWhiteboardCanvas = (): WhiteboardCanvasController => {
     }
 
     const handlePointerUp = (event: MouseEvent | TouchEvent) => {
-      if (rulerMeasurementRef.current) {
-        clearRulerMeasurement();
-      }
+      handleRulerGlobalPointerUp();
 
       if (!isDrawingRef.current) {
         return;
@@ -1279,364 +883,7 @@ export const useWhiteboardCanvas = (): WhiteboardCanvasController => {
       window.removeEventListener("touchend", handlePointerUp);
       window.removeEventListener("touchcancel", handlePointerUp);
     };
-  }, [clearRulerMeasurement, finalizeDrawing]);
-
-  const applySelectionDrag = useCallback(
-    (
-      deltaX: number,
-      deltaY: number,
-      dragState: SelectionDragState,
-      stage: Konva.Stage | null,
-    ) => {
-      dragState.affectedIds.forEach((id) => {
-        const baseNode = dragState.startNodes[id];
-        const baseElement =
-          dragState.elements[id] ?? elements.find((item) => item.id === id);
-        if (!baseNode || !baseElement) {
-          return;
-        }
-
-        const nextNodeX = baseNode.x + deltaX;
-        const nextNodeY = baseNode.y + deltaY;
-
-        if (baseElement.type === "ellipse") {
-          const referenceNode = stage?.findOne(`#${id}`) as Konva.Shape | null;
-          const nodeWidth =
-            typeof referenceNode?.width === "function"
-              ? referenceNode.width()
-              : baseElement.width ?? 0;
-          const nodeHeight =
-            typeof referenceNode?.height === "function"
-              ? referenceNode.height()
-              : baseElement.height ?? 0;
-          const width = Math.max(1, baseElement.width ?? nodeWidth);
-          const height = Math.max(1, baseElement.height ?? nodeHeight);
-          updateElement(id, {
-            x: nextNodeX - width / 2,
-            y: nextNodeY - height / 2,
-          });
-        } else {
-          updateElement(id, { x: nextNodeX, y: nextNodeY });
-        }
-      });
-    },
-    [elements, updateElement],
-  );
-
-  const handleElementDragStart = useCallback(
-    (event: KonvaEventObject<DragEvent>, element: CanvasElement) => {
-      if (activeTool !== "select") {
-        return;
-      }
-
-      const stage = stageRef.current;
-      if (!stage) {
-        return;
-      }
-
-      const node = event.target;
-      const affectedIds = selectedIds.includes(element.id)
-        ? selectedIds
-        : [element.id];
-      const startNodes: Record<string, { x: number; y: number }> = {
-        [element.id]: { x: node.x(), y: node.y() },
-      };
-      const elementSnapshots: Record<string, CanvasElement> = {};
-
-      affectedIds.forEach((id) => {
-        if (!startNodes[id]) {
-          const foundNode = stage.findOne(`#${id}`) as Konva.Node | null;
-          if (foundNode) {
-            startNodes[id] = { x: foundNode.x(), y: foundNode.y() };
-          }
-        }
-        const elementSnapshot = elements.find((item) => item.id === id) ?? null;
-        if (elementSnapshot) {
-          elementSnapshots[id] = elementSnapshot;
-        }
-      });
-
-      selectionDragStateRef.current = {
-        startNodes,
-        elements: elementSnapshots,
-        affectedIds,
-        referenceId: element.id,
-      };
-    },
-    [activeTool, elements, selectedIds],
-  );
-
-  const handleElementDragMove = useCallback(
-    (event: KonvaEventObject<DragEvent>, element: CanvasElement) => {
-      if (activeTool !== "select") {
-        return;
-      }
-
-      const node = event.target;
-      const dragState = selectionDragStateRef.current;
-
-      if (
-        !dragState ||
-        !dragState.referenceId ||
-        !dragState.startNodes[dragState.referenceId]
-      ) {
-        const fallbackX = node.x();
-        const fallbackY = node.y();
-        if (element.type === "ellipse") {
-          const width = Math.max(1, node.width());
-          const height = Math.max(1, node.height());
-          updateElement(element.id, {
-            x: fallbackX - width / 2,
-            y: fallbackY - height / 2,
-          });
-        } else {
-          updateElement(element.id, { x: fallbackX, y: fallbackY });
-        }
-        return;
-      }
-
-      const stage = node.getStage();
-      const referenceId = dragState.referenceId;
-      const origin = dragState.startNodes[referenceId];
-      if (!origin) {
-        return;
-      }
-
-      const referenceNode =
-        referenceId === node.id()
-          ? node
-          : (stage?.findOne(`#${referenceId}`) as Konva.Node | null);
-      if (!referenceNode) {
-        return;
-      }
-
-      const deltaX = referenceNode.x() - origin.x;
-      const deltaY = referenceNode.y() - origin.y;
-
-      applySelectionDrag(deltaX, deltaY, dragState, stage ?? null);
-    },
-    [activeTool, applySelectionDrag, updateElement],
-  );
-
-  const handleElementDragEnd = useCallback(
-    (event: KonvaEventObject<DragEvent>, element: CanvasElement) => {
-      if (activeTool !== "select") {
-        return;
-      }
-
-      handleElementDragMove(event, element);
-      selectionDragStateRef.current = null;
-      pushHistory();
-    },
-    [activeTool, handleElementDragMove, pushHistory],
-  );
-
-  const handleSelectionGroupDragStart = useCallback(
-    (event: KonvaEventObject<DragEvent>) => {
-      if (activeTool !== "select" || selectedIds.length === 0) {
-        return;
-      }
-
-      const stage = stageRef.current;
-      if (!stage) {
-        return;
-      }
-
-      const node = event.target;
-      const startNodes: Record<string, { x: number; y: number }> = {
-        [SELECTION_GROUP_ID]: { x: node.x(), y: node.y() },
-      };
-      const elementSnapshots: Record<string, CanvasElement> = {};
-
-      selectedIds.forEach((id) => {
-        const elementNode = stage.findOne(`#${id}`) as Konva.Node | null;
-        if (elementNode) {
-          startNodes[id] = { x: elementNode.x(), y: elementNode.y() };
-        }
-        const elementSnapshot = elements.find((item) => item.id === id) ?? null;
-        if (elementSnapshot) {
-          elementSnapshots[id] = elementSnapshot;
-        }
-      });
-
-      selectionDragStateRef.current = {
-        startNodes,
-        elements: elementSnapshots,
-        affectedIds: [...selectedIds],
-        referenceId: SELECTION_GROUP_ID,
-      };
-    },
-    [activeTool, elements, selectedIds],
-  );
-
-  const handleSelectionGroupDragMove = useCallback(
-    (event: KonvaEventObject<DragEvent>) => {
-      if (activeTool !== "select") {
-        return;
-      }
-
-      const dragState = selectionDragStateRef.current;
-      if (!dragState || dragState.referenceId !== SELECTION_GROUP_ID) {
-        return;
-      }
-
-      const node = event.target;
-      const origin = dragState.startNodes[SELECTION_GROUP_ID];
-      if (!origin) {
-        return;
-      }
-
-      const deltaX = node.x() - origin.x;
-      const deltaY = node.y() - origin.y;
-      const stage = node.getStage() ?? null;
-
-      applySelectionDrag(deltaX, deltaY, dragState, stage);
-    },
-    [activeTool, applySelectionDrag],
-  );
-
-  const handleSelectionGroupDragEnd = useCallback(
-    (event: KonvaEventObject<DragEvent>) => {
-      if (activeTool !== "select") {
-        return;
-      }
-
-      handleSelectionGroupDragMove(event);
-      selectionDragStateRef.current = null;
-      pushHistory();
-    },
-    [activeTool, handleSelectionGroupDragMove, pushHistory],
-  );
-
-  const handleElementTransformEnd = useCallback(
-    (event: KonvaEventObject<Event>, element: CanvasElement) => {
-      if (activeTool !== "select") {
-        return;
-      }
-
-      const node = event.target;
-      const scaleX = node.scaleX();
-      const scaleY = node.scaleY();
-      const nextX = node.x();
-      const nextY = node.y();
-
-      const updates: Partial<CanvasElement> = {};
-
-      if (element.type === "ellipse") {
-        const width = Math.max(1, node.width() * scaleX);
-        const height = Math.max(1, node.height() * scaleY);
-        node.scaleX(1);
-        node.scaleY(1);
-        updates.x = nextX - width / 2;
-        updates.y = nextY - height / 2;
-        updates.width = width;
-        updates.height = height;
-      } else if (
-        element.type === "line" ||
-        element.type === "arrow" ||
-        element.type === "pen"
-      ) {
-        const konvaLine = node as Konva.Line;
-        const currentPoints = konvaLine.points();
-        const scaledPoints: number[] = [];
-        for (let index = 0; index < currentPoints.length; index += 2) {
-          const pointX = currentPoints[index] ?? 0;
-          const pointY = currentPoints[index + 1] ?? 0;
-          scaledPoints.push(pointX * scaleX, pointY * scaleY);
-        }
-        node.scaleX(1);
-        node.scaleY(1);
-        updates.x = nextX;
-        updates.y = nextY;
-        updates.points = scaledPoints;
-      } else if (element.type === "text") {
-        const width = Math.max(TEXT_MIN_WIDTH, node.width() * scaleX);
-        node.scaleX(1);
-        node.scaleY(1);
-        updates.x = nextX;
-        updates.y = nextY;
-        updates.width = width;
-      } else if (
-        element.type === "file" &&
-        element.fileType === "application/pdf"
-      ) {
-        const baseWidth = Math.max(1, node.width());
-        const baseHeight = Math.max(1, node.height());
-        const scaleXAbs = Math.abs(scaleX);
-        const scaleYAbs = Math.abs(scaleY);
-        const scaleCandidates = [scaleXAbs, scaleYAbs].filter(
-          (value) => Number.isFinite(value) && value > 0,
-        );
-        let uniformScale = scaleCandidates[0] ?? 1;
-        if (scaleCandidates.length === 2) {
-          const deviationX = Math.abs(scaleXAbs - 1);
-          const deviationY = Math.abs(scaleYAbs - 1);
-          uniformScale = deviationX >= deviationY ? scaleXAbs : scaleYAbs;
-        }
-
-        const width = Math.max(1, baseWidth * uniformScale);
-        const height = Math.max(1, baseHeight * uniformScale);
-        node.scaleX(1);
-        node.scaleY(1);
-        updates.x = nextX;
-        updates.y = nextY;
-        updates.width = width;
-        updates.height = height;
-      } else {
-        const width = Math.max(1, node.width() * scaleX);
-        const height = Math.max(1, node.height() * scaleY);
-        node.scaleX(1);
-        node.scaleY(1);
-        updates.x = nextX;
-        updates.y = nextY;
-        updates.width = width;
-        updates.height = height;
-      }
-
-      updateElement(element.id, updates);
-      pushHistory();
-    },
-    [activeTool, pushHistory, updateElement],
-  );
-
-  const handleWheel = (e: KonvaEventObject<WheelEvent>) => {
-    const shouldZoom = activeTool === "pan" || e.evt.ctrlKey;
-    if (!shouldZoom) {
-      return;
-    }
-
-    e.evt.preventDefault();
-
-    const stage = stageRef.current;
-    if (!stage) return;
-
-    const currentScale = Number.isFinite(zoom) ? zoom : 1;
-    const pointer = stage.getPointerPosition();
-    if (!pointer) return;
-
-    const mousePointTo = {
-      x: (pointer.x - panX) / currentScale,
-      y: (pointer.y - panY) / currentScale,
-    };
-
-    const rawScale =
-      e.evt.deltaY > 0 ? currentScale * 0.95 : currentScale * 1.05;
-    const nextScale = Math.max(
-      0.1,
-      Math.min(5, Number.isFinite(rawScale) ? rawScale : 1),
-    );
-    if (!Number.isFinite(nextScale)) {
-      return;
-    }
-
-    useWhiteboardStore.setState({
-      zoom: nextScale,
-      pan: {
-        x: pointer.x - mousePointTo.x * nextScale,
-        y: pointer.y - mousePointTo.y * nextScale,
-      },
-    });
-  };
+  }, [finalizeDrawing, handleRulerGlobalPointerUp]);
 
 
 
@@ -1678,115 +925,6 @@ export const useWhiteboardCanvas = (): WhiteboardCanvasController => {
         } satisfies CSSProperties;
       })()
     : undefined;
-
-  const updateCurveHandlePosition = useCallback(
-    (element: CanvasElement, handleIndex: number, absX: number, absY: number) => {
-      const curvePoints = ensureCurvePoints(element.points);
-      if (curvePoints.length < 6) {
-        return;
-      }
-
-      const absolutePoints = [
-        {
-          x: element.x + (curvePoints[0] ?? 0),
-          y: element.y + (curvePoints[1] ?? 0),
-        },
-        {
-          x: element.x + (curvePoints[2] ?? 0),
-          y: element.y + (curvePoints[3] ?? 0),
-        },
-        {
-          x: element.x + (curvePoints[4] ?? 0),
-          y: element.y + (curvePoints[5] ?? 0),
-        },
-      ];
-
-      const index = Math.max(0, Math.min(handleIndex, absolutePoints.length - 1));
-      const current = absolutePoints[index];
-      if (current.x === absX && current.y === absY) {
-        return;
-      }
-
-      absolutePoints[index] = { x: absX, y: absY };
-
-      const basePoint = absolutePoints[0];
-      const nextPoints: number[] = [];
-      absolutePoints.forEach((point) => {
-        nextPoints.push(point.x - basePoint.x, point.y - basePoint.y);
-      });
-
-      updateElement(element.id, {
-        x: basePoint.x,
-        y: basePoint.y,
-        points: nextPoints,
-      });
-    },
-    [updateElement],
-  );
-
-  const handleCurveHandleDragMove = useCallback(
-    (
-      event: KonvaEventObject<DragEvent>,
-      element: CanvasElement,
-      handleIndex: number,
-    ) => {
-      event.cancelBubble = true;
-      const node = event.target;
-      updateCurveHandlePosition(element, handleIndex, node.x(), node.y());
-    },
-    [updateCurveHandlePosition],
-  );
-
-  const handleCurveHandleDragEnd = useCallback(
-    (
-      event: KonvaEventObject<DragEvent>,
-      element: CanvasElement,
-      handleIndex: number,
-    ) => {
-      event.cancelBubble = true;
-      const node = event.target;
-      updateCurveHandlePosition(element, handleIndex, node.x(), node.y());
-      pushHistory();
-    },
-    [pushHistory, updateCurveHandlePosition],
-  );
-
-  const getInteractionProps = useCallback(
-    (element: CanvasElement) => {
-      if (activeTool !== "select") {
-        return { draggable: false };
-      }
-
-      const isSelected = selectedIds.includes(element.id);
-      const interaction: Record<string, unknown> = {
-        draggable: isSelected,
-      };
-
-      if (isSelected) {
-        interaction.onDragStart = (event: KonvaEventObject<DragEvent>) =>
-          handleElementDragStart(event, element);
-        interaction.onDragMove = (event: KonvaEventObject<DragEvent>) =>
-          handleElementDragMove(event, element);
-        interaction.onDragEnd = (event: KonvaEventObject<DragEvent>) =>
-          handleElementDragEnd(event, element);
-      }
-
-      if (RESIZABLE_ELEMENT_TYPES.has(element.type)) {
-        interaction.onTransformEnd = (event: KonvaEventObject<Event>) =>
-          handleElementTransformEnd(event, element);
-      }
-
-      return interaction;
-    },
-    [
-      activeTool,
-      handleElementDragEnd,
-      handleElementDragMove,
-      handleElementDragStart,
-      handleElementTransformEnd,
-      selectedIds,
-    ],
-  );
 
   const contextMenuProps: Omit<CanvasContextMenuProps, "children"> = {
     canvasBackground,
@@ -1840,19 +978,17 @@ export const useWhiteboardCanvas = (): WhiteboardCanvasController => {
     scaleX: safeZoom,
     scaleY: safeZoom,
     className: cn("h-full w-full", stageCursorClass),
-    onDragStart: () => setIsPanning(true),
-    onDragMove: syncPanFromStage,
-    onDragEnd: (event: KonvaEventObject<DragEvent>) => {
-      setIsPanning(false);
-      setIsMiddleMousePanning(false);
-      syncPanFromStageImmediate(event);
-    },
+    onDragStart: stageDragHandlers.handleStageDragStart,
+    onDragMove: stageDragHandlers.handleStageDragMove,
+    onDragEnd: stageDragHandlers.handleStageDragEnd,
     onMouseLeave: () => {
       if (isErasing) {
         setIsErasing(false);
       }
       lastErasedIdRef.current = null;
-      clearRulerMeasurement();
+      handleRulerMouseLeave();
+      handleSelectionMouseLeave();
+      stopMiddleMousePan();
     },
   };
 
