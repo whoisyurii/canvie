@@ -7,7 +7,7 @@ export const dynamic = "error";
 export function generateMetadata(): Metadata {
   const title = "Canvie — Collaborative Whiteboard";
   const description = "Spin up a shared canvas in seconds and sketch ideas with your team in real time.";
-  const url = "https://canvie.app";
+  const url = "https://canvie.pages.dev";
 
   return {
     metadataBase: new URL(url),
