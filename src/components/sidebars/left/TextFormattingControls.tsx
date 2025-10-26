@@ -31,8 +31,16 @@ const FONT_OPTIONS: Array<{ label: string; value: string; preview: string }> = [
   { label: "Roboto Mono", value: "Roboto Mono", preview: '"Roboto Mono", monospace' },
   { label: "Open Sans", value: "Open Sans", preview: '"Open Sans", sans-serif' },
   { label: "Montserrat", value: "Montserrat", preview: '"Montserrat", sans-serif' },
-  { label: "Poppins", value: "Poppins", preview: '"Poppins", sans-serif' },
-  { label: "Lora", value: "Lora", preview: '"Lora", serif' },
+  {
+    label: "Comic Sans",
+    value: "Comic Sans MS",
+    preview: '"Comic Sans MS", "Comic Sans", cursive',
+  },
+  {
+    label: "Lucida Handwriting",
+    value: "Lucida Handwriting",
+    preview: '"Lucida Handwriting", "Lucida", cursive',
+  },
   {
     label: "Playfair Display",
     value: "Playfair Display",
