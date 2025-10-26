@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Circle, Text, Group } from "react-konva";
+import { Line, Text, Group } from "react-konva";
 import type { User } from "@/lib/store/useWhiteboardStore";
 
 interface UserCursorProps {
@@ -51,10 +51,20 @@ export const UserCursor = ({ user, pan, zoom }: UserCursorProps) => {
 
   return (
     <Group x={x} y={y} opacity={opacity}>
-      <Circle radius={6} fill={user.color} shadowBlur={4} shadowOpacity={0.5} />
+      <Line
+        points={[0, 0, 0, 20, 6, 14, 10, 24, 13, 22, 8, 12, 16, 12, 0, 0]}
+        closed
+        fill="#fff"
+        stroke={user.color}
+        strokeWidth={2}
+        shadowColor="rgba(0,0,0,0.25)"
+        shadowBlur={4}
+        shadowOpacity={0.6}
+        shadowOffset={{ x: 1, y: 1 }}
+      />
       <Text
         text={`${user.name}${user.tool ? ` · ${user.tool}` : ""}`}
-        x={10}
+        x={20}
         y={-5}
         fontSize={12}
         fill={user.color}
@@ -64,4 +74,5 @@ export const UserCursor = ({ user, pan, zoom }: UserCursorProps) => {
       />
     </Group>
   );
+
 };
