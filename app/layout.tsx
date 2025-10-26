@@ -6,8 +6,11 @@ import { Providers } from "./providers";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "Realitea Canvas",
+  title: "Canvie",
   description: "Collaborate in real time on an infinite whiteboard canvas.",
+  icons: {
+    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+  },
 };
 
 export default function RootLayout({

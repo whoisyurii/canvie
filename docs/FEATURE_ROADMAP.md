@@ -1,4 +1,4 @@
-# 🎯 Realitea Canvas - Feature Implementation Roadmap
+# 🎯 Canvie - Feature Implementation Roadmap
 
 **Goal:** Become a solid alternative to Excalidraw with unique differentiation
 
@@ -8,9 +8,9 @@
 
 ## 📊 Current Competitive Analysis
 
-### Comparison Matrix: Realitea Canvas vs. Excalidraw
+### Comparison Matrix: Canvie vs. Excalidraw
 
-| Feature | Realitea Canvas | Excalidraw | Status | Priority |
+| Feature | Canvie | Excalidraw | Status | Priority |
 |---------|-----------------|------------|--------|----------|
 | **Core Features** |
 | Real-time collaboration | ✅ | ✅ | **At Parity** | - |
