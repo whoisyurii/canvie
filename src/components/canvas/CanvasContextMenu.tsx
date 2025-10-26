@@ -12,7 +12,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 
-interface CanvasContextMenuProps {
+export interface CanvasContextMenuProps {
   children: ReactNode;
   canvasBackground: CanvasBackground;
   onBackgroundChange: (background: CanvasBackground) => void;
