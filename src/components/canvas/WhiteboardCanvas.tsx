@@ -90,6 +90,7 @@ export const WhiteboardCanvas = () => {
 
   const {
     activeTool,
+    setActiveTool,
     elements,
     addElement,
     updateElement,
@@ -150,6 +151,49 @@ export const WhiteboardCanvas = () => {
   const safeZoom = zoom || 1;
   const { readSupported: clipboardReadSupported, writeSupported: clipboardWriteSupported } =
     useMemo(() => getClipboardSupport(), []);
+
+  const createTextElementAtPosition = useCallback(
+    (position: { x: number; y: number }) => {
+      const newText: CanvasElement = {
+        id: nanoid(),
+        type: "text",
+        x: position.x,
+        y: position.y,
+        text: "",
+        strokeColor,
+        strokeOpacity,
+        fillColor,
+        fillOpacity,
+        strokeWidth,
+        strokeStyle,
+        opacity,
+        sloppiness,
+        fontFamily: textFontFamily,
+        fontSize: textFontSize,
+        textAlign,
+      };
+
+      addElement(newText);
+      beginTextEditing(newText, {
+        width: estimateTextBoxWidth("", textFontSize),
+      });
+    },
+    [
+      addElement,
+      beginTextEditing,
+      fillColor,
+      fillOpacity,
+      opacity,
+      sloppiness,
+      strokeColor,
+      strokeOpacity,
+      strokeStyle,
+      strokeWidth,
+      textAlign,
+      textFontFamily,
+      textFontSize,
+    ],
+  );
 
   useEffect(() => {
     if (activeTool !== "select") {
@@ -407,9 +451,30 @@ export const WhiteboardCanvas = () => {
           event.evt.preventDefault();
           beginTextEditing(element);
         }
+        return;
       }
+
+      event.evt.preventDefault();
+      const pointer = getCanvasPointerPosition();
+      if (!pointer) {
+        return;
+      }
+
+      if (activeTool !== "text") {
+        setActiveTool("text");
+      }
+
+      createTextElementAtPosition(pointer);
     },
-    [beginTextEditing, elements, openFilePreview]
+    [
+      activeTool,
+      beginTextEditing,
+      createTextElementAtPosition,
+      elements,
+      getCanvasPointerPosition,
+      openFilePreview,
+      setActiveTool,
+    ]
   );
 
   useEffect(() => {
@@ -897,29 +962,7 @@ export const WhiteboardCanvas = () => {
 
       const pointer = getCanvasPointerPosition();
       if (!pointer) return;
-
-      const newText: CanvasElement = {
-        id: nanoid(),
-        type: "text",
-        x: pointer.x,
-        y: pointer.y,
-        text: "",
-        strokeColor,
-        strokeOpacity,
-        fillColor,
-        fillOpacity,
-        strokeWidth,
-        strokeStyle,
-        opacity,
-        sloppiness,
-        fontFamily: textFontFamily,
-        fontSize: textFontSize,
-        textAlign,
-      };
-      addElement(newText);
-      beginTextEditing(newText, {
-        width: estimateTextBoxWidth("", textFontSize),
-      });
+      createTextElementAtPosition(pointer);
       return;
     }
 
