@@ -5,9 +5,9 @@ import LandingPage from "./_components/landing-page";
 export const dynamic = "error";
 
 export function generateMetadata(): Metadata {
-  const title = "Realitea Canvas — Collaborative Whiteboard";
+  const title = "Canvie — Collaborative Whiteboard";
   const description = "Spin up a shared canvas in seconds and sketch ideas with your team in real time.";
-  const url = "https://realitea-canvas.app";
+  const url = "https://canvie.app";
 
   return {
     metadataBase: new URL(url),
@@ -17,7 +17,7 @@ export function generateMetadata(): Metadata {
       title,
       description,
       url,
-      siteName: "Realitea Canvas",
+      siteName: "Canvie",
       type: "website",
     },
     twitter: {

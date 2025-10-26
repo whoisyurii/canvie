@@ -154,7 +154,7 @@ export const GeminiSettingsDialog = ({ open, onOpenChange }: GeminiSettingsDialo
           </DialogDescription>
           <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
             <li>Generate a Gemini API key in Google AI Studio (it only takes a moment).</li>
-            <li>Paste the key below to unlock Gemini-powered actions in Realitea Canvas.</li>
+            <li>Paste the key below to unlock Gemini-powered actions in Canvie.</li>
             <li>
               Choose your default model & output style; we remember them in this browser's localStorage.
             </li>
