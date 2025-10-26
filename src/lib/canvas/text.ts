@@ -6,6 +6,13 @@ export const FONT_FALLBACKS: Record<string, string> = {
   Inter: "Inter, sans-serif",
   "DM Sans": '"DM Sans", sans-serif',
   "Roboto Mono": '"Roboto Mono", monospace',
+  "Open Sans": '"Open Sans", sans-serif',
+  Montserrat: '"Montserrat", sans-serif',
+  Poppins: '"Poppins", sans-serif',
+  Lora: '"Lora", serif',
+  "Playfair Display": '"Playfair Display", serif',
+  "Source Code Pro": '"Source Code Pro", monospace',
+  "Fira Code": '"Fira Code", monospace',
 };
 
 export const getFontFamilyCss = (fontFamily?: string) => {

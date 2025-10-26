@@ -29,6 +29,17 @@ const FONT_OPTIONS: Array<{ label: string; value: string; preview: string }> = [
   { label: "Inter", value: "Inter", preview: '"Inter", sans-serif' },
   { label: "DM Sans", value: "DM Sans", preview: '"DM Sans", sans-serif' },
   { label: "Roboto Mono", value: "Roboto Mono", preview: '"Roboto Mono", monospace' },
+  { label: "Open Sans", value: "Open Sans", preview: '"Open Sans", sans-serif' },
+  { label: "Montserrat", value: "Montserrat", preview: '"Montserrat", sans-serif' },
+  { label: "Poppins", value: "Poppins", preview: '"Poppins", sans-serif' },
+  { label: "Lora", value: "Lora", preview: '"Lora", serif' },
+  {
+    label: "Playfair Display",
+    value: "Playfair Display",
+    preview: '"Playfair Display", serif',
+  },
+  { label: "Source Code Pro", value: "Source Code Pro", preview: '"Source Code Pro", monospace' },
+  { label: "Fira Code", value: "Fira Code", preview: '"Fira Code", monospace' },
 ];
 
 const ALIGN_OPTIONS: Array<{ value: TextAlignment; icon: ReactNode; label: string }> = [
