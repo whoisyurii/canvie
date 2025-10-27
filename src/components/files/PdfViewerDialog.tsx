@@ -363,31 +363,8 @@ export const PdfViewerDialog = () => {
           <DialogDescription>{dialogDescription}</DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePrevious}
-                disabled={!canNavigate || isFirstPage}
-              >
-                <ChevronLeft className="mr-2 h-4 w-4" /> Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleNext}
-                disabled={!canNavigate || isLastPage}
-              >
-                Next <ChevronRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
-
-            <p className="text-sm text-muted-foreground">
-              {pageCount > 0 ? `Page ${currentPage} of ${pageCount}` : "Preparing preview…"}
-            </p>
-
+        <div className="flex flex-col gap-6">
+          <div className="flex justify-end">
             <Button
               variant="outline"
               size="sm"
@@ -398,32 +375,58 @@ export const PdfViewerDialog = () => {
             </Button>
           </div>
 
-          <div className="relative flex min-h-[320px] items-center justify-center overflow-auto rounded-md border bg-muted/40 p-4">
-            <canvas
-              ref={canvasRef}
-              className={cn(
-                "max-h-[70vh] w-full max-w-full rounded border bg-white shadow-sm",
-                status === "error" ? "hidden" : "block"
+          <div className="flex flex-col items-center gap-6">
+            <div className="relative flex min-h-[320px] w-full items-center justify-center overflow-auto rounded-md border bg-muted/40 p-4">
+              <canvas
+                ref={canvasRef}
+                className={cn(
+                  "max-h-[70vh] w-full max-w-full rounded border bg-white shadow-sm",
+                  status === "error" ? "hidden" : "block"
               )}
             />
 
-            {status === "error" ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
-                <p className="text-sm font-medium text-destructive">
-                  {error ?? "Unable to load PDF preview."}
+              {status === "error" ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
+                  <p className="text-sm font-medium text-destructive">
+                    {error ?? "Unable to load PDF preview."}
+                  </p>
+                  <Button variant="outline" size="sm" onClick={handleRetry}>
+                    <RefreshCcw className="mr-2 h-4 w-4" /> Try again
+                  </Button>
+                </div>
+              ) : null}
+
+              {status !== "error" && (status === "loading" || isRendering) ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/80 pointer-events-none">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Loading PDF…</p>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePrevious}
+                  disabled={!canNavigate || isFirstPage}
+                >
+                  <ChevronLeft className="mr-2 h-4 w-4" /> Previous
+                </Button>
+                <p className="text-sm text-muted-foreground">
+                  {pageCount > 0 ? `Page ${currentPage} of ${pageCount}` : "Preparing preview…"}
                 </p>
-                <Button variant="outline" size="sm" onClick={handleRetry}>
-                  <RefreshCcw className="mr-2 h-4 w-4" /> Try again
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleNext}
+                  disabled={!canNavigate || isLastPage}
+                >
+                  Next <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
-            ) : null}
-
-            {status !== "error" && (status === "loading" || isRendering) ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/80">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Loading PDF…</p>
-              </div>
-            ) : null}
+            </div>
           </div>
         </div>
       </DialogContent>
