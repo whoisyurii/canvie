@@ -281,6 +281,48 @@ describe("FileElement", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("opens the full PDF preview dialog from the inline control", async () => {
+    const openFilePreview = vi.fn();
+    useWhiteboardStore.setState({
+      openFilePreview,
+      elements: [
+        {
+          id: "file-3",
+          type: "file",
+          x: 0,
+          y: 0,
+          width: 160,
+          height: 220,
+          strokeColor: "#000000",
+          strokeOpacity: 1,
+          strokeWidth: 2,
+          strokeStyle: "solid",
+          opacity: 1,
+          fileUrl: "file-3",
+          fileType: "application/pdf",
+          pdfPage: 2,
+          fileName: "Preview.pdf",
+        },
+      ],
+    });
+
+    const user = userEvent.setup();
+    render(<TestStage />);
+
+    await screen.findByTestId("file-3-open-preview");
+
+    const openControl = await screen.findByTestId("file-3-open-preview");
+    await user.click(openControl);
+
+    expect(openFilePreview).toHaveBeenCalledWith("file-3", {
+      name: "Preview.pdf",
+      type: "application/pdf",
+      sourceElementId: "file-3",
+      thumbnailUrl: undefined,
+      initialPage: 2,
+    });
+  });
+
   it("respects the stored page when remounting", async () => {
     useWhiteboardStore.setState({
       elements: [
