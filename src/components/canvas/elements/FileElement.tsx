@@ -167,6 +167,8 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
       setIsRenderingPdf(true);
       setPdfRenderError(false);
 
+      let activeRenderTask: RenderTask | null = null;
+
       try {
         const page = await pdfDocument.getPage(clampedPage);
         const viewport = page.getViewport({ scale: 1 });
@@ -222,12 +224,12 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
         canvas.height = Math.max(1, Math.floor(scaledViewport.height));
 
         pdfRenderTaskRef.current?.cancel();
-        const renderTask = page.render({
+        activeRenderTask = page.render({
           canvasContext: context,
           viewport: scaledViewport,
         });
-        pdfRenderTaskRef.current = renderTask;
-        await renderTask.promise;
+        pdfRenderTaskRef.current = activeRenderTask;
+        await activeRenderTask.promise;
 
         const dataUrl = canvas.toDataURL("image/png");
         const image = new window.Image();
@@ -238,7 +240,9 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
         });
 
         page.cleanup();
-        pdfRenderTaskRef.current = null;
+        if (pdfRenderTaskRef.current === activeRenderTask) {
+          pdfRenderTaskRef.current = null;
+        }
 
         pdfPageCacheRef.current.set(clampedPage, { canvas, image });
 
@@ -247,10 +251,20 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
           setIsRenderingPdf(false);
         }
       } catch (error) {
-        pdfRenderTaskRef.current = null;
+        if (pdfRenderTaskRef.current === activeRenderTask) {
+          pdfRenderTaskRef.current = null;
+        }
         if (!isMountedRef.current) {
           return;
         }
+
+        if ((error as { name?: string })?.name === "RenderingCancelledException") {
+          if (pdfRenderTaskRef.current === null) {
+            setIsRenderingPdf(false);
+          }
+          return;
+        }
+
         console.error(
           `Failed to render PDF preview for ${elementFileUrl ?? "unknown"}`,
           error,
