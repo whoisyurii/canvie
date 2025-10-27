@@ -1,6 +1,10 @@
+[![CodeQL](https://github.com/${{ github.repository }}/actions/workflows/codeql.yml/badge.svg)](https://github.com/${{ github.repository }}/actions/workflows/codeql.yml)
+
 # Collaborative Whiteboard
 
 A real-time collaborative whiteboard application built with Next.js, TypeScript, and Y.js. Draw, create shapes, add text, and collaborate with others in real-time with an infinite canvas.
+
+> Merges to `main` require passing CodeQL code scanning results. Alerts of *High* severity or higher block merges.
 
 ## Features
 

@@ -1,0 +1,53 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "src/**"
+      - "cloudflare/**"
+      - "**/*.js"
+      - "**/*.ts"
+      - "**/*.tsx"
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "src/**"
+      - "cloudflare/**"
+      - "**/*.js"
+      - "**/*.ts"
+      - "**/*.tsx"
+  schedule:
+    - cron: "0 6 * * 1" # weekly, Mondays 06:00 UTC
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  analyze:
+    name: Analyze (CodeQL)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"

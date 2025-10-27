@@ -7,14 +7,14 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
+.next/
+dist/
 dist-ssr
-.next
-out
+.wrangler/
+.vercel/
+node_modules/
+out/
 *.local
-.wrangler
-.vercel
 tsconfig.tsbuildinfo
 
 # Editor directories and files
