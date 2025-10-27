@@ -6,7 +6,7 @@ import Konva from "konva";
 import { useWhiteboardStore, type Tool } from "@/lib/store/useWhiteboardStore";
 
 type UseCanvasPanZoomArgs = {
-  stageRef: RefObject<Konva.Stage>;
+  stageRef: RefObject<Konva.Stage | null>;
   pan: { x: number; y: number };
   setPan: (pan: { x: number; y: number }) => void;
   safeZoom: number;

@@ -84,10 +84,10 @@ type StageProps = {
 
 export type WhiteboardCanvasController = {
   refs: {
-    containerRef: React.RefObject<HTMLDivElement>;
-    stageRef: React.RefObject<Konva.Stage>;
-    transformerRef: React.RefObject<Konva.Transformer>;
-    textEditorRef: React.RefObject<HTMLTextAreaElement>;
+    containerRef: React.RefObject<HTMLDivElement | null>;
+    stageRef: React.RefObject<Konva.Stage | null>;
+    transformerRef: React.RefObject<Konva.Transformer | null>;
+    textEditorRef: React.RefObject<HTMLTextAreaElement | null>;
   };
   contextMenuProps: Omit<CanvasContextMenuProps, "children">;
   containerProps: ContainerProps;
@@ -133,6 +133,10 @@ export const useWhiteboardCanvas = (): WhiteboardCanvasController => {
     textFontFamily,
     textFontSize,
     textAlign,
+    textBold,
+    textItalic,
+    textUnderline,
+    textStrikethrough,
     canvasBackground,
     setCanvasBackground,
     pan,
@@ -164,6 +168,11 @@ export const useWhiteboardCanvas = (): WhiteboardCanvasController => {
     textFontFamily,
     textFontSize,
     textAlign,
+    textBold,
+    textItalic,
+    textUnderline,
+    textStrikethrough,
+    elements,
     setSelectedIds,
     updateElement,
     deleteElement,
@@ -347,6 +356,10 @@ export const useWhiteboardCanvas = (): WhiteboardCanvasController => {
     textFontFamily,
     textFontSize,
     textAlign,
+    textBold,
+    textItalic,
+    textUnderline,
+    textStrikethrough,
   });
 
   const eraseNode = useCallback(
