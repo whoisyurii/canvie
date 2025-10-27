@@ -50,7 +50,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { useAiSettings } from "@/hooks/useAiSettings";
 import { GeminiSettingsDialog } from "@/components/ai/GeminiSettingsDialog";
 import { GeminiWorkspace } from "@/components/ai/GeminiWorkspace";
 import { CollaborationControls } from "./CollaborationControls";
@@ -132,8 +131,6 @@ export const TopToolbar = () => {
   const [isGeminiWorkspaceOpen, setIsGeminiWorkspaceOpen] = useState(false);
   const [isGeminiSettingsOpen, setIsGeminiSettingsOpen] = useState(false);
   const [isLeaveRoomDialogOpen, setIsLeaveRoomDialogOpen] = useState(false);
-  const { geminiApiKey } = useAiSettings();
-  const hasGeminiKey = Boolean(geminiApiKey);
   const hasSelection = selectedIds.length > 0;
   const hasElements = elements.length > 0;
 
@@ -244,40 +241,21 @@ export const TopToolbar = () => {
           <Separator orientation="vertical" className="toolbar-separator" />
 
           <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "tool-button",
-                isGeminiWorkspaceOpen && hasGeminiKey && "tool-button-active",
-                !hasGeminiKey && "text-amber-500 hover:text-amber-500",
-              )}
-              onClick={() => {
-                if (hasGeminiKey) {
-                  setIsGeminiWorkspaceOpen(true);
-                } else {
-                  setIsGeminiSettingsOpen(true);
-                }
-              }}
-              aria-label={hasGeminiKey ? "Open Gemini workspace" : "Gemini API key required"}
-            >
-              <Sparkles className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p
-              className={cn(
-                "text-sm",
-                !hasGeminiKey && "font-medium text-amber-500",
-              )}
-            >
-              {hasGeminiKey
-                ? "Open Gemini workspace"
-                : "Add a Gemini API key to unlock AI tools"}
-            </p>
-          </TooltipContent>
-        </Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="tool-button"
+                aria-label="We're working on AI integration!"
+                disabled
+              >
+                <Sparkles className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="text-sm">We're working on AI integration!</p>
+            </TooltipContent>
+          </Tooltip>
 
         <Separator orientation="vertical" className="toolbar-separator" />
 
