@@ -254,11 +254,70 @@ export const PdfViewerDialog = () => {
           return;
         }
 
-        const viewport = page.getViewport({ scale: 1.5 });
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
+        const baseViewport = page.getViewport({ scale: 1 });
+        const scaleCandidates: number[] = [1.5];
+
+        if (typeof window !== "undefined") {
+          const heightLimit = window.innerHeight * 0.7;
+          if (Number.isFinite(heightLimit) && heightLimit > 0) {
+            scaleCandidates.push(heightLimit / baseViewport.height);
+          }
+        }
+
+        const parentElement = canvas.parentElement as HTMLElement | null;
+        if (parentElement) {
+          const computedStyle =
+            typeof window !== "undefined"
+              ? window.getComputedStyle(parentElement)
+              : null;
+          const paddingX = computedStyle
+            ? parseFloat(computedStyle.paddingLeft ?? "0") +
+              parseFloat(computedStyle.paddingRight ?? "0")
+            : 0;
+          const paddingY = computedStyle
+            ? parseFloat(computedStyle.paddingTop ?? "0") +
+              parseFloat(computedStyle.paddingBottom ?? "0")
+            : 0;
+          const innerWidth = parentElement.clientWidth - paddingX;
+          const innerHeight = parentElement.clientHeight - paddingY;
+          if (innerWidth > 0) {
+            scaleCandidates.push(innerWidth / baseViewport.width);
+          }
+          if (innerHeight > 0) {
+            scaleCandidates.push(innerHeight / baseViewport.height);
+          }
+        }
+
+        const positiveCandidates = scaleCandidates.filter(
+          (candidate) => Number.isFinite(candidate) && candidate > 0,
+        );
+        const safeScale = Math.max(
+          0.1,
+          positiveCandidates.length > 0
+            ? Math.min(...positiveCandidates)
+            : 1,
+        );
+
+        const viewport = page.getViewport({ scale: safeScale });
+        const devicePixelRatio =
+          typeof window !== "undefined" && window.devicePixelRatio
+            ? window.devicePixelRatio
+            : 1;
+        const scaledWidth = Math.floor(viewport.width * devicePixelRatio);
+        const scaledHeight = Math.floor(viewport.height * devicePixelRatio);
+
+        canvas.width = scaledWidth;
+        canvas.height = scaledHeight;
         canvas.style.width = `${viewport.width}px`;
         canvas.style.height = `${viewport.height}px`;
+        canvas.style.aspectRatio = `${viewport.width} / ${viewport.height}`;
+
+        if (devicePixelRatio !== 1) {
+          context.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+        } else {
+          context.setTransform(1, 0, 0, 1, 0, 0);
+        }
+        context.clearRect(0, 0, scaledWidth, scaledHeight);
 
         renderTaskRef.current?.cancel();
         const renderTask = page.render({ canvasContext: context, viewport });
