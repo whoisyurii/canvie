@@ -50,7 +50,10 @@ const pdfMocks = vi.hoisted(() => {
     getDocument: ReturnType<typeof vi.fn>;
   } = {
     getPage: vi.fn(async () => ({
-      getViewport: () => ({ width: 600, height: 800 }),
+      getViewport: ({ scale }: { scale: number }) => ({
+        width: 600 * scale,
+        height: 800 * scale,
+      }),
       render: vi.fn(() => ({ promise: Promise.resolve(), cancel: vi.fn() })),
       cleanup: vi.fn(() => undefined),
     })),
