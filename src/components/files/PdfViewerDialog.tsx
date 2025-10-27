@@ -258,7 +258,9 @@ export const PdfViewerDialog = () => {
         const scaleCandidates: number[] = [1.5];
 
         if (typeof window !== "undefined") {
-          const heightLimit = window.innerHeight * 0.7;
+          const viewportHeight =
+            window.visualViewport?.height ?? window.innerHeight;
+          const heightLimit = viewportHeight * 0.9;
           if (Number.isFinite(heightLimit) && heightLimit > 0) {
             scaleCandidates.push(heightLimit / baseViewport.height);
           }
@@ -416,13 +418,19 @@ export const PdfViewerDialog = () => {
 
   return (
     <Dialog open={Boolean(filePreview)} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="sm:max-w-5xl">
+      <DialogContent
+        className={cn(
+          "grid-rows-[auto,1fr] overflow-hidden max-w-[95vw] sm:max-w-[90vw]",
+          "min-h-[80vh] min-h-[80svh] sm:min-h-[80vh] sm:min-h-[80svh]",
+          "max-h-[90vh] max-h-[90svh] sm:max-h-[90vh] sm:max-h-[90svh]",
+        )}
+      >
         <DialogHeader>
           <DialogTitle>{dialogTitle}</DialogTitle>
           <DialogDescription>{dialogDescription}</DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-6">
+        <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden">
           <div className="flex justify-end">
             <Button
               variant="outline"
@@ -434,12 +442,12 @@ export const PdfViewerDialog = () => {
             </Button>
           </div>
 
-          <div className="flex flex-col items-center gap-6">
-            <div className="relative flex min-h-[320px] w-full items-center justify-center overflow-auto rounded-md border bg-muted/40 p-4">
+          <div className="flex min-h-0 flex-1 flex-col items-center gap-6 overflow-hidden">
+            <div className="relative flex h-full min-h-[320px] w-full flex-1 items-center justify-center overflow-auto rounded-md border bg-muted/40 p-4">
               <canvas
                 ref={canvasRef}
                 className={cn(
-                  "h-auto max-h-[70vh] w-auto max-w-full rounded border bg-white shadow-sm",
+                  "h-auto max-h-full w-auto max-w-full rounded border bg-white shadow-sm",
                   status === "error" ? "hidden" : "block"
                 )}
               />
