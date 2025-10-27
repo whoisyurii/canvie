@@ -842,12 +842,19 @@ export const useWhiteboardCanvas = (): WhiteboardCanvasController => {
     const shape = currentShapeRef.current;
     if (shape) {
       addElement(shape);
+      if (
+        (shape.type === "line" || shape.type === "arrow") &&
+        shape.arrowStyle === "curve"
+      ) {
+        setSelectedIds([shape.id]);
+        setActiveTool("select");
+      }
       currentShapeRef.current = null;
       setCurrentShape(null);
     }
     setIsDrawing(false);
     isDrawingRef.current = false;
-  }, [addElement]);
+  }, [addElement, setActiveTool, setSelectedIds]);
 
   const handleMouseUp = (e: KonvaEventObject<MouseEvent>) => {
     if (e.evt.button === 1 && isMiddleMousePanning) {
