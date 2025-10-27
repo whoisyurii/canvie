@@ -144,6 +144,18 @@ export const useCanvasPanZoom = ({
 
       event.evt.preventDefault();
 
+      const { deltaX, deltaY, ctrlKey, metaKey } = event.evt;
+      const isZoomGesture = ctrlKey || metaKey;
+
+      if (!isZoomGesture) {
+        const nextPan = {
+          x: panX - (Number.isFinite(deltaX) ? deltaX : 0),
+          y: panY - (Number.isFinite(deltaY) ? deltaY : 0),
+        };
+        schedulePanUpdate(nextPan);
+        return;
+      }
+
       const currentScale = Number.isFinite(safeZoom) ? safeZoom : 1;
       const pointer = stage.getPointerPosition();
       if (!pointer) return;
@@ -153,7 +165,7 @@ export const useCanvasPanZoom = ({
         y: (pointer.y - panY) / currentScale,
       };
 
-      const rawScale = event.evt.deltaY > 0 ? currentScale * 0.95 : currentScale * 1.05;
+      const rawScale = deltaY > 0 ? currentScale * 0.95 : currentScale * 1.05;
       const nextScale = Math.max(0.1, Math.min(5, Number.isFinite(rawScale) ? rawScale : 1));
       if (!Number.isFinite(nextScale)) {
         return;
@@ -167,7 +179,7 @@ export const useCanvasPanZoom = ({
         },
       });
     },
-    [panX, panY, safeZoom, stageRef],
+    [panX, panY, safeZoom, schedulePanUpdate, stageRef],
   );
 
   const stopMiddleMousePan = useCallback(() => {
