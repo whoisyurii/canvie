@@ -55,6 +55,7 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
   const setFileElementPage = useWhiteboardStore(
     (state) => state.setFileElementPage,
   );
+  const openFilePreview = useWhiteboardStore((state) => state.openFilePreview);
 
   const pdfDocumentRef = useRef<PDFDocumentProxy | null>(null);
   const pdfLoadingTaskRef = useRef<PDFDocumentLoadingTask | null>(null);
@@ -523,6 +524,8 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
   const previousDisabled = !isPaginationInteractive || currentPdfPage <= 1;
   const nextDisabled =
     !isPaginationInteractive || !pdfPageCount || currentPdfPage >= pdfPageCount;
+  const fullPreviewDisabled = !isPdf || (!element.fileUrl && !element.id);
+  const showOpenPreviewButton = isPdf && !fullPreviewDisabled;
 
   const handlePreviousPage = useCallback(
     (event?: KonvaEventObject<Event>) => {
@@ -572,6 +575,46 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
     [],
   );
 
+  const handleOpenFullPreview = useCallback(() => {
+    if (fullPreviewDisabled) {
+      return;
+    }
+
+    const fileId = element.fileUrl ?? element.id;
+    if (!fileId) {
+      return;
+    }
+
+    openFilePreview(fileId, {
+      name: element.fileName,
+      type: element.fileType,
+      sourceElementId: element.id,
+      thumbnailUrl: element.thumbnailUrl,
+      initialPage: currentPdfPage,
+    });
+  }, [
+    currentPdfPage,
+    element.fileName,
+    element.fileType,
+    element.fileUrl,
+    element.id,
+    element.thumbnailUrl,
+    fullPreviewDisabled,
+    openFilePreview,
+  ]);
+
+  const openPreviewButtonSize = 24;
+  const openPreviewIconFontSize = 14;
+  const openPreviewIconPadding = Math.max(
+    0,
+    (openPreviewButtonSize - openPreviewIconFontSize) / 2,
+  );
+  const openPreviewButtonX = Math.max(
+    padding,
+    width - padding - openPreviewButtonSize,
+  );
+  const openPreviewButtonY = padding;
+
   return (
     <Group
       id={element.id}
@@ -615,6 +658,41 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
           listening={false}
         />
       )}
+      {showOpenPreviewButton && (
+        <Group
+          name="pdf-open-preview"
+          x={openPreviewButtonX}
+          y={openPreviewButtonY}
+          listening={!fullPreviewDisabled}
+          onClick={handleOpenFullPreview}
+          onTap={handleOpenFullPreview}
+          onMouseDown={handlePaginationPointerDown}
+          onTouchStart={handlePaginationPointerDown}
+          onPointerDown={handlePaginationPointerDown}
+          data-testid={`${element.id}-open-preview`}
+        >
+          <Rect
+            x={0}
+            y={0}
+            width={openPreviewButtonSize}
+            height={openPreviewButtonSize}
+            fill="rgba(15, 23, 42, 0.8)"
+            cornerRadius={6}
+            listening={!fullPreviewDisabled}
+          />
+          <KonvaText
+            x={openPreviewIconPadding}
+            y={openPreviewIconPadding}
+            width={openPreviewButtonSize - openPreviewIconPadding * 2}
+            height={openPreviewButtonSize - openPreviewIconPadding * 2}
+            text="⤢"
+            fontSize={openPreviewIconFontSize}
+            align="center"
+            fill="#f8fafc"
+            listening={false}
+          />
+        </Group>
+      )}
       {isPdf && (
         <Group
           name="pdf-pagination-controls"
@@ -654,7 +732,7 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
               height={paginationHeight}
               fill="#f8fafc"
               cornerRadius={8}
-              listening={false}
+              listening={!previousDisabled}
             />
             <KonvaText
               x={0}
@@ -700,7 +778,7 @@ export const FileElement = ({ element, highlight, interaction }: FileElementProp
               height={paginationHeight}
               fill="#f8fafc"
               cornerRadius={8}
-              listening={false}
+              listening={!nextDisabled}
             />
             <KonvaText
               x={0}
