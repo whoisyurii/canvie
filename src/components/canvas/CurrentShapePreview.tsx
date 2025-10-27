@@ -13,6 +13,7 @@ import {
   getDiamondShape,
   getStrokeDash,
 } from "@/lib/canvas";
+import { normalizeRectBounds } from "@/lib/canvas/bounds";
 import type { CanvasElement } from "@/lib/store/useWhiteboardStore";
 
 import {
@@ -33,14 +34,24 @@ export const CurrentShapePreview = ({
   }
 
   if (currentShape.type === "rectangle") {
+    const rectBounds = normalizeRectBounds(
+      currentShape.x,
+      currentShape.y,
+      currentShape.width ?? 0,
+      currentShape.height ?? 0,
+    );
+    const rectWidth = rectBounds.maxX - rectBounds.minX;
+    const rectHeight = rectBounds.maxY - rectBounds.minY;
+    const rectX = rectBounds.minX;
+    const rectY = rectBounds.minY;
     const safeCornerRadius = getSafeCornerRadius(
-      currentShape.width,
-      currentShape.height,
+      rectWidth,
+      rectHeight,
       currentShape.cornerRadius
     );
     const outlinePoints = getRectangleOutlinePoints(
-      currentShape.width ?? 0,
-      currentShape.height ?? 0,
+      rectWidth,
+      rectHeight,
       safeCornerRadius
     );
     const layers = createSloppyStrokeLayers(outlinePoints, {
@@ -53,10 +64,10 @@ export const CurrentShapePreview = ({
     return (
       <>
         <Rect
-          x={currentShape.x}
-          y={currentShape.y}
-          width={currentShape.width}
-          height={currentShape.height}
+          x={rectX}
+          y={rectY}
+          width={rectWidth}
+          height={rectHeight}
           stroke={getColorWithOpacity(
             currentShape.strokeColor,
             currentShape.strokeOpacity
@@ -75,8 +86,8 @@ export const CurrentShapePreview = ({
         {layers.map((layer, index) => (
           <Line
             key={`${currentShape.id}-preview-rect-${index}`}
-            x={currentShape.x}
-            y={currentShape.y}
+            x={rectX}
+            y={rectY}
             points={layer.points}
             stroke={getColorWithOpacity(
               currentShape.strokeColor,

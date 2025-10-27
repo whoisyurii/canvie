@@ -153,11 +153,6 @@ export const CanvasElementsLayer = ({
         const isEditingElement = editingTextId === element.id;
 
         if (element.type === "rectangle") {
-          const safeCornerRadius = getSafeCornerRadius(
-            element.width,
-            element.height,
-            element.cornerRadius
-          );
           const rectBounds = normalizeRectBounds(
             element.x,
             element.y,
@@ -168,6 +163,11 @@ export const CanvasElementsLayer = ({
           const rectHeight = rectBounds.maxY - rectBounds.minY;
           const rectX = rectBounds.minX;
           const rectY = rectBounds.minY;
+          const safeCornerRadius = getSafeCornerRadius(
+            rectWidth,
+            rectHeight,
+            element.cornerRadius
+          );
           const hasLabel = Boolean(element.text?.trim());
           const labelFontSize = element.fontSize ?? defaultFontSize;
           const labelLineHeight = labelFontSize
@@ -179,8 +179,8 @@ export const CanvasElementsLayer = ({
           const labelCenterX = rectX + rectWidth / 2;
           const labelCenterY = rectY + rectHeight / 2;
           const rectOutlinePoints = getRectangleOutlinePoints(
-            element.width ?? 0,
-            element.height ?? 0,
+            rectWidth,
+            rectHeight,
             safeCornerRadius
           );
           const rectSloppyLayers = createSloppyStrokeLayers(rectOutlinePoints, {
@@ -194,10 +194,10 @@ export const CanvasElementsLayer = ({
               <Rect
                 key={element.id}
                 id={element.id}
-                x={element.x}
-                y={element.y}
-                width={element.width}
-                height={element.height}
+                x={rectX}
+                y={rectY}
+                width={rectWidth}
+                height={rectHeight}
                 stroke={getColorWithOpacity(element.strokeColor, element.strokeOpacity)}
                 strokeWidth={element.strokeWidth}
                 dash={getStrokeDash(element.strokeStyle)}
@@ -213,8 +213,8 @@ export const CanvasElementsLayer = ({
               {rectSloppyLayers.map((layer, index) => (
                 <Line
                   key={`${element.id}-sloppy-rect-${index}`}
-                  x={element.x}
-                  y={element.y}
+                  x={rectX}
+                  y={rectY}
                   points={layer.points}
                   stroke={getColorWithOpacity(element.strokeColor, element.strokeOpacity)}
                   strokeWidth={layer.strokeWidth}
