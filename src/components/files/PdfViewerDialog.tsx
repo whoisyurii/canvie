@@ -380,10 +380,10 @@ export const PdfViewerDialog = () => {
               <canvas
                 ref={canvasRef}
                 className={cn(
-                  "max-h-[70vh] w-full max-w-full rounded border bg-white shadow-sm",
+                  "h-auto max-h-[70vh] w-auto max-w-full rounded border bg-white shadow-sm",
                   status === "error" ? "hidden" : "block"
-              )}
-            />
+                )}
+              />
 
               {status === "error" ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
