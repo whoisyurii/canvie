@@ -11,16 +11,8 @@ bindings = [
 tag = "v1"
 new_sqlite_classes = ["SignalingRoom"]
 
-[vars]
-NEXT_PUBLIC_COLLAB_TRANSPORT = "webrtc"
-NEXT_PUBLIC_WEBRTC_SIGNALING_URLS = "wss://realitea-canvas-signaling.yuriimashchuk.workers.dev/signaling"
-NEXT_PUBLIC_WEBRTC_ROOM_KEY = ""
-
-# Optional: Configure timeouts (defaults are suitable for free tier MVP)
-# Uncomment and adjust for paid tier with stricter limits:
-# STALE_TIMEOUT_MS = "600000"        # 10 minutes (default)
-# HEARTBEAT_INTERVAL_MS = "30000"    # 30 seconds (default)
-# MAX_MESSAGES_PER_SEC = "120"       # 120 messages/sec (default)
+# Environment-specific variables are now configured via the Cloudflare dashboard.
+# NEXT_PUBLIC_WEBRTC_SIGNALING_URLS is no longer stored in git; see `.env.example` for reference.
 
 [observability]
 enabled = true

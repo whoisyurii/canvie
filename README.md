@@ -176,6 +176,14 @@ NEXT_PUBLIC_WEBRTC_ROOM_KEY=
 
 Additional fallback signaling relays can be appended by comma-separating extra URLs. Browsers always connect to the Worker first and only touch secondary relays if needed.
 
+### Security & Ops
+
+- Configure allowed origins for WebSocket upgrades with the `ALLOWED_WS_ORIGINS` environment variable.
+- `/stats` is disabled by default; enable it with `STATS_ENABLED=true` once you have an admin flow in place.
+- When `/stats` is enabled, require an `X-Admin-Token` header that matches the `ADMIN_TOKEN` secret.
+- Limit concurrent WebSocket connections per IP address by setting `MAX_CONNECTIONS_PER_IP`.
+- Keep production URLs, tokens, and secrets in environment variables (Cloudflare dashboard), not in git.
+
 ### Configuration blueprint
 
 1. **Create bindings** – The provided `wrangler.toml` already binds the `ROOMS` Durable Object and includes an initial `new_sqlite_classes` migration tag `v1` so the namespace is compatible with the Cloudflare free plan.
@@ -193,7 +201,7 @@ If you need to revert quickly, point `NEXT_PUBLIC_WEBRTC_SIGNALING_URLS` back to
 - Browsers require the production endpoint to be `wss://` because the Pages frontend is served over HTTPS — mixed content will otherwise block the socket.
 - If peers fail to discover each other, verify both tabs share the identical `/r/<roomId>` URL and check the console for WebRTC negotiation errors.
 - Deployments on the free plan must use `new_sqlite_classes` migrations. If Wrangler returns `code: 10097`, confirm your `wrangler.toml` migration block matches the template above, then re-run `npx wrangler deploy` to provision the namespace.
-- A `/stats?roomId=<roomId>` request against the Worker returns live peer counts and last-activity timestamps to help track active rooms.
+- When enabled, a `/stats?roomId=<roomId>` request against the Worker returns live peer counts and last-activity timestamps to help track active rooms.
 
 ### Manual acceptance checklist
 
