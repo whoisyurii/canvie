@@ -277,12 +277,12 @@ The thin `before` gradient creates the glossy top edge, while the deep shadow an
 
 - [ ] Persistent rooms with database storage
 - [ ] Export canvas as PNG/SVG
-- [ ] Text editing capabilities
+- [v] Text editing capabilities
 - [ ] More shape options (triangles, stars, etc.)
-- [ ] Background customization
-- [ ] Selection and grouping of multiple elements
-- [ ] Copy/paste functionality
-- [ ] Grid snapping
+- [v] Background customization
+- [v] Selection and grouping of multiple elements
+- [v] Copy/paste functionality
+- [v] Grid snapping
 
 ## Contributing
 
@@ -291,9 +291,3 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 MIT License - feel free to use this project for any purpose.
-
-## Acknowledgments
-
-- Built with [Lovable](https://lovable.dev)
-- Inspired by Excalidraw, Miro, and Figma
-- Real-time collaboration powered by Y.js
