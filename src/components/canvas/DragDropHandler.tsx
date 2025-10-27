@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, type ChangeEvent, type DragEvent } from "react";
+import { useCallback, type ChangeEvent } from "react";
 import { useWhiteboardStore } from "@/lib/store/useWhiteboardStore";
 import { nanoid } from "nanoid";
 import { useToast } from "@/hooks/use-toast";
@@ -8,8 +8,10 @@ import { generateFilePreview } from "@/lib/files/preview";
 import { storeFile, hashFile, type FileMetadata } from "@/lib/files/storage";
 import type { FileSyncManager } from "@/lib/collaboration/fileSync";
 
+type CanvasDragEvent = globalThis.DragEvent;
+
 const toCanvasCoordinates = (
-  e: DragEvent,
+  e: CanvasDragEvent,
   target: HTMLElement,
   pan: { x: number; y: number },
   zoom: number,
@@ -231,18 +233,23 @@ export const useDragDrop = () => {
   );
 
   const handleDrop = useCallback(
-    async (event: DragEvent) => {
+    async (event: CanvasDragEvent) => {
       if (typeof window === "undefined") {
         return;
       }
 
       event.preventDefault();
 
-      const fileList = event.dataTransfer.files;
+      const dataTransfer = event.dataTransfer;
+      if (!dataTransfer) {
+        return;
+      }
+
+      const fileList = dataTransfer.files;
       let files = fileList ? Array.from(fileList) : [];
 
-      if (!files.length && event.dataTransfer.items) {
-        files = Array.from(event.dataTransfer.items)
+      if (!files.length && dataTransfer.items) {
+        files = Array.from(dataTransfer.items)
           .filter((item) => item.kind === "file")
           .map((item) => item.getAsFile())
           .filter((file): file is File => Boolean(file));
@@ -263,7 +270,7 @@ export const useDragDrop = () => {
     [pan, processFiles, zoom],
   );
 
-  const handleDragOver = useCallback((event: DragEvent) => {
+  const handleDragOver = useCallback((event: CanvasDragEvent) => {
     event.preventDefault();
   }, []);
 

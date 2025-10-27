@@ -33,8 +33,8 @@ type UseSelectionInteractionsArgs = {
   clearSelection: () => void;
   updateElement: (id: string, updates: Partial<CanvasElement>) => void;
   pushHistory: () => void;
-  stageRef: RefObject<Konva.Stage>;
-  transformerRef: RefObject<Konva.Transformer>;
+  stageRef: RefObject<Konva.Stage | null>;
+  transformerRef: RefObject<Konva.Transformer | null>;
   visibleElements: CanvasElement[];
   getCanvasPointerPosition: PointerGetter;
 };
