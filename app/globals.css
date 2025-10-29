@@ -265,6 +265,10 @@
     @apply bg-sidebar text-sidebar-foreground rounded-xl shadow-lg border border-sidebar-border;
   }
 
+  .copy-button {
+    @apply font-sans text-sm font-medium;
+  }
+
   .top-toolbar {
     @apply flex items-center gap-1 px-2 py-1;
   }
