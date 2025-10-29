@@ -177,7 +177,7 @@ export const CollaborationControls = () => {
         ? "Try again"
         : "Copy code";
 
-  const copyButtonClassName = "shrink-0 min-w-[96px] justify-center text-sm font-medium";
+  const copyButtonClassName = "copy-button shrink-0 min-w-[96px] justify-center";
 
   return (
     <div className="toolbar-section">
