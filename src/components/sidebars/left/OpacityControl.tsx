@@ -13,26 +13,21 @@ export const OpacityControl = ({ value, onChange, disabled }: OpacityControlProp
   const displayOpacity = Math.round(value * 100);
 
   return (
-    <SidebarSection
-      title={
-        <>
-          <span className="normal-case">Opacity</span>
-          <span className="normal-case text-[11px] font-medium text-muted-foreground">
-            {displayOpacity}%
-          </span>
-        </>
-      }
-      disabled={disabled}
-    >
-      <Slider
-        color="hsl(var(--sidebar-accent))"
-        value={[value * 100]}
-        onValueChange={([next]) => onChange(next / 100)}
-        min={0}
-        max={100}
-        step={1}
-        disabled={disabled}
-      />
+    <SidebarSection title={<span className="sr-only">Opacity</span>} disabled={disabled}>
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between text-xs font-medium text-sidebar-foreground/80">
+          <span>Opacity</span>
+          <span>{displayOpacity}%</span>
+        </div>
+        <Slider
+          value={[value * 100]}
+          onValueChange={([next]) => onChange(next / 100)}
+          min={0}
+          max={100}
+          step={1}
+          disabled={disabled}
+        />
+      </div>
     </SidebarSection>
   );
 };
