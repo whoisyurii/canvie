@@ -498,6 +498,12 @@ export const useWhiteboardCanvas = (): WhiteboardCanvasController => {
         return;
       }
 
+      if ((event.ctrlKey || event.metaKey) && event.key === "v") {
+        event.preventDefault();
+        void handlePasteAction();
+        return;
+      }
+
       if (
         (event.ctrlKey || event.metaKey) &&
         event.key === "d" &&
@@ -529,7 +535,7 @@ export const useWhiteboardCanvas = (): WhiteboardCanvasController => {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [selectedIds, elements, addElement, setSelectedIds, editingTextRef]);
+  }, [selectedIds, elements, addElement, setSelectedIds, editingTextRef, handlePasteAction]);
 
   const renderBounds = useMemo(() => {
     if (stageSize.width === 0 || stageSize.height === 0) {
