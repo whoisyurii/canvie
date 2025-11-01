@@ -172,8 +172,9 @@ export const useSelectionInteractions = ({
 
     const shouldKeepAspectRatio =
       selectedElements.length === 1 &&
-      selectedElements[0]?.type === "file" &&
-      selectedElements[0]?.fileType === "application/pdf";
+      (selectedElements[0]?.type === "image" ||
+        (selectedElements[0]?.type === "file" &&
+          selectedElements[0]?.fileType === "application/pdf"));
 
     transformer.resizeEnabled(!containsNonResizable);
     transformer.keepRatio(shouldKeepAspectRatio);
@@ -457,8 +458,9 @@ export const useSelectionInteractions = ({
         updates.y = nextY;
         updates.width = width;
       } else if (
-        element.type === "file" &&
-        element.fileType === "application/pdf"
+        element.type === "image" ||
+        (element.type === "file" &&
+          element.fileType === "application/pdf")
       ) {
         const baseWidth = Math.max(1, node.width());
         const baseHeight = Math.max(1, node.height());
